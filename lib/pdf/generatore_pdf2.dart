@@ -39,8 +39,10 @@ const PdfColor _tableHeaderColor = PdfColor.fromInt(0xFFD9EEFF);
 const PdfColor _tableHeaderTextColor = PdfColors.blueGrey900;
 const PdfColor _tableAltRowColor = PdfColor.fromInt(0xFFF2F8FF);
 
-Future<File> generaPdfConDati(Map<String, dynamic> dati,
-    {bool salvaLocalmente = false}) async {
+Future<File> generaPdfConDati(
+  Map<String, dynamic> dati, {
+  bool salvaLocalmente = false,
+}) async {
   final pdf = pw.Document();
 
   final base = pw.Font.helvetica();
@@ -49,8 +51,9 @@ Future<File> generaPdfConDati(Map<String, dynamic> dati,
 
   // Load logo from assets if available
   final Uint8List? logoBytes = await _loadAssetSafe('assets/logo.png');
-  final pw.ImageProvider? logoImage =
-      logoBytes != null ? pw.MemoryImage(logoBytes) : null;
+  final pw.ImageProvider? logoImage = logoBytes != null
+      ? pw.MemoryImage(logoBytes)
+      : null;
 
   final cronos = (dati['cronometristi'] ?? []) as List;
   final apparecchiature = (dati['apparecchiature'] ?? []) as List;
@@ -70,10 +73,7 @@ Future<File> generaPdfConDati(Map<String, dynamic> dati,
   ];
 
   if (allegati.isNotEmpty) {
-    contenuto.addAll([
-      pw.SizedBox(height: 16),
-      _sezioneAllegati(allegati),
-    ]);
+    contenuto.addAll([pw.SizedBox(height: 16), _sezioneAllegati(allegati)]);
   }
 
   if (direttore.isNotEmpty) {
@@ -130,39 +130,57 @@ pw.Widget _sezioneGara(Map<String, dynamic> gara, pw.Font base, pw.Font bold) {
   final dsc = (gara['dsc'] ?? '').toString();
 
   pw.Widget infoRow(String label, String value) => pw.Padding(
-        padding: const pw.EdgeInsets.symmetric(vertical: 3),
-        child: pw.RichText(
-          text: pw.TextSpan(
-            text: '',
-            children: [
-              pw.TextSpan(
-                  text: '$label: ',
-                  style: pw.TextStyle(font: bold, fontSize: 11)),
-              pw.TextSpan(
-                  text: value.isEmpty ? '-' : value,
-                  style: pw.TextStyle(font: base, fontSize: 11)),
-            ],
+    padding: const pw.EdgeInsets.symmetric(vertical: 4),
+    child: pw.RichText(
+      text: pw.TextSpan(
+        children: [
+          pw.TextSpan(
+            text: '$label: ',
+            style: pw.TextStyle(font: bold, fontSize: 12),
           ),
-        ),
-      );
+          pw.TextSpan(
+            text: value.isEmpty ? '-' : value,
+            style: pw.TextStyle(font: base, fontSize: 12),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  pw.Widget infoColumn(List<MapEntry<String, String>> entries) => pw.Column(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: entries.map((entry) => infoRow(entry.key, entry.value)).toList(),
+  );
+
+  final entries = <MapEntry<String, String>>[
+    MapEntry('Gara', nome),
+    MapEntry('Organizzatore', organizzatore),
+    MapEntry('Sport', sport),
+    MapEntry('Luogo', luogo),
+    MapEntry('Data da', dataDa),
+    MapEntry('Data a', dataA),
+    if (dsc.isNotEmpty) MapEntry('DSC', dsc),
+  ];
+
+  final splitIndex = (entries.length / 2).ceil();
+  final left = entries.sublist(0, splitIndex);
+  final right = entries.sublist(splitIndex);
 
   return pw.Container(
-    padding: const pw.EdgeInsets.all(10),
+    padding: const pw.EdgeInsets.all(14),
     decoration: pw.BoxDecoration(
       color: _tableAltRowColor,
       border: pw.Border.all(color: _tableBorderColor),
-      borderRadius: pw.BorderRadius.circular(6),
+      borderRadius: pw.BorderRadius.circular(8),
     ),
-    child: pw.Column(
+    child: pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        infoRow('Gara', nome),
-        infoRow('Organizzatore', organizzatore),
-        infoRow('Sport', sport),
-        infoRow('Luogo', luogo),
-        infoRow('Data da', dataDa),
-        infoRow('Data a', dataA),
-        if (dsc.isNotEmpty) infoRow('DSC', dsc),
+        pw.Expanded(child: infoColumn(left)),
+        if (right.isNotEmpty) ...[
+          pw.SizedBox(width: 24),
+          pw.Expanded(child: infoColumn(right)),
+        ],
       ],
     ),
   );
@@ -184,8 +202,12 @@ bool _isMultiDay(Map<String, dynamic> gara) {
   return a.difference(da).inDays > 0;
 }
 
-pw.Widget _sezioneCronometristi(List elenco, pw.Font base, pw.Font bold,
-    {bool mostraRiepilogo = true}) {
+pw.Widget _sezioneCronometristi(
+  List elenco,
+  pw.Font base,
+  pw.Font bold, {
+  bool mostraRiepilogo = true,
+}) {
   double sum(List giorni, String campo) {
     return giorni.fold<double>(0, (t, g) {
       final v = g[campo];
@@ -221,15 +243,19 @@ pw.Widget _sezioneCronometristi(List elenco, pw.Font base, pw.Font bold,
     pw.SizedBox(height: 8),
     _sezioneGiornate(elenco, base, bold),
     pw.SizedBox(height: 4),
-    pw.Text('',
-        style: pw.TextStyle(font: base, fontSize: 9, color: PdfColors.grey700)),
+    pw.Text(
+      '',
+      style: pw.TextStyle(font: base, fontSize: 9, color: PdfColors.grey700),
+    ),
   ];
 
   if (mostraRiepilogo && rows.isNotEmpty) {
     children.addAll([
       pw.SizedBox(height: 14),
-      pw.Text('Riepilogo cronometristi',
-          style: pw.TextStyle(font: bold, fontSize: 14)),
+      pw.Text(
+        'Riepilogo cronometristi',
+        style: pw.TextStyle(font: bold, fontSize: 14),
+      ),
       pw.SizedBox(height: 6),
       _tabellaRiepilogo(rows, totOre, totKm, totSpese, base, bold),
       pw.SizedBox(height: 4),
@@ -273,8 +299,10 @@ pw.Widget _sezioneGiornate(List elenco, pw.Font base, pw.Font bold) {
 
   final dates = perData.keys.toList()..sort();
   if (dates.isEmpty) {
-    return pw.Text('Nessun cronometrista registrato',
-        style: pw.TextStyle(font: base));
+    return pw.Text(
+      'Nessun cronometrista registrato',
+      style: pw.TextStyle(font: base),
+    );
   }
 
   final widgets = <pw.Widget>[];
@@ -292,16 +320,22 @@ pw.Widget _sezioneGiornate(List elenco, pw.Font base, pw.Font bold) {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.Container(
-              padding:
-                  const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const pw.EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 4,
+              ),
               decoration: const pw.BoxDecoration(color: _tableHeaderColor),
               child: pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('GIORNO ${i + 1}',
-                      style: pw.TextStyle(font: bold, fontSize: 12)),
-                  pw.Text(_formatDateHuman(d),
-                      style: pw.TextStyle(font: base, fontSize: 11)),
+                  pw.Text(
+                    'GIORNO ${i + 1}',
+                    style: pw.TextStyle(font: bold, fontSize: 12),
+                  ),
+                  pw.Text(
+                    _formatDateHuman(d),
+                    style: pw.TextStyle(font: base, fontSize: 11),
+                  ),
                 ],
               ),
             ),
@@ -321,18 +355,40 @@ pw.Widget _sezioneGiornate(List elenco, pw.Font base, pw.Font bold) {
                   final idx = entry.key;
                   final r = entry.value;
                   final rowBg = idx.isOdd ? _tableAltRowColor : null;
-                  return pw.TableRow(children: [
-                    _giornoCell(r['nome'] ?? '', base, background: rowBg),
-                    _giornoCell(_fmtValue(r['ore']), base,
-                        center: true, background: rowBg),
-                    _giornoCell(_fmtValue(r['km']), base,
-                        center: true, background: rowBg),
-                    _giornoCell(_fmtValue(r['spese']), base,
-                        center: true, background: rowBg),
-                    _giornoCell(_fmtValue(r['segreteria']), base,
-                        center: true, background: rowBg),
-                    _giornoCell(_fmtValue(r['note']), base, background: rowBg),
-                  ]);
+                  return pw.TableRow(
+                    children: [
+                      _giornoCell(r['nome'] ?? '', base, background: rowBg),
+                      _giornoCell(
+                        _fmtValue(r['ore']),
+                        base,
+                        center: true,
+                        background: rowBg,
+                      ),
+                      _giornoCell(
+                        _fmtValue(r['km']),
+                        base,
+                        center: true,
+                        background: rowBg,
+                      ),
+                      _giornoCell(
+                        _fmtValue(r['spese']),
+                        base,
+                        center: true,
+                        background: rowBg,
+                      ),
+                      _giornoCell(
+                        _fmtValue(r['segreteria']),
+                        base,
+                        center: true,
+                        background: rowBg,
+                      ),
+                      _giornoCell(
+                        _fmtValue(r['note']),
+                        base,
+                        background: rowBg,
+                      ),
+                    ],
+                  );
                 }),
               ],
             ),
@@ -355,43 +411,51 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
 
   final maxRows = math.max(
     1,
-    math.max(
-      cronometri.length,
-      math.max(tabelloni.length, varie.length),
-    ),
+    math.max(cronometri.length, math.max(tabelloni.length, varie.length)),
   );
 
   pw.Widget headerCell(String text) => pw.Container(
-        padding: const pw.EdgeInsets.all(4),
-        color: _tableHeaderColor,
-        child: pw.Text(text,
-            style: pw.TextStyle(
-                font: bold, fontSize: 10, color: _tableHeaderTextColor),
-            textAlign: pw.TextAlign.center,
-            maxLines: 1,
-            softWrap: false),
-      );
+    padding: const pw.EdgeInsets.all(4),
+    color: _tableHeaderColor,
+    child: pw.Text(
+      text,
+      style: pw.TextStyle(
+        font: bold,
+        fontSize: 10,
+        color: _tableHeaderTextColor,
+      ),
+      textAlign: pw.TextAlign.center,
+      maxLines: 1,
+      softWrap: false,
+    ),
+  );
 
   pw.Widget valueCell(String text) => pw.Container(
-        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-        child: pw.Text(text.isEmpty ? '-' : text,
-            style: pw.TextStyle(font: base, fontSize: 10),
-            textAlign: pw.TextAlign.left),
-      );
+    padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+    child: pw.Text(
+      text.isEmpty ? '-' : text,
+      style: pw.TextStyle(font: base, fontSize: 10),
+      textAlign: pw.TextAlign.left,
+    ),
+  );
 
   pw.Widget qtyCell(String text) => pw.Container(
-        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-        alignment: pw.Alignment.center,
-        child: pw.Text(text,
-            style: pw.TextStyle(font: base, fontSize: 10),
-            textAlign: pw.TextAlign.center),
-      );
+    padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+    alignment: pw.Alignment.center,
+    child: pw.Text(
+      text,
+      style: pw.TextStyle(font: base, fontSize: 10),
+      textAlign: pw.TextAlign.center,
+    ),
+  );
 
   return pw.Column(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
-      pw.Text('Apparecchiature impiegate',
-          style: pw.TextStyle(font: bold, fontSize: 14)),
+      pw.Text(
+        'Apparecchiature impiegate',
+        style: pw.TextStyle(font: bold, fontSize: 14),
+      ),
       pw.SizedBox(height: 8),
       pw.Table(
         border: pw.TableBorder.all(color: _tableBorderColor),
@@ -404,25 +468,33 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
           5: pw.FlexColumnWidth(0.8),
         },
         children: [
-          pw.TableRow(children: [
-            headerCell('Cronometri'),
-            headerCell('N.'),
-            headerCell('Tabelloni / Display'),
-            headerCell('N.'),
-            headerCell('Varie'),
-            headerCell('N.'),
-          ]),
+          pw.TableRow(
+            children: [
+              headerCell('Cronometri'),
+              headerCell('N.'),
+              headerCell('Tabelloni / Display'),
+              headerCell('N.'),
+              headerCell('Varie'),
+              headerCell('N.'),
+            ],
+          ),
           for (int i = 0; i < maxRows; i++)
-            pw.TableRow(children: [
-              valueCell(
-                  i < cronometri.length ? cronometri[i]['label'] ?? '' : ''),
-              qtyCell(i < cronometri.length ? cronometri[i]['qty'] ?? '' : ''),
-              valueCell(
-                  i < tabelloni.length ? tabelloni[i]['label'] ?? '' : ''),
-              qtyCell(i < tabelloni.length ? tabelloni[i]['qty'] ?? '' : ''),
-              valueCell(i < varie.length ? varie[i]['label'] ?? '' : ''),
-              qtyCell(i < varie.length ? varie[i]['qty'] ?? '' : ''),
-            ]),
+            pw.TableRow(
+              children: [
+                valueCell(
+                  i < cronometri.length ? cronometri[i]['label'] ?? '' : '',
+                ),
+                qtyCell(
+                  i < cronometri.length ? cronometri[i]['qty'] ?? '' : '',
+                ),
+                valueCell(
+                  i < tabelloni.length ? tabelloni[i]['label'] ?? '' : '',
+                ),
+                qtyCell(i < tabelloni.length ? tabelloni[i]['qty'] ?? '' : ''),
+                valueCell(i < varie.length ? varie[i]['label'] ?? '' : ''),
+                qtyCell(i < varie.length ? varie[i]['qty'] ?? '' : ''),
+              ],
+            ),
         ],
       ),
       if (altText.isNotEmpty) ...[
@@ -431,10 +503,13 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
           text: pw.TextSpan(
             children: [
               pw.TextSpan(
-                  text: 'Altro: ',
-                  style: pw.TextStyle(font: bold, fontSize: 10)),
+                text: 'Altro: ',
+                style: pw.TextStyle(font: bold, fontSize: 10),
+              ),
               pw.TextSpan(
-                  text: altText, style: pw.TextStyle(font: base, fontSize: 10)),
+                text: altText,
+                style: pw.TextStyle(font: base, fontSize: 10),
+              ),
             ],
           ),
         ),
@@ -447,8 +522,10 @@ pw.Widget _sezioneDanni(String testo, pw.Font base, pw.Font bold) {
   return pw.Column(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
-      pw.Text('Danni / Malfunzionamenti',
-          style: pw.TextStyle(font: bold, fontSize: 14)),
+      pw.Text(
+        'Danni / Malfunzionamenti',
+        style: pw.TextStyle(font: bold, fontSize: 14),
+      ),
       pw.SizedBox(height: 8),
       pw.Container(
         padding: const pw.EdgeInsets.all(8),
@@ -456,8 +533,10 @@ pw.Widget _sezioneDanni(String testo, pw.Font base, pw.Font bold) {
           border: pw.Border.all(color: PdfColors.grey400),
           borderRadius: pw.BorderRadius.circular(6),
         ),
-        child: pw.Text(testo.isEmpty ? '-' : testo,
-            style: pw.TextStyle(font: base)),
+        child: pw.Text(
+          testo.isEmpty ? '-' : testo,
+          style: pw.TextStyle(font: base),
+        ),
       ),
     ],
   );
@@ -471,8 +550,10 @@ pw.Widget _sezioneDirettore(String direttore, pw.Font base, pw.Font bold) {
     child: pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.end,
       children: [
-        pw.Text('Direttore Servizio di Cronometraggio',
-            style: pw.TextStyle(font: bold, fontSize: 12)),
+        pw.Text(
+          'Direttore Servizio di Cronometraggio',
+          style: pw.TextStyle(font: bold, fontSize: 12),
+        ),
         pw.SizedBox(height: 4),
         pw.Text(text, style: pw.TextStyle(font: base, fontSize: 12)),
       ],
@@ -484,8 +565,10 @@ pw.Widget _sezioneAllegati(List allegati) {
   return pw.Column(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
-      pw.Text('Allegati fotografici',
-          style: pw.TextStyle(font: pw.Font.helveticaBold(), fontSize: 14)),
+      pw.Text(
+        'Allegati fotografici',
+        style: pw.TextStyle(font: pw.Font.helveticaBold(), fontSize: 14),
+      ),
       pw.SizedBox(height: 8),
       pw.Wrap(
         spacing: 8,
@@ -507,26 +590,36 @@ pw.Widget _sezioneAllegati(List allegati) {
   );
 }
 
-pw.Widget _tabellaRiepilogo(List<List<String>> rows, double totOre,
-    double totKm, double totSpese, pw.Font base, pw.Font bold) {
-  pw.Widget cell(String text,
-          {bool header = false,
-          bool boldText = false,
-          bool center = false,
-          PdfColor? background}) =>
-      pw.Container(
-        padding: const pw.EdgeInsets.all(4),
-        color: header ? _tableHeaderColor : background,
-        alignment: center ? pw.Alignment.center : pw.Alignment.centerLeft,
-        child: pw.Text(text,
-            style: pw.TextStyle(
-                font: boldText ? bold : base,
-                color: header ? _tableHeaderTextColor : PdfColors.black,
-                fontSize: 10,
-                fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal),
-            maxLines: header ? 1 : null,
-            softWrap: header ? false : true),
-      );
+pw.Widget _tabellaRiepilogo(
+  List<List<String>> rows,
+  double totOre,
+  double totKm,
+  double totSpese,
+  pw.Font base,
+  pw.Font bold,
+) {
+  pw.Widget cell(
+    String text, {
+    bool header = false,
+    bool boldText = false,
+    bool center = false,
+    PdfColor? background,
+  }) => pw.Container(
+    padding: const pw.EdgeInsets.all(4),
+    color: header ? _tableHeaderColor : background,
+    alignment: center ? pw.Alignment.center : pw.Alignment.centerLeft,
+    child: pw.Text(
+      text,
+      style: pw.TextStyle(
+        font: boldText ? bold : base,
+        color: header ? _tableHeaderTextColor : PdfColors.black,
+        fontSize: 10,
+        fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
+      ),
+      maxLines: header ? 1 : null,
+      softWrap: header ? false : true,
+    ),
+  );
 
   return pw.Table(
     border: pw.TableBorder.all(color: _tableBorderColor),
@@ -539,38 +632,56 @@ pw.Widget _tabellaRiepilogo(List<List<String>> rows, double totOre,
       5: pw.FlexColumnWidth(3),
     },
     children: [
-      pw.TableRow(children: [
-        cell('Nome', header: true, center: true),
-        cell('Ore', header: true, center: true),
-        cell('Km', header: true, center: true),
-        cell('Spese', header: true, center: true),
-        cell('Segreteria', header: true, center: true),
-        cell('Note', header: true, center: true),
-      ]),
+      pw.TableRow(
+        children: [
+          cell('Nome', header: true, center: true),
+          cell('Ore', header: true, center: true),
+          cell('Km', header: true, center: true),
+          cell('Spese', header: true, center: true),
+          cell('Segreteria', header: true, center: true),
+          cell('Note', header: true, center: true),
+        ],
+      ),
       ...rows.asMap().entries.map((entry) {
         final index = entry.key;
         final r = entry.value;
         final rowBg = index.isOdd ? _tableAltRowColor : null;
-        return pw.TableRow(children: [
-          cell(r[0], background: rowBg),
-          cell(r[1], center: true, background: rowBg),
-          cell(r[2], center: true, background: rowBg),
-          cell(r[3], center: true, background: rowBg),
-          cell(r[4], center: true, background: rowBg),
-          cell(r[5], background: rowBg),
-        ]);
+        return pw.TableRow(
+          children: [
+            cell(r[0], background: rowBg),
+            cell(r[1], center: true, background: rowBg),
+            cell(r[2], center: true, background: rowBg),
+            cell(r[3], center: true, background: rowBg),
+            cell(r[4], center: true, background: rowBg),
+            cell(r[5], background: rowBg),
+          ],
+        );
       }),
-      pw.TableRow(children: [
-        cell('Totali', boldText: true, background: _tableAltRowColor),
-        cell(totOre.toStringAsFixed(1),
-            boldText: true, center: true, background: _tableAltRowColor),
-        cell(totKm.toStringAsFixed(1),
-            boldText: true, center: true, background: _tableAltRowColor),
-        cell(totSpese.toStringAsFixed(2),
-            boldText: true, center: true, background: _tableAltRowColor),
-        cell('', boldText: true, background: _tableAltRowColor),
-        cell('', boldText: true, background: _tableAltRowColor),
-      ]),
+      pw.TableRow(
+        children: [
+          cell('Totali', boldText: true, background: _tableAltRowColor),
+          cell(
+            totOre.toStringAsFixed(1),
+            boldText: true,
+            center: true,
+            background: _tableAltRowColor,
+          ),
+          cell(
+            totKm.toStringAsFixed(1),
+            boldText: true,
+            center: true,
+            background: _tableAltRowColor,
+          ),
+          cell(
+            totSpese.toStringAsFixed(2),
+            boldText: true,
+            center: true,
+            background: _tableAltRowColor,
+          ),
+          cell('', boldText: true, background: _tableAltRowColor),
+          cell('', boldText: true, background: _tableAltRowColor),
+        ],
+      ),
     ],
   );
 }
@@ -588,8 +699,10 @@ Map<String, dynamic> _classificaApparecchiature(List elenco) {
     final qty = (voce['quantita'] ?? '').toString().trim();
     final key = nome.toLowerCase();
 
-    Map<String, String> entry() =>
-        {'label': nome, 'qty': qty.isEmpty ? '-' : qty};
+    Map<String, String> entry() => {
+      'label': nome,
+      'qty': qty.isEmpty ? '-' : qty,
+    };
 
     if (_cronometriDevices.contains(key)) {
       cronometri.add(entry());
@@ -615,30 +728,39 @@ Map<String, dynamic> _classificaApparecchiature(List elenco) {
   };
 }
 
-pw.TableRow _giornoHeaderRow(pw.Font bold) => pw.TableRow(children: [
-      _giornoCell('Cronometrista', bold, header: true),
-      _giornoCell('Ore', bold, header: true, center: true),
-      _giornoCell('Km', bold, header: true, center: true),
-      _giornoCell('Spese', bold, header: true, center: true),
-      _giornoCell('Segreteria', bold, header: true, center: true),
-      _giornoCell('Note', bold, header: true),
-    ]);
+pw.TableRow _giornoHeaderRow(pw.Font bold) => pw.TableRow(
+  children: [
+    _giornoCell('Cronometrista', bold, header: true),
+    _giornoCell('Ore', bold, header: true, center: true),
+    _giornoCell('Km', bold, header: true, center: true),
+    _giornoCell('Spese', bold, header: true, center: true),
+    _giornoCell('Segreteria', bold, header: true, center: true),
+    _giornoCell('Note', bold, header: true),
+  ],
+);
 
-pw.Widget _giornoCell(String text, pw.Font font,
-        {bool header = false, bool center = false, PdfColor? background}) =>
-    pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 5),
-      alignment: center ? pw.Alignment.center : pw.Alignment.centerLeft,
-      color: background ?? (header ? _tableHeaderColor : null),
-      child: pw.Text(text,
-          style: pw.TextStyle(
-              font: font,
-              color: header ? _tableHeaderTextColor : PdfColors.black,
-              fontSize: 10,
-              fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal),
-          maxLines: header ? 1 : null,
-          softWrap: header ? false : true),
-    );
+pw.Widget _giornoCell(
+  String text,
+  pw.Font font, {
+  bool header = false,
+  bool center = false,
+  PdfColor? background,
+}) => pw.Container(
+  padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+  alignment: center ? pw.Alignment.center : pw.Alignment.centerLeft,
+  color: background ?? (header ? _tableHeaderColor : null),
+  child: pw.Text(
+    text,
+    style: pw.TextStyle(
+      font: font,
+      color: header ? _tableHeaderTextColor : PdfColors.black,
+      fontSize: 10,
+      fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
+    ),
+    maxLines: header ? 1 : null,
+    softWrap: header ? false : true,
+  ),
+);
 
 String _formatDateHuman(String iso) {
   try {
@@ -666,18 +788,24 @@ pw.Widget _header(pw.Font bold, {pw.ImageProvider? logo}) {
           pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Text('ASD Cronometristi Valtellinesi',
-                  style: pw.TextStyle(font: bold, fontSize: 12)),
-              pw.Text('Piazzale Valgoi, 5',
-                  style: pw.TextStyle(font: pw.Font.helvetica(), fontSize: 10)),
-              pw.Text('23100 - Sondrio',
-                  style: pw.TextStyle(font: pw.Font.helvetica(), fontSize: 10)),
+              pw.Text(
+                'ASD Cronometristi Valtellinesi',
+                style: pw.TextStyle(font: bold, fontSize: 12),
+              ),
+              pw.Text(
+                'Piazzale Valgoi, 5',
+                style: pw.TextStyle(font: pw.Font.helvetica(), fontSize: 10),
+              ),
+              pw.Text(
+                '23100 - Sondrio',
+                style: pw.TextStyle(font: pw.Font.helvetica(), fontSize: 10),
+              ),
             ],
           ),
           if (logo != null)
             pw.Container(
-              width: 90,
-              height: 90,
+              width: 120,
+              height: 120,
               child: pw.Image(logo, fit: pw.BoxFit.contain),
             )
           else
@@ -689,15 +817,19 @@ pw.Widget _header(pw.Font bold, {pw.ImageProvider? logo}) {
                 border: pw.Border.all(color: PdfColors.grey600),
                 borderRadius: pw.BorderRadius.circular(30),
               ),
-              child: pw.Text('LOGO',
-                  style: pw.TextStyle(font: bold, fontSize: 10)),
+              child: pw.Text(
+                'LOGO',
+                style: pw.TextStyle(font: bold, fontSize: 10),
+              ),
             ),
         ],
       ),
       pw.SizedBox(height: 6),
       pw.Center(
-        child: pw.Text('RAPPORTO DI SERVIZIO',
-            style: pw.TextStyle(font: bold, fontSize: 18)),
+        child: pw.Text(
+          'RAPPORTO DI SERVIZIO',
+          style: pw.TextStyle(font: bold, fontSize: 18),
+        ),
       ),
       pw.SizedBox(height: 6),
       pw.Divider(color: PdfColors.grey400),
@@ -710,12 +842,14 @@ pw.Widget _footer(pw.Font base, int page, int pages) {
   return pw.Row(
     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
     children: [
-      pw.Text('Generato: ' + now,
-          style:
-              pw.TextStyle(font: base, fontSize: 9, color: PdfColors.grey700)),
-      pw.Text('Pagina ' + page.toString() + ' di ' + pages.toString(),
-          style:
-              pw.TextStyle(font: base, fontSize: 9, color: PdfColors.grey700)),
+      pw.Text(
+        'Generato: ' + now,
+        style: pw.TextStyle(font: base, fontSize: 9, color: PdfColors.grey700),
+      ),
+      pw.Text(
+        'Pagina ' + page.toString() + ' di ' + pages.toString(),
+        style: pw.TextStyle(font: base, fontSize: 9, color: PdfColors.grey700),
+      ),
     ],
   );
 }
