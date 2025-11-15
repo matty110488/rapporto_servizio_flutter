@@ -124,4 +124,30 @@ class NotionService {
 
     return "";
   }
+
+  Future<void> updateKronosDesignati(
+      String pageId, List<String> kronosIds) async {
+    final url = "https://api.notion.com/v1/pages/$pageId";
+    final body = jsonEncode({
+      "properties": {
+        "KRONOS DESIGNATI": {
+          "relation": kronosIds.map((id) => {"id": id}).toList(),
+        }
+      }
+    });
+
+    final res = await http.patch(
+      Uri.parse(url),
+      headers: {
+        "Authorization": "Bearer $apiKey",
+        "Notion-Version": "2022-06-28",
+        "Content-Type": "application/json",
+      },
+      body: body,
+    );
+
+    if (res.statusCode != 200) {
+      throw Exception("Errore aggiornamento gara: ${res.body}");
+    }
+  }
 }
