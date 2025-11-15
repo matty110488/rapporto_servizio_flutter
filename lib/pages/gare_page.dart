@@ -20,7 +20,7 @@ class _GarePageState extends State<GarePage> {
     super.initState();
 
     notion = NotionService(
-      apiKey: "SECRET_API_KEY",
+      apiKey: "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",
       databaseId: "2acde089ef958065aa24fce00357a425",
     );
 
@@ -51,8 +51,16 @@ class _GarePageState extends State<GarePage> {
                   margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   child: ListTile(
                     title: Text(g.titolo),
-                    subtitle: Text("${g.dataGara} • ${g.localita}"),
-                    trailing: Text(g.sport),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("${g.dataGara} • ${g.localita}"),
+                        if (g.sport.isNotEmpty) Text("Sport: ${g.sport}"),
+                        if (g.sitoGara.isNotEmpty) Text("Sito: ${g.sitoGara}"),
+                        if (g.organizzatore.isNotEmpty)
+                          Text("Organizzatore: ${g.organizzatore}"),
+                      ],
+                    ),
                     onTap: () {
                       Navigator.push(
                         context,
