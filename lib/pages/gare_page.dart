@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../notion_service.dart';
+import '../services/notion_service.dart';
 import '../models/gara.dart';
 import 'dettaglio_gara.dart';
 
@@ -20,8 +20,8 @@ class _GarePageState extends State<GarePage> {
     super.initState();
 
     notion = NotionService(
-      apiKey: "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",
-      databaseId: "29ade089ef9581398552facd2c82a680",
+      apiKey: "SECRET_API_KEY",
+      databaseId: "2acde089ef958065aa24fce00357a425",
     );
 
     load();
@@ -48,6 +48,7 @@ class _GarePageState extends State<GarePage> {
                 final g = gare[i];
 
                 return Card(
+                  margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   child: ListTile(
                     title: Text(g.titolo),
                     subtitle: Text("${g.dataGara} • ${g.localita}"),

@@ -7,9 +7,11 @@ class Gara {
   final String sitoGara;
   final String organizzatore;
   final String dataRichiesta;
-  final List<String> kronosDesignati;
-  final String dsc;
-  final List<String> pcSegreteria;
+
+  final List<String> kronosIds;
+  final List<String> dscIds;
+  final List<String> pcSegreteriaIds;
+
   final List<String> apparecchiature;
   final String tipologia;
   final String status;
@@ -23,9 +25,9 @@ class Gara {
     required this.sitoGara,
     required this.organizzatore,
     required this.dataRichiesta,
-    required this.kronosDesignati,
-    required this.dsc,
-    required this.pcSegreteria,
+    required this.kronosIds,
+    required this.dscIds,
+    required this.pcSegreteriaIds,
     required this.apparecchiature,
     required this.tipologia,
     required this.status,
@@ -46,10 +48,10 @@ class Gara {
       return t[0]["plain_text"] ?? "";
     }
 
-    List<String> multiPeople(Map obj) {
-      final list = obj["people"];
+    List<String> relation(Map obj) {
+      final list = obj["relation"];
       if (list == null) return [];
-      return List<String>.from(list.map((x) => x["name"]));
+      return List<String>.from(list.map((x) => x["id"]));
     }
 
     List<String> multiSelect(Map obj) {
@@ -67,9 +69,9 @@ class Gara {
       sitoGara: text(p["SITO GARA"] ?? {}),
       organizzatore: text(p["ORGANIZZATORE"] ?? {}),
       dataRichiesta: p["DATA RICHIESTA"]?["date"]?["start"] ?? "",
-      kronosDesignati: multiPeople(p["KRONOS DESIGNATI"] ?? {}),
-      dsc: p["DSC"]?["people"]?[0]?["name"] ?? "",
-      pcSegreteria: multiPeople(p["PC SEGRETERIA"] ?? {}),
+      kronosIds: relation(p["KRONOS DESIGNATI"] ?? {}),
+      dscIds: relation(p["DSC"] ?? {}),
+      pcSegreteriaIds: relation(p["PC SEGRETERIA"] ?? {}),
       apparecchiature: multiSelect(p["APPARECCHIATURA"] ?? {}),
       tipologia: p["TIPOLOGIA"]?["select"]?["name"] ?? "",
       status: p["STATUS"]?["select"]?["name"] ?? "",

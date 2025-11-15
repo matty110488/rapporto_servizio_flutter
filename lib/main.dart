@@ -8,6 +8,7 @@ import 'pdf/generatore_pdf2.dart';
 import 'package:share_plus/share_plus.dart';
 import 'screens/archivio_screen.dart';
 import 'widgets/allegati_form.dart';
+import 'pages/gare_page.dart';
 
 void main() {
   runApp(RapportoServizioApp());
@@ -137,6 +138,7 @@ class _RootScreenState extends State<RootScreen> {
         ),
       ),
       ArchivioScreen(),
+      const GarePage(),
     ];
 
     return Scaffold(
@@ -148,6 +150,7 @@ class _RootScreenState extends State<RootScreen> {
           BottomNavigationBarItem(
               icon: Icon(Icons.assignment), label: 'Rapporto'),
           BottomNavigationBarItem(icon: Icon(Icons.folder), label: 'Archivio'),
+          BottomNavigationBarItem(icon: Icon(Icons.flag), label: 'Gare'),
         ],
       ),
     );
