@@ -52,6 +52,36 @@ Future<File> generaPdfConDati(Map<String, dynamic> dati,
   final pw.ImageProvider? logoImage =
       logoBytes != null ? pw.MemoryImage(logoBytes) : null;
 
+  final cronos = (dati['cronometristi'] ?? []) as List;
+  final apparecchiature = (dati['apparecchiature'] ?? []) as List;
+  final danni = (dati['danni'] ?? '') as String;
+  final allegati = (dati['allegati'] ?? []) as List;
+  final direttore = (gara['dsc'] ?? '').toString().trim();
+
+  final contenuto = <pw.Widget>[
+    _sezioneGara(gara, base, bold),
+    pw.SizedBox(height: 16),
+    _sezioneCronometristi(cronos, base, bold),
+    pw.SizedBox(height: 16),
+    _sezioneApparecchiatura(apparecchiature, base, bold),
+    pw.SizedBox(height: 16),
+    _sezioneDanni(danni, base, bold),
+  ];
+
+  if (allegati.isNotEmpty) {
+    contenuto.addAll([
+      pw.SizedBox(height: 16),
+      _sezioneAllegati(allegati),
+    ]);
+  }
+
+  if (direttore.isNotEmpty) {
+    contenuto.addAll([
+      pw.SizedBox(height: 16),
+      _sezioneDirettore(direttore, base, bold),
+    ]);
+  }
+
   pdf.addPage(
     pw.MultiPage(
       pageTheme: const pw.PageTheme(
@@ -60,22 +90,7 @@ Future<File> generaPdfConDati(Map<String, dynamic> dati,
       header: (context) => _header(bold, logo: logoImage),
       footer: (context) =>
           _footer(base, context.pageNumber, context.pagesCount),
-      build: (context) => [
-        _sezioneGara(gara, base, bold),
-        pw.SizedBox(height: 16),
-        _sezioneCronometristi(
-            (dati['cronometristi'] ?? []) as List, base, bold,
-            direttore: (gara['dsc'] ?? '').toString()),
-        pw.SizedBox(height: 16),
-        _sezioneApparecchiatura(
-            (dati['apparecchiature'] ?? []) as List, base, bold),
-        pw.SizedBox(height: 16),
-        _sezioneDanni((dati['danni'] ?? '') as String, base, bold),
-        if (((dati['allegati'] ?? []) as List).isNotEmpty) ...[
-          pw.SizedBox(height: 16),
-          _sezioneAllegati((dati['allegati'] as List)),
-        ],
-      ],
+      build: (context) => contenuto,
     ),
   );
 
@@ -152,8 +167,7 @@ pw.Widget _sezioneGara(Map<String, dynamic> gara, pw.Font base, pw.Font bold) {
   );
 }
 
-pw.Widget _sezioneCronometristi(List elenco, pw.Font base, pw.Font bold,
-    {String direttore = ''}) {
+pw.Widget _sezioneCronometristi(List elenco, pw.Font base, pw.Font bold) {
   double sum(List giorni, String campo) {
     return giorni.fold<double>(0, (t, g) {
       final v = g[campo];
@@ -199,14 +213,6 @@ pw.Widget _sezioneCronometristi(List elenco, pw.Font base, pw.Font bold,
           style: pw.TextStyle(font: bold, fontSize: 14)),
       pw.SizedBox(height: 6),
       _tabellaRiepilogo(rows, totOre, totKm, totSpese, base, bold),
-      if (direttore.trim().isNotEmpty) ...[
-        pw.SizedBox(height: 6),
-        pw.Align(
-          alignment: pw.Alignment.centerRight,
-          child: pw.Text('Direttore Servizio di Cronometraggio: $direttore',
-              style: pw.TextStyle(font: bold, fontSize: 11)),
-        ),
-      ],
       pw.SizedBox(height: 4),
       pw.Text('* Specificare SI/NO',
           style:
@@ -430,6 +436,17 @@ pw.Widget _sezioneDanni(String testo, pw.Font base, pw.Font bold) {
             style: pw.TextStyle(font: base)),
       ),
     ],
+  );
+}
+
+pw.Widget _sezioneDirettore(
+    String direttore, pw.Font base, pw.Font bold) {
+  final text = direttore.trim();
+  if (text.isEmpty) return pw.SizedBox.shrink();
+  return pw.Align(
+    alignment: pw.Alignment.centerRight,
+    child: pw.Text('Direttore Servizio di Cronometraggio: $text',
+        style: pw.TextStyle(font: bold, fontSize: 12)),
   );
 }
 
