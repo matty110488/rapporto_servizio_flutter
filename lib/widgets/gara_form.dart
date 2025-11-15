@@ -12,14 +12,14 @@ class GaraForm extends StatefulWidget {
 }
 
 class GaraFormState extends State<GaraForm> {
-  String nomeGara = '';
-  String organizzatore = '';
+  final TextEditingController nomeController = TextEditingController();
+  final TextEditingController organizzatoreController =
+      TextEditingController();
+  final TextEditingController luogoController = TextEditingController();
+  final TextEditingController dscController = TextEditingController();
   String sport = '';
-  String luogo = '';
   DateTime? dataDa;
   DateTime? dataA;
-  String dsc = '';
-  /* String altro = '';*/
 
   Future<void> _selezionaData(BuildContext context, bool isDa) async {
     final picked = await showDatePicker(
@@ -42,22 +42,61 @@ class GaraFormState extends State<GaraForm> {
 
   Map<String, dynamic> getData() {
     return {
-      'nome': nomeGara,
-      'organizzatore': organizzatore,
+      'nome': nomeController.text,
+      'organizzatore': organizzatoreController.text,
       'sport': sport,
-      'luogo': luogo,
+      'luogo': luogoController.text,
       'dataDa': dataDa != null
           ? "${dataDa!.year}-${_2(dataDa!.month)}-${_2(dataDa!.day)}"
           : '',
       'dataA': dataA != null
           ? "${dataA!.year}-${_2(dataA!.month)}-${_2(dataA!.day)}"
           : '',
-      'dsc': dsc,
-      /*   'altro': altro,*/
+      'dsc': dscController.text,
     };
   }
 
+  @override
+  void dispose() {
+    nomeController.dispose();
+    organizzatoreController.dispose();
+    luogoController.dispose();
+    dscController.dispose();
+    super.dispose();
+  }
+
   String _2(int n) => n.toString().padLeft(2, '0');
+
+  DateTime? _parseDate(String value) {
+    if (value.isEmpty) return null;
+    return DateTime.tryParse(value);
+  }
+
+  void applyNotionData({
+    required String nome,
+    required String organizzatore,
+    required String sportValue,
+    required String luogo,
+    required String dataInizio,
+    required String dataFine,
+    String? dsc,
+  }) {
+    final start = _parseDate(dataInizio);
+    final end = _parseDate(dataFine.isNotEmpty ? dataFine : dataInizio);
+    setState(() {
+      nomeController.text = nome;
+      organizzatoreController.text = organizzatore;
+      luogoController.text = luogo;
+      sport = sportValue;
+      dataDa = start;
+      dataA = end;
+      if (dsc != null) {
+        dscController.text = dsc;
+      }
+    });
+    widget.onSportChanged?.call(sport);
+    widget.onDateRangeChanged?.call(dataDa, dataA);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,10 +106,10 @@ class GaraFormState extends State<GaraForm> {
         Text("Informazioni Gara",
             style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 12),
-        _buildTextField("Nome Gara", (val) => nomeGara = val),
-        _buildTextField("Organizzatore", (val) => organizzatore = val),
+        _buildTextField("Nome Gara", nomeController),
+        _buildTextField("Organizzatore", organizzatoreController),
         _buildDropdownSport(),
-        _buildTextField("Luogo", (val) => luogo = val),
+        _buildTextField("Luogo", luogoController),
         Row(
           children: [
             Expanded(
@@ -83,20 +122,19 @@ class GaraFormState extends State<GaraForm> {
           ],
         ),
         _buildDropdownDsc(),
-        /*   _buildTextField("Altro (specificare)", (val) => altro = val),*/
       ],
     );
   }
 
-  Widget _buildTextField(String label, Function(String) onChanged) {
+  Widget _buildTextField(String label, TextEditingController controller) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
+        controller: controller,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
         ),
-        onChanged: onChanged,
       ),
     );
   }
@@ -121,13 +159,24 @@ class GaraFormState extends State<GaraForm> {
       'Snowboard FIS',
       'Altro (specificare)',
     ];
+    final items = sportList
+        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+        .toList();
+    if (sport.isNotEmpty && !sportList.contains(sport)) {
+      items.insert(
+        0,
+        DropdownMenuItem(
+          value: sport,
+          child: Text(sport),
+        ),
+      );
+    }
+    final dropdownValue = sport.isNotEmpty ? sport : null;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<String>(
-        value: sport.isEmpty ? null : sport,
-        items: sportList
-            .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-            .toList(),
+        value: dropdownValue,
+        items: items,
         onChanged: (val) {
           setState(() => sport = val ?? '');
           if (val != null) {
@@ -138,24 +187,38 @@ class GaraFormState extends State<GaraForm> {
           labelText: 'Sport',
           border: OutlineInputBorder(),
         ),
+        isExpanded: true,
       ),
     );
   }
 
   Widget _buildDropdownDsc() {
     final options = availableCronometristi;
+    final items = options
+        .map((nome) => DropdownMenuItem(value: nome, child: Text(nome)))
+        .toList();
+    final currentDsc = dscController.text;
+    if (currentDsc.isNotEmpty && !options.contains(currentDsc)) {
+      items.insert(
+        0,
+        DropdownMenuItem(
+          value: currentDsc,
+          child: Text(currentDsc),
+        ),
+      );
+    }
+    final dropdownValue = currentDsc.isNotEmpty ? currentDsc : null;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<String>(
-        value: dsc.isEmpty ? null : dsc,
-        items: options
-            .map((nome) => DropdownMenuItem(value: nome, child: Text(nome)))
-            .toList(),
-        onChanged: (val) => setState(() => dsc = val ?? ''),
+        value: dropdownValue,
+        items: items,
+        onChanged: (val) => setState(() => dscController.text = val ?? ''),
         decoration: const InputDecoration(
           labelText: 'DSC',
           border: OutlineInputBorder(),
         ),
+        isExpanded: true,
       ),
     );
   }

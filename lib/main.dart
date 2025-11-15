@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'widgets/header.dart';
@@ -178,6 +179,8 @@ class _RootScreenState extends State<RootScreen> {
   String? gareError;
   Gara? selectedGara;
   int formVersion = 0;
+  bool prefilling = false;
+  int _prefillTicket = 0;
 
   String? get _loggedUserId {
     final id = widget.loggedUser['id'];
@@ -220,8 +223,7 @@ class _RootScreenState extends State<RootScreen> {
         }
       }
       nextSelection ??= filtered.length == 1 ? filtered.first : null;
-      final selectionChanged =
-          (previousId ?? '') != (nextSelection?.id ?? '');
+      final selectionChanged = (previousId ?? '') != (nextSelection?.id ?? '');
 
       if (!mounted) return;
       setState(() {
@@ -232,6 +234,13 @@ class _RootScreenState extends State<RootScreen> {
           formVersion++;
         }
       });
+      if (nextSelection != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _prefillFromSelectedGara();
+          }
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -246,6 +255,89 @@ class _RootScreenState extends State<RootScreen> {
       selectedGara = gara;
       formVersion++;
     });
+    _prefillFromSelectedGara();
+  }
+
+  Future<String?> _resolveName(String id) async {
+    try {
+      final name = await notion.fetchNameFromPage(id);
+      if (name.isEmpty) return null;
+      return name;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<String>> _resolveNames(List<String> ids) async {
+    if (ids.isEmpty) return [];
+    final results = await Future.wait(ids.map(_resolveName));
+    return results.whereType<String>().toList();
+  }
+
+  Future<void> _prefillFromSelectedGara() async {
+    final gara = selectedGara;
+    if (gara == null) return;
+    final ticket = ++_prefillTicket;
+    setState(() {
+      prefilling = true;
+    });
+    try {
+      String? dscName;
+      if (gara.dscIds.isNotEmpty) {
+        dscName = await _resolveName(gara.dscIds.first);
+      }
+      final kronosNames = await _resolveNames(gara.kronosIds);
+
+      if (!mounted || ticket != _prefillTicket) return;
+      garaKey.currentState?.applyNotionData(
+        nome: gara.titolo,
+        organizzatore: gara.organizzatore,
+        sportValue: gara.sport,
+        luogo: gara.localita,
+        dataInizio: gara.dataGara,
+        dataFine:
+            gara.dataGaraFine.isNotEmpty ? gara.dataGaraFine : gara.dataGara,
+        dsc: dscName,
+      );
+      await Future<void>.microtask(() {});
+      if (!mounted || ticket != _prefillTicket) return;
+      cronometristiKey.currentState?.setCronometristi(kronosNames);
+    } catch (e) {
+      if (!mounted || ticket != _prefillTicket) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Errore nel precompilare la gara: $e')),
+      );
+    } finally {
+      if (!mounted || ticket != _prefillTicket) return;
+      setState(() {
+        prefilling = false;
+      });
+    }
+  }
+
+  String _formatDateLabel(String value) {
+    if (value.isEmpty) return '-';
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null) return value;
+    return DateFormat('dd/MM/yyyy').format(parsed);
+  }
+
+  String _garaDisplayLabel(Gara gara) {
+    final start = _formatDateLabel(gara.dataGara);
+    final end = gara.dataGaraFine.isNotEmpty
+        ? _formatDateLabel(gara.dataGaraFine)
+        : start;
+    final dateLabel = (end != start) ? "$start → $end" : start;
+    final luogo = gara.localita.isEmpty ? '-' : gara.localita;
+    return "$dateLabel · ${gara.titolo} · $luogo";
+  }
+
+  String _garaDateRange(Gara gara) {
+    final start = _formatDateLabel(gara.dataGara);
+    final end = gara.dataGaraFine.isNotEmpty
+        ? _formatDateLabel(gara.dataGaraFine)
+        : start;
+    return end != start ? "$start → $end" : start;
   }
 
   Widget _buildGareSelectionCard() {
@@ -313,22 +405,33 @@ class _RootScreenState extends State<RootScreen> {
               "Seleziona la gara per cui vuoi compilare il rapportino",
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 8),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: gareDisponibili.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final gara = gareDisponibili[index];
-                return RadioListTile<String>(
-                  value: gara.id,
-                  groupValue: selectedGara?.id,
-                  onChanged: (_) => _selectGara(gara),
-                  title: Text(gara.titolo),
-                  subtitle: Text("${gara.dataGara} - ${gara.localita}"),
-                );
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: gareDisponibili.any((g) => g.id == selectedGara?.id)
+                  ? selectedGara?.id
+                  : null,
+              items: gareDisponibili
+                  .map(
+                    (gara) => DropdownMenuItem<String>(
+                      value: gara.id,
+                      child: Text(
+                        _garaDisplayLabel(gara),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value == null) return;
+                final gara = gareDisponibili.firstWhere((g) => g.id == value);
+                _selectGara(gara);
               },
+              decoration: const InputDecoration(
+                labelText: 'Gara',
+                border: OutlineInputBorder(),
+              ),
+              isExpanded: true,
+              hint: const Text('Seleziona una gara'),
             ),
           ],
         ),
@@ -347,8 +450,8 @@ class _RootScreenState extends State<RootScreen> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Data: ${gara.dataGara}"),
-            Text("Luogo: ${gara.localita}"),
+            Text("Date: ${_garaDateRange(gara)}"),
+            Text("Luogo: ${gara.localita.isEmpty ? '-' : gara.localita}"),
             if (gara.organizzatore.isNotEmpty)
               Text("Organizzatore: ${gara.organizzatore}"),
             if (gara.sport.isNotEmpty) Text("Sport: ${gara.sport}"),
@@ -406,11 +509,11 @@ class _RootScreenState extends State<RootScreen> {
                 'id': garaSelezionata.id,
                 'titolo': garaSelezionata.titolo,
                 'data': garaSelezionata.dataGara,
+                'dataFine': garaSelezionata.dataGaraFine,
                 'luogo': garaSelezionata.localita,
               },
             }, salvaLocalmente: true);
-            await Share.shareXFiles([XFile(file.path)],
-                text: 'Rapporto PDF');
+            await Share.shareXFiles([XFile(file.path)], text: 'Rapporto PDF');
           },
           icon: Icon(Icons.picture_as_pdf),
           label: Text("Genera e invia PDF"),
@@ -448,6 +551,11 @@ class _RootScreenState extends State<RootScreen> {
               _buildGareSelectionCard(),
               const SizedBox(height: 16),
               _buildSelectedGaraInfo(),
+              if (prefilling)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: LinearProgressIndicator(),
+                ),
               if (!canFillForm &&
                   !loadingGareList &&
                   gareDisponibili.isNotEmpty)
@@ -478,7 +586,6 @@ class _RootScreenState extends State<RootScreen> {
     );
   }
 }
-
 
 class HomePage extends StatelessWidget {
   final Map<String, dynamic> loggedUser;
@@ -534,7 +641,7 @@ class HomePage extends StatelessWidget {
     final navItems = [
       _HomeNavData(
         icon: Icons.assignment,
-        label: 'Rapporto',
+        label: 'Rapportini',
         onTap: () => _openPage(
           context,
           RootScreen(loggedUser: loggedUser),
@@ -542,7 +649,7 @@ class HomePage extends StatelessWidget {
       ),
       _HomeNavData(
         icon: Icons.folder,
-        label: 'Archivio',
+        label: 'Archivio rapportini',
         onTap: () => _openPage(context, ArchivioScreen()),
       ),
       _HomeNavData(

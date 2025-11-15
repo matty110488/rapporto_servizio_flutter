@@ -17,7 +17,9 @@ class CronometristiFormState extends State<CronometristiForm> {
   List<Map<String, dynamic>> righe = [
     {
       'nome': null,
-      'giorni': <Map<String, String>>[],
+      'giorni': [
+        {'ore': '', 'km': '', 'spese': ''}
+      ],
       'segreteria': null,
       'note': '',
     }
@@ -56,33 +58,58 @@ class CronometristiFormState extends State<CronometristiForm> {
 
   void aggiungiRiga() {
     setState(() {
-      List<Map<String, dynamic>> giorni = [];
-      if (_rangeDa != null &&
-          _rangeA != null &&
-          !_rangeA!.isBefore(_rangeDa!)) {
-        final total = _rangeA!.difference(_rangeDa!).inDays + 1;
-        for (int i = 0; i < total; i++) {
-          final d = DateTime(_rangeDa!.year, _rangeDa!.month, _rangeDa!.day)
-              .add(Duration(days: i));
-          giorni.add({
-            'data':
-                "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}",
-            'ore': '',
-            'km': '',
-            'spese': '',
-          });
-        }
-      } else {
-        giorni = [
-          {'ore': '', 'km': '', 'spese': ''}
-        ];
-      }
+      final giorni = _giorniPerRange();
       righe.add({
         'nome': null,
         'giorni': giorni,
         'segreteria': null,
         'note': '',
       });
+    });
+  }
+
+  List<Map<String, dynamic>> _giorniPerRange() {
+    if (_rangeDa != null && _rangeA != null && !_rangeA!.isBefore(_rangeDa!)) {
+      final total = _rangeA!.difference(_rangeDa!).inDays + 1;
+      return List.generate(total, (index) {
+        final d =
+            DateTime(_rangeDa!.year, _rangeDa!.month, _rangeDa!.day)
+                .add(Duration(days: index));
+        return {
+          'data':
+              "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}",
+          'ore': '',
+          'km': '',
+          'spese': '',
+        };
+      });
+    }
+    return [
+      {'ore': '', 'km': '', 'spese': ''}
+    ];
+  }
+
+  void setCronometristi(List<String> nomi) {
+    setState(() {
+      if (nomi.isEmpty) {
+        righe = [
+          {
+            'nome': null,
+            'giorni': _giorniPerRange(),
+            'segreteria': null,
+            'note': '',
+          }
+        ];
+      } else {
+        righe = nomi
+            .map((nome) => {
+                  'nome': nome,
+                  'giorni': _giorniPerRange(),
+                  'segreteria': null,
+                  'note': '',
+                })
+            .toList();
+      }
     });
   }
 

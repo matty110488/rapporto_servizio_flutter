@@ -5,6 +5,7 @@ class Gara {
   final String titolo;
   final String sport;
   final String dataGara;
+  final String dataGaraFine;
   final String localita;
   final String sitoGara;
   final String organizzatore;
@@ -23,6 +24,7 @@ class Gara {
     required this.titolo,
     required this.sport,
     required this.dataGara,
+    required this.dataGaraFine,
     required this.localita,
     required this.sitoGara,
     required this.organizzatore,
@@ -67,18 +69,12 @@ class Gara {
       return List<String>.from(list.map((x) => x["name"]));
     }
 
-    // -------- DEBUG RELAZIONI --------
-    print("🟦 DEBUG RELAZIONI");
-    print("ID RIGA: ${json["id"]}");
-    print("KRONOS: ${relation(p["KRONOS DESIGNATI"])}");
-    print("DSC: ${relation(p["DSC"])}");
-    print("PC: ${relation(p["PC SEGRETERIA"])}");
-
     return Gara(
       id: json["id"],
       titolo: title(p["GARA"]),
       sport: p["SPORT"]?["select"]?["name"] ?? "",
       dataGara: p["DATA GARA"]?["date"]?["start"] ?? "",
+      dataGaraFine: p["DATA GARA"]?["date"]?["end"] ?? "",
       localita: text(p["LOCALITÀ"]),
       sitoGara: text(p["SITO GARA"]),
       organizzatore: text(p["ORGANIZZATORE"]),

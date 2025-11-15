@@ -56,6 +56,21 @@ class _GarePageState extends State<GarePage> {
     return gara.kronosIds.contains(userId);
   }
 
+  bool _puoCandidarsi(Gara gara) {
+    final status = gara.status.toUpperCase();
+    if (status == 'GARA COPERTA' || status == 'ANNULLATA') {
+      return _isUserAssigned(gara);
+    }
+    final start = DateTime.tryParse(gara.dataGara);
+    if (start == null) return true;
+    final limite = start.subtract(const Duration(days: 2));
+    final now = DateTime.now();
+    if (now.isAfter(limite)) {
+      return _isUserAssigned(gara);
+    }
+    return true;
+  }
+
   Future<void> _toggleDisponibilita(Gara gara, bool join) async {
     final userId = _loggedUserId;
     if (userId == null) return;
@@ -131,7 +146,8 @@ class _GarePageState extends State<GarePage> {
                       children: [
                         Text("${g.dataGara} - ${g.localita}"),
                         if (g.sport.isNotEmpty) Text("Sport: ${g.sport}"),
-                        if (g.sitoGara.isNotEmpty) Text("Sito: ${g.sitoGara}"),
+                        if (g.status.isNotEmpty)
+                          Text("Status: ${g.status}"),
                         if (g.organizzatore.isNotEmpty)
                           Text("Organizzatore: ${g.organizzatore}"),
                         if (_loggedUserId != null)
@@ -139,24 +155,32 @@ class _GarePageState extends State<GarePage> {
                             padding: const EdgeInsets.only(top: 12),
                             child: Align(
                               alignment: Alignment.centerLeft,
-                              child: ElevatedButton(
-                                onPressed: updatingGare.contains(g.id)
-                                    ? null
-                                    : () => _toggleDisponibilita(
-                                          g,
-                                          !_isUserAssigned(g),
-                                        ),
-                                child: updatingGare.contains(g.id)
-                                    ? SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Text(_isUserAssigned(g)
-                                        ? "Rimuovimi dalla gara"
-                                        : "Mi rendo disponibile"),
+                              child: Builder(
+                                builder: (context) {
+                                  final candidabile = _puoCandidarsi(g);
+                                  return ElevatedButton(
+                                    onPressed: !candidabile ||
+                                            updatingGare.contains(g.id)
+                                        ? null
+                                        : () => _toggleDisponibilita(
+                                              g,
+                                              !_isUserAssigned(g),
+                                            ),
+                                    child: updatingGare.contains(g.id)
+                                        ? SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(_isUserAssigned(g)
+                                            ? "Rimuovimi dalla gara"
+                                            : candidabile
+                                                ? "Mi rendo disponibile"
+                                                : "Candidature chiuse"),
+                                  );
+                                },
                               ),
                             ),
                           ),
