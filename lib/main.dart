@@ -1,20 +1,32 @@
 import 'package:flutter/material.dart';
+
 import 'widgets/header.dart';
 import 'widgets/gara_form.dart';
 import 'widgets/cronometristi_form.dart';
 import 'widgets/apparecchiatura_form.dart';
 import 'widgets/danni_form.dart';
+import 'widgets/allegati_form.dart';
+
 import 'pdf/generatore_pdf2.dart';
 import 'package:share_plus/share_plus.dart';
+
 import 'screens/archivio_screen.dart';
-import 'widgets/allegati_form.dart';
 import 'pages/gare_page.dart';
+
+import 'pages/login_page.dart'; // ⬅️ NUOVO
 
 void main() {
   runApp(RapportoServizioApp());
 }
 
-class RapportoServizioApp extends StatelessWidget {
+class RapportoServizioApp extends StatefulWidget {
+  @override
+  State<RapportoServizioApp> createState() => _RapportoServizioAppState();
+}
+
+class _RapportoServizioAppState extends State<RapportoServizioApp> {
+  Map<String, dynamic>? loggedUser; // ⬅️ UTENTE LOGGATO
+
   ThemeData _buildWhiteBlueTheme() {
     final base = ThemeData.light();
     final colorScheme = base.colorScheme.copyWith(
@@ -57,18 +69,39 @@ class RapportoServizioApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = _buildWhiteBlueTheme();
+
+    // 🔒 SE NON È LOGGATO → Mostra la schermata login
+    if (loggedUser == null) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: theme,
+        home: LoginPage(
+          onLogin: (user) {
+            setState(() {
+              loggedUser = user;
+            });
+          },
+        ),
+      );
+    }
+
+    // 🔓 SE LOGGATO → mostra tutto il resto
     return MaterialApp(
       title: 'Rapporto di Servizio',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system,
       theme: theme,
       darkTheme: theme,
-      home: RootScreen(),
+      home: RootScreen(loggedUser: loggedUser!), // ⬅️ PASSO L’UTENTE
     );
   }
 }
 
 class RootScreen extends StatefulWidget {
+  final Map<String, dynamic> loggedUser;
+
+  const RootScreen({super.key, required this.loggedUser});
+
   @override
   State<RootScreen> createState() => _RootScreenState();
 }
@@ -137,8 +170,11 @@ class _RootScreenState extends State<RootScreen> {
           ),
         ),
       ),
+
       ArchivioScreen(),
-      const GarePage(),
+
+      // Passo l'utente anche qui 🔽
+      GarePage(loggedUser: widget.loggedUser),
     ];
 
     return Scaffold(

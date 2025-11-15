@@ -4,7 +4,8 @@ import '../models/gara.dart';
 import 'dettaglio_gara.dart';
 
 class GarePage extends StatefulWidget {
-  const GarePage({super.key});
+  final Map<String, dynamic> loggedUser;
+  const GarePage({super.key, required this.loggedUser});
 
   @override
   State<GarePage> createState() => _GarePageState();
