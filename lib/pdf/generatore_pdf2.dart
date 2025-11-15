@@ -57,11 +57,12 @@ Future<File> generaPdfConDati(Map<String, dynamic> dati,
   final danni = (dati['danni'] ?? '') as String;
   final allegati = (dati['allegati'] ?? []) as List;
   final direttore = (gara['dsc'] ?? '').toString().trim();
+  final mostraRiepilogo = _isMultiDay(gara);
 
   final contenuto = <pw.Widget>[
     _sezioneGara(gara, base, bold),
     pw.SizedBox(height: 16),
-    _sezioneCronometristi(cronos, base, bold),
+    _sezioneCronometristi(cronos, base, bold, mostraRiepilogo: mostraRiepilogo),
     pw.SizedBox(height: 16),
     _sezioneApparecchiatura(apparecchiature, base, bold),
     pw.SizedBox(height: 16),
@@ -167,7 +168,24 @@ pw.Widget _sezioneGara(Map<String, dynamic> gara, pw.Font base, pw.Font bold) {
   );
 }
 
-pw.Widget _sezioneCronometristi(List elenco, pw.Font base, pw.Font bold) {
+bool _isMultiDay(Map<String, dynamic> gara) {
+  DateTime? parse(String? iso) {
+    if (iso == null || iso.isEmpty) return null;
+    try {
+      return DateTime.parse(iso);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  final da = parse(gara['dataDa']?.toString());
+  final a = parse(gara['dataA']?.toString());
+  if (da == null || a == null) return false;
+  return a.difference(da).inDays > 0;
+}
+
+pw.Widget _sezioneCronometristi(List elenco, pw.Font base, pw.Font bold,
+    {bool mostraRiepilogo = true}) {
   double sum(List giorni, String campo) {
     return giorni.fold<double>(0, (t, g) {
       final v = g[campo];
@@ -198,26 +216,32 @@ pw.Widget _sezioneCronometristi(List elenco, pw.Font base, pw.Font bold) {
     ]);
   }
 
-  return pw.Column(
-    crossAxisAlignment: pw.CrossAxisAlignment.start,
-    children: [
-      pw.Text('Cronometristi', style: pw.TextStyle(font: bold, fontSize: 14)),
-      pw.SizedBox(height: 8),
-      _sezioneGiornate(elenco, base, bold),
-      pw.SizedBox(height: 4),
-      pw.Text('',
-          style:
-              pw.TextStyle(font: base, fontSize: 9, color: PdfColors.grey700)),
+  final children = <pw.Widget>[
+    pw.Text('Cronometristi', style: pw.TextStyle(font: bold, fontSize: 14)),
+    pw.SizedBox(height: 8),
+    _sezioneGiornate(elenco, base, bold),
+    pw.SizedBox(height: 4),
+    pw.Text('',
+        style: pw.TextStyle(font: base, fontSize: 9, color: PdfColors.grey700)),
+  ];
+
+  if (mostraRiepilogo && rows.isNotEmpty) {
+    children.addAll([
       pw.SizedBox(height: 14),
       pw.Text('Riepilogo cronometristi',
           style: pw.TextStyle(font: bold, fontSize: 14)),
       pw.SizedBox(height: 6),
       _tabellaRiepilogo(rows, totOre, totKm, totSpese, base, bold),
       pw.SizedBox(height: 4),
-      pw.Text('* Specificare SI/NO',
-          style:
-              pw.TextStyle(font: base, fontSize: 9, color: PdfColors.grey700)),
-    ],
+      //pw.Text('* Specificare SI/NO',
+      //    style:
+      //        pw.TextStyle(font: base, fontSize: 9, color: PdfColors.grey700)),
+    ]);
+  }
+
+  return pw.Column(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: children,
   );
 }
 
@@ -439,14 +463,20 @@ pw.Widget _sezioneDanni(String testo, pw.Font base, pw.Font bold) {
   );
 }
 
-pw.Widget _sezioneDirettore(
-    String direttore, pw.Font base, pw.Font bold) {
+pw.Widget _sezioneDirettore(String direttore, pw.Font base, pw.Font bold) {
   final text = direttore.trim();
   if (text.isEmpty) return pw.SizedBox.shrink();
   return pw.Align(
     alignment: pw.Alignment.centerRight,
-    child: pw.Text('Direttore Servizio di Cronometraggio: $text',
-        style: pw.TextStyle(font: bold, fontSize: 12)),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.end,
+      children: [
+        pw.Text('Direttore Servizio di Cronometraggio',
+            style: pw.TextStyle(font: bold, fontSize: 12)),
+        pw.SizedBox(height: 4),
+        pw.Text(text, style: pw.TextStyle(font: base, fontSize: 12)),
+      ],
+    ),
   );
 }
 
@@ -646,8 +676,8 @@ pw.Widget _header(pw.Font bold, {pw.ImageProvider? logo}) {
           ),
           if (logo != null)
             pw.Container(
-              width: 60,
-              height: 60,
+              width: 90,
+              height: 90,
               child: pw.Image(logo, fit: pw.BoxFit.contain),
             )
           else
