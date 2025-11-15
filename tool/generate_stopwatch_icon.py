@@ -176,7 +176,6 @@ def _write_ico(path: Path, size: int = 256) -> None:
 def main() -> None:
     base = Path(__file__).resolve().parents[1]
     targets: list[tuple[str, int]] = [
-        ("assets/logo.png", 512),
         ("android/app/src/main/res/mipmap-mdpi/ic_launcher.png", 48),
         ("android/app/src/main/res/mipmap-hdpi/ic_launcher.png", 72),
         ("android/app/src/main/res/mipmap-xhdpi/ic_launcher.png", 96),

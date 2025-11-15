@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/cronometristi.dart';
 
 class GaraForm extends StatefulWidget {
   final ValueChanged<String>? onSportChanged;
@@ -17,6 +18,7 @@ class GaraFormState extends State<GaraForm> {
   String luogo = '';
   DateTime? dataDa;
   DateTime? dataA;
+  String dsc = '';
   /* String altro = '';*/
 
   Future<void> _selezionaData(BuildContext context, bool isDa) async {
@@ -50,6 +52,7 @@ class GaraFormState extends State<GaraForm> {
       'dataA': dataA != null
           ? "${dataA!.year}-${_2(dataA!.month)}-${_2(dataA!.day)}"
           : '',
+      'dsc': dsc,
       /*   'altro': altro,*/
     };
   }
@@ -79,6 +82,7 @@ class GaraFormState extends State<GaraForm> {
                     "Data a", dataA, () => _selezionaData(context, false))),
           ],
         ),
+        _buildDropdownDsc(),
         /*   _buildTextField("Altro (specificare)", (val) => altro = val),*/
       ],
     );
@@ -132,6 +136,24 @@ class GaraFormState extends State<GaraForm> {
         },
         decoration: const InputDecoration(
           labelText: 'Sport',
+          border: OutlineInputBorder(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdownDsc() {
+    final options = availableCronometristi;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<String>(
+        value: dsc.isEmpty ? null : dsc,
+        items: options
+            .map((nome) => DropdownMenuItem(value: nome, child: Text(nome)))
+            .toList(),
+        onChanged: (val) => setState(() => dsc = val ?? ''),
+        decoration: const InputDecoration(
+          labelText: 'DSC',
           border: OutlineInputBorder(),
         ),
       ),

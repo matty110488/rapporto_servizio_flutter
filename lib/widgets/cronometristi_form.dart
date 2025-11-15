@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/cronometristi.dart';
 
 class CronometristiForm extends StatefulWidget {
   const CronometristiForm({Key? key}) : super(key: key);
@@ -10,38 +11,8 @@ class CronometristiForm extends StatefulWidget {
 class CronometristiFormState extends State<CronometristiForm> {
   DateTime? _rangeDa;
   DateTime? _rangeA;
-  final List<String> cronometristiDisponibili = [
-    'ANGIOLETTI Leo',
-    'BARDEA Federico',
-    'BARDEA Matteo',
-    'BARDEA Serafino',
-    'BERNI Elisa',
-    'BONOMI Stefania',
-    'CARUGO Andrea',
-    'CAVANNA Nicoletta',
-    'DEI CAS Marco',
-    'DEL CURTO Sebastiano',
-    'DELL OLIO Cosimo',
-    'GIACOMELLI Fausto',
-    'MARCONI Luca',
-    'NANA Fabiano',
-    'NANI Stefano',
-    'OSMETTI Giulia',
-    'PATRONI Giovanni',
-    'ROMERI Roberta',
-    'ROMERI Stefano',
-    'RUFFONI Fulvia',
-    'RUFFONI Nicola',
-    'RUTTICO Flavio',
-    'SANTOLINI Riccardo',
-    'TARABINI Alessandra',
-    'TOGNOLI Jacopo',
-    'TOGNOLI Mattia',
-    'TOGNOLI Stefano',
-    'ZANELLA Aurelio',
-    'ZUBIANI Lucio',
-    'ALTRA ASSOCIAZIONE',
-  ];
+  final List<String> cronometristiDisponibili =
+      List<String>.from(availableCronometristi);
 
   List<Map<String, dynamic>> righe = [
     {

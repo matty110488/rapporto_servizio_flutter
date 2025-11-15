@@ -45,6 +45,7 @@ Future<File> generaPdfConDati(Map<String, dynamic> dati,
 
   final base = pw.Font.helvetica();
   final bold = pw.Font.helveticaBold();
+  final gara = (dati['gara'] ?? {}) as Map<String, dynamic>;
 
   // Load logo from assets if available
   final Uint8List? logoBytes = await _loadAssetSafe('assets/logo.png');
@@ -60,10 +61,11 @@ Future<File> generaPdfConDati(Map<String, dynamic> dati,
       footer: (context) =>
           _footer(base, context.pageNumber, context.pagesCount),
       build: (context) => [
-        _sezioneGara((dati['gara'] ?? {}) as Map<String, dynamic>, base, bold),
+        _sezioneGara(gara, base, bold),
         pw.SizedBox(height: 16),
         _sezioneCronometristi(
-            (dati['cronometristi'] ?? []) as List, base, bold),
+            (dati['cronometristi'] ?? []) as List, base, bold,
+            direttore: (gara['dsc'] ?? '').toString()),
         pw.SizedBox(height: 16),
         _sezioneApparecchiatura(
             (dati['apparecchiature'] ?? []) as List, base, bold),
@@ -109,6 +111,7 @@ pw.Widget _sezioneGara(Map<String, dynamic> gara, pw.Font base, pw.Font bold) {
   final luogo = (gara['luogo'] ?? '').toString();
   final dataDa = fmt(gara['dataDa']?.toString());
   final dataA = fmt(gara['dataA']?.toString());
+  final dsc = (gara['dsc'] ?? '').toString();
 
   pw.Widget infoRow(String label, String value) => pw.Padding(
         padding: const pw.EdgeInsets.symmetric(vertical: 3),
@@ -143,12 +146,14 @@ pw.Widget _sezioneGara(Map<String, dynamic> gara, pw.Font base, pw.Font bold) {
         infoRow('Luogo', luogo),
         infoRow('Data da', dataDa),
         infoRow('Data a', dataA),
+        if (dsc.isNotEmpty) infoRow('DSC', dsc),
       ],
     ),
   );
 }
 
-pw.Widget _sezioneCronometristi(List elenco, pw.Font base, pw.Font bold) {
+pw.Widget _sezioneCronometristi(List elenco, pw.Font base, pw.Font bold,
+    {String direttore = ''}) {
   double sum(List giorni, String campo) {
     return giorni.fold<double>(0, (t, g) {
       final v = g[campo];
@@ -194,6 +199,14 @@ pw.Widget _sezioneCronometristi(List elenco, pw.Font base, pw.Font bold) {
           style: pw.TextStyle(font: bold, fontSize: 14)),
       pw.SizedBox(height: 6),
       _tabellaRiepilogo(rows, totOre, totKm, totSpese, base, bold),
+      if (direttore.trim().isNotEmpty) ...[
+        pw.SizedBox(height: 6),
+        pw.Align(
+          alignment: pw.Alignment.centerRight,
+          child: pw.Text('Direttore Servizio di Cronometraggio: $direttore',
+              style: pw.TextStyle(font: bold, fontSize: 11)),
+        ),
+      ],
       pw.SizedBox(height: 4),
       pw.Text('* Specificare SI/NO',
           style:
