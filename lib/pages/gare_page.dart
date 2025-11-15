@@ -57,18 +57,48 @@ class _GarePageState extends State<GarePage> {
   }
 
   bool _puoCandidarsi(Gara gara) {
-    final status = gara.status.toUpperCase();
-    if (status == 'GARA COPERTA' || status == 'ANNULLATA') {
+    if (_isStatusBloccato(gara.status)) {
       return _isUserAssigned(gara);
     }
+
     final start = DateTime.tryParse(gara.dataGara);
     if (start == null) return true;
+
     final limite = start.subtract(const Duration(days: 2));
     final now = DateTime.now();
+
     if (now.isAfter(limite)) {
       return _isUserAssigned(gara);
     }
     return true;
+  }
+
+  bool _isStatusBloccato(String status) {
+    final upper = status.toUpperCase();
+    return upper == 'GARA COPERTA' || upper == 'ANNULLATA';
+  }
+
+  Map<String, List<Gara>> _garePerMese() {
+    final sorted = List<Gara>.from(gare)
+      ..sort(
+          (a, b) => a.titolo.toLowerCase().compareTo(b.titolo.toLowerCase()));
+
+    final Map<String, List<Gara>> grouped = {};
+    for (final gara in sorted) {
+      final date = DateTime.tryParse(gara.dataGara);
+      final label = date == null ? 'Senza data' : _meseAnno(date);
+      grouped.putIfAbsent(label, () => []).add(gara);
+    }
+
+    final sortedEntries = grouped.entries.toList()
+      ..sort((a, b) {
+        final daA = DateTime.tryParse(a.value.first.dataGara);
+        final daB = DateTime.tryParse(b.value.first.dataGara);
+        if (daA != null && daB != null) return daA.compareTo(daB);
+        return a.key.compareTo(b.key);
+      });
+
+    return {for (final e in sortedEntries) e.key: e.value};
   }
 
   Future<void> _toggleDisponibilita(Gara gara, bool join) async {
@@ -90,6 +120,7 @@ class _GarePageState extends State<GarePage> {
       await notion.updateKronosDesignati(gara.id, ids);
       await load();
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -132,72 +163,112 @@ class _GarePageState extends State<GarePage> {
       ),
       body: loading
           ? Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: gare.length,
-              itemBuilder: (_, i) {
-                final g = gare[i];
-
-                return Card(
-                  margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: ListTile(
-                    title: Text(g.titolo),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("${g.dataGara} - ${g.localita}"),
-                        if (g.sport.isNotEmpty) Text("Sport: ${g.sport}"),
-                        if (g.status.isNotEmpty)
-                          Text("Status: ${g.status}"),
-                        if (g.organizzatore.isNotEmpty)
-                          Text("Organizzatore: ${g.organizzatore}"),
-                        if (_loggedUserId != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Builder(
-                                builder: (context) {
-                                  final candidabile = _puoCandidarsi(g);
-                                  return ElevatedButton(
-                                    onPressed: !candidabile ||
-                                            updatingGare.contains(g.id)
-                                        ? null
-                                        : () => _toggleDisponibilita(
-                                              g,
-                                              !_isUserAssigned(g),
-                                            ),
-                                    child: updatingGare.contains(g.id)
-                                        ? SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : Text(_isUserAssigned(g)
-                                            ? "Rimuovimi dalla gara"
-                                            : candidabile
-                                                ? "Mi rendo disponibile"
-                                                : "Candidature chiuse"),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DettaglioGara(gara: g),
+          : ListView(
+              children: _garePerMese().entries.map((entry) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        child: Text(
+                          entry.key.toUpperCase(),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
-                      );
-                    },
+                      ),
+                      ...entry.value.map((g) {
+                        final showAction = _loggedUserId != null &&
+                            !_isStatusBloccato(g.status);
+
+                        return Card(
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          child: ListTile(
+                            title: Text(g.titolo),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("${g.dataGara} - ${g.localita}"),
+                                if (g.sport.isNotEmpty) Text(g.sport),
+                                if (g.status.isNotEmpty)
+                                  Text("Status: ${g.status}"),
+                                if (showAction)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 12),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Builder(
+                                        builder: (context) {
+                                          final candidabile = _puoCandidarsi(g);
+                                          return ElevatedButton(
+                                            onPressed: !candidabile ||
+                                                    updatingGare.contains(g.id)
+                                                ? null
+                                                : () => _toggleDisponibilita(
+                                                      g,
+                                                      !_isUserAssigned(g),
+                                                    ),
+                                            child: updatingGare.contains(g.id)
+                                                ? const SizedBox(
+                                                    width: 18,
+                                                    height: 18,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                                  )
+                                                : Text(_isUserAssigned(g)
+                                                    ? "Rimuovimi dalla gara"
+                                                    : candidabile
+                                                        ? "Mi rendo disponibile"
+                                                        : "Designazione chiusa"),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => DettaglioGara(gara: g),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      }),
+                    ],
                   ),
                 );
-              },
+              }).toList(),
             ),
     );
+  }
+
+  String _meseAnno(DateTime date) {
+    const mesi = [
+      'Gennaio',
+      'Febbraio',
+      'Marzo',
+      'Aprile',
+      'Maggio',
+      'Giugno',
+      'Luglio',
+      'Agosto',
+      'Settembre',
+      'Ottobre',
+      'Novembre',
+      'Dicembre',
+    ];
+    final nome = mesi[date.month - 1];
+    return '$nome ${date.year}';
   }
 }

@@ -77,7 +77,8 @@ class _DettaglioGaraState extends State<DettaglioGara> {
         padding: const EdgeInsets.all(16),
         children: [
           Text('Data: ${widget.gara.dataGara}'),
-          Text('Luogo: ${widget.gara.localita}'),
+          Text('Località: ${widget.gara.localita} - '
+              '${widget.gara.sitoGara}'),
           const SizedBox(height: 12),
           Text(
             'DSC: ${dsc.isEmpty ? 'Non assegnato' : dsc}',
