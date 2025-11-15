@@ -16,6 +16,8 @@ import 'package:share_plus/share_plus.dart';
 import 'screens/archivio_screen.dart';
 import 'pages/gare_page.dart';
 import 'pages/login_page.dart';
+import 'models/gara.dart';
+import 'services/notion_service.dart';
 
 void main() {
   runApp(RapportoServizioApp());
@@ -155,7 +157,9 @@ class _RapportoServizioAppState extends State<RapportoServizioApp> {
 }
 
 class RootScreen extends StatefulWidget {
-  const RootScreen({super.key});
+  final Map<String, dynamic> loggedUser;
+
+  const RootScreen({super.key, required this.loggedUser});
 
   @override
   State<RootScreen> createState() => _RootScreenState();
@@ -168,8 +172,257 @@ class _RootScreenState extends State<RootScreen> {
   final danniKey = GlobalKey<DanniFormState>();
   final allegatiKey = GlobalKey<AllegatiFormState>();
 
+  late NotionService notion;
+  List<Gara> gareDisponibili = [];
+  bool loadingGareList = true;
+  String? gareError;
+  Gara? selectedGara;
+  int formVersion = 0;
+
+  String? get _loggedUserId {
+    final id = widget.loggedUser['id'];
+    if (id is String && id.isNotEmpty) return id;
+    return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    notion = NotionService(
+      apiKey: "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",
+      databaseId: "2acde089ef958065aa24fce00357a425",
+    );
+    _loadGareDsc();
+  }
+
+  Future<void> _loadGareDsc() async {
+    setState(() {
+      loadingGareList = true;
+      gareError = null;
+    });
+    try {
+      final results = await notion.fetchGare();
+      final allGare =
+          results.map((e) => Gara.fromNotion(e)).toList(growable: false);
+      final userId = _loggedUserId;
+      final filtered = userId == null
+          ? <Gara>[]
+          : allGare.where((g) => g.dscIds.contains(userId)).toList();
+
+      final previousId = selectedGara?.id;
+      Gara? nextSelection;
+      if (previousId != null) {
+        for (final gara in filtered) {
+          if (gara.id == previousId) {
+            nextSelection = gara;
+            break;
+          }
+        }
+      }
+      nextSelection ??= filtered.length == 1 ? filtered.first : null;
+      final selectionChanged =
+          (previousId ?? '') != (nextSelection?.id ?? '');
+
+      if (!mounted) return;
+      setState(() {
+        gareDisponibili = filtered;
+        loadingGareList = false;
+        selectedGara = nextSelection;
+        if (selectionChanged) {
+          formVersion++;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        gareError = e.toString();
+        loadingGareList = false;
+      });
+    }
+  }
+
+  void _selectGara(Gara gara) {
+    setState(() {
+      selectedGara = gara;
+      formVersion++;
+    });
+  }
+
+  Widget _buildGareSelectionCard() {
+    if (loadingGareList) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: const [
+              CircularProgressIndicator(),
+              SizedBox(width: 12),
+              Expanded(child: Text("Carico le gare in cui sei DSC...")),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (gareError != null) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Impossibile recuperare le gare",
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(gareError!),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _loadGareDsc,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Riprova'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (gareDisponibili.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            "Non risultano gare in cui risulti DSC. Contatta la segreteria per abilitare il rapportino.",
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Seleziona la gara per cui vuoi compilare il rapportino",
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: gareDisponibili.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final gara = gareDisponibili[index];
+                return RadioListTile<String>(
+                  value: gara.id,
+                  groupValue: selectedGara?.id,
+                  onChanged: (_) => _selectGara(gara),
+                  title: Text(gara.titolo),
+                  subtitle: Text("${gara.dataGara} - ${gara.localita}"),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectedGaraInfo() {
+    final gara = selectedGara;
+    if (gara == null) return const SizedBox.shrink();
+
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.event_available),
+        title: Text(gara.titolo),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Data: ${gara.dataGara}"),
+            Text("Luogo: ${gara.localita}"),
+            if (gara.organizzatore.isNotEmpty)
+              Text("Organizzatore: ${gara.organizzatore}"),
+            if (gara.sport.isNotEmpty) Text("Sport: ${gara.sport}"),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRapportoForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        HeaderWidget(),
+        SizedBox(height: 24),
+        GaraForm(
+          key: garaKey,
+          onDateRangeChanged: (da, a) {
+            cronometristiKey.currentState?.syncDaysWithRange(da, a);
+          },
+        ),
+        SizedBox(height: 24),
+        CronometristiForm(key: cronometristiKey),
+        SizedBox(height: 24),
+        ApparecchiaturaForm(key: apparecchiaturaKey),
+        SizedBox(height: 24),
+        DanniForm(key: danniKey),
+        AllegatiForm(key: allegatiKey),
+        SizedBox(height: 24),
+        ElevatedButton.icon(
+          onPressed: () async {
+            final garaSelezionata = selectedGara;
+            if (garaSelezionata == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Seleziona prima una gara in cui sei DSC'),
+                ),
+              );
+              return;
+            }
+
+            final gara = garaKey.currentState?.getData() ?? {};
+            final cronos = cronometristiKey.currentState?.getData() ?? [];
+            final app = apparecchiaturaKey.currentState?.getData() ?? [];
+            final danni = danniKey.currentState?.getData() ?? '';
+            final immagini = allegatiKey.currentState?.getImages() ?? [];
+
+            final file = await generaPdfConDati({
+              'gara': gara,
+              'cronometristi': cronos,
+              'apparecchiature': app,
+              'danni': danni,
+              'allegati': immagini,
+              'garaSelezionata': {
+                'id': garaSelezionata.id,
+                'titolo': garaSelezionata.titolo,
+                'data': garaSelezionata.dataGara,
+                'luogo': garaSelezionata.localita,
+              },
+            }, salvaLocalmente: true);
+            await Share.shareXFiles([XFile(file.path)],
+                text: 'Rapporto PDF');
+          },
+          icon: Icon(Icons.picture_as_pdf),
+          label: Text("Genera e invia PDF"),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final canFillForm = selectedGara != null;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Rapporto'),
@@ -192,42 +445,31 @@ class _RootScreenState extends State<RootScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              HeaderWidget(),
-              SizedBox(height: 24),
-              GaraForm(
-                key: garaKey,
-                onDateRangeChanged: (da, a) {
-                  cronometristiKey.currentState?.syncDaysWithRange(da, a);
-                },
-              ),
-              SizedBox(height: 24),
-              CronometristiForm(key: cronometristiKey),
-              SizedBox(height: 24),
-              ApparecchiaturaForm(key: apparecchiaturaKey),
-              SizedBox(height: 24),
-              DanniForm(key: danniKey),
-              AllegatiForm(key: allegatiKey),
-              SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  final gara = garaKey.currentState?.getData() ?? {};
-                  final cronos = cronometristiKey.currentState?.getData() ?? [];
-                  final app = apparecchiaturaKey.currentState?.getData() ?? [];
-                  final danni = danniKey.currentState?.getData() ?? '';
-                  final immagini = allegatiKey.currentState?.getImages() ?? [];
-
-                  final file = await generaPdfConDati({
-                    'gara': gara,
-                    'cronometristi': cronos,
-                    'apparecchiature': app,
-                    'danni': danni,
-                    'allegati': immagini,
-                  }, salvaLocalmente: true);
-                  await Share.shareXFiles([XFile(file.path)],
-                      text: 'Rapporto PDF');
-                },
-                icon: Icon(Icons.picture_as_pdf),
-                label: Text("Genera e invia PDF"),
+              _buildGareSelectionCard(),
+              const SizedBox(height: 16),
+              _buildSelectedGaraInfo(),
+              if (!canFillForm &&
+                  !loadingGareList &&
+                  gareDisponibili.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'Seleziona una gara per abilitare il rapportino.',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
+              IgnorePointer(
+                ignoring: !canFillForm,
+                child: Opacity(
+                  opacity: canFillForm ? 1 : 0.35,
+                  child: KeyedSubtree(
+                    key: ValueKey(formVersion),
+                    child: _buildRapportoForm(),
+                  ),
+                ),
               ),
             ],
           ),
@@ -236,6 +478,7 @@ class _RootScreenState extends State<RootScreen> {
     );
   }
 }
+
 
 class HomePage extends StatelessWidget {
   final Map<String, dynamic> loggedUser;
@@ -294,7 +537,7 @@ class HomePage extends StatelessWidget {
         label: 'Rapporto',
         onTap: () => _openPage(
           context,
-          RootScreen(),
+          RootScreen(loggedUser: loggedUser),
         ),
       ),
       _HomeNavData(
