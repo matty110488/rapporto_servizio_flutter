@@ -40,7 +40,21 @@ class _GarePageState extends State<GarePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Gare 2025")),
+      appBar: AppBar(
+        title: Text("Gare 2025"),
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
+            icon: const Icon(Icons.home),
+            label: const Text('Home'),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
       body: loading
           ? Center(child: CircularProgressIndicator())
           : ListView.builder(
@@ -55,7 +69,7 @@ class _GarePageState extends State<GarePage> {
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("${g.dataGara} • ${g.localita}"),
+                        Text("${g.dataGara} - ${g.localita}"),
                         if (g.sport.isNotEmpty) Text("Sport: ${g.sport}"),
                         if (g.sitoGara.isNotEmpty) Text("Sito: ${g.sitoGara}"),
                         if (g.organizzatore.isNotEmpty)

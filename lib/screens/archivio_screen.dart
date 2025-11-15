@@ -34,7 +34,21 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Archivio PDF')),
+      appBar: AppBar(
+        title: Text('Archivio PDF'),
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
+            icon: const Icon(Icons.home),
+            label: const Text('Home'),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
       body: files.isEmpty
           ? Center(child: Text('Nessun PDF salvato.'))
           : ListView.builder(

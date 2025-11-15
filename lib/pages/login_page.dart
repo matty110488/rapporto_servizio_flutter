@@ -53,34 +53,48 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Login Cronometristi")),
-      body: Padding(
-        padding: EdgeInsets.all(20),
-        child: Column(
-          children: [
-            TextField(
-              controller: userCtrl,
-              decoration: InputDecoration(labelText: "Username"),
-            ),
-            SizedBox(height: 10),
-            TextField(
-              controller: passCtrl,
-              obscureText: true,
-              decoration: InputDecoration(labelText: "Password"),
-            ),
-            SizedBox(height: 20),
-            if (loading)
-              CircularProgressIndicator()
-            else
-              ElevatedButton(
-                onPressed: doLogin,
-                child: Text("Accedi"),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Image.asset(
+                'assets/logo.png',
+                height: 140,
+                fit: BoxFit.contain,
               ),
-            if (errorMsg != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Text(errorMsg!, style: TextStyle(color: Colors.red)),
+              SizedBox(height: 24),
+              TextField(
+                controller: userCtrl,
+                decoration: InputDecoration(labelText: "Username"),
               ),
-          ],
+              SizedBox(height: 12),
+              TextField(
+                controller: passCtrl,
+                obscureText: true,
+                decoration: InputDecoration(labelText: "Password"),
+              ),
+              SizedBox(height: 24),
+              if (loading)
+                Center(child: CircularProgressIndicator())
+              else
+                ElevatedButton(
+                  onPressed: doLogin,
+                  child: Text("Accedi"),
+                ),
+              if (errorMsg != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    errorMsg!,
+                    style: TextStyle(color: Colors.red),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
