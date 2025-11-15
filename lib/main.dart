@@ -21,15 +21,17 @@ import 'models/gara.dart';
 import 'services/notion_service.dart';
 
 void main() {
-  runApp(RapportoServizioApp());
+  runApp(CronoValtellinesiApp());
 }
 
-class RapportoServizioApp extends StatefulWidget {
-  @override
-  State<RapportoServizioApp> createState() => _RapportoServizioAppState();
+class CronoValtellinesiApp extends StatefulWidget {
+@override
+  State<CronoValtellinesiApp> createState() =>
+      _CronoValtellinesiAppState();
 }
 
-class _RapportoServizioAppState extends State<RapportoServizioApp> {
+class _CronoValtellinesiAppState
+    extends State<CronoValtellinesiApp> {
   Map<String, dynamic>? loggedUser;
   bool restoringSession = true;
 
@@ -144,7 +146,7 @@ class _RapportoServizioAppState extends State<RapportoServizioApp> {
 
     // 🔓 Se loggato → mostra la nuova home
     return MaterialApp(
-      title: 'Rapporto di Servizio',
+      title: 'Crono Valtellinesi',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system,
       theme: theme,
@@ -528,7 +530,7 @@ class _RootScreenState extends State<RootScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Rapporto'),
+        title: Text('Crono Valtellinesi'),
         actions: [
           TextButton.icon(
             onPressed: () {

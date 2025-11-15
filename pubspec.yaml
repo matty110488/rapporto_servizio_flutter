@@ -1,6 +1,6 @@
 name: rapporto_servizio
 description: App rapporto di fine servizio
-version: 1.0.1+2
+version: 1.1.0+3
 
 environment:
   sdk: ">=3.1.0 <4.0.0"
