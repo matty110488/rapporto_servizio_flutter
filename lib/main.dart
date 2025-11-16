@@ -20,18 +20,103 @@ import 'pages/login_page.dart';
 import 'models/gara.dart';
 import 'services/notion_service.dart';
 
-void main() {
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+import 'package:http/http.dart' as http;
+
+// ------------------------------------------------------------
+//  NOTIFICHE
+// ------------------------------------------------------------
+
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp();
+  await _initFirebaseMessaging();
+
   runApp(CronoValtellinesiApp());
 }
 
-class CronoValtellinesiApp extends StatefulWidget {
-@override
-  State<CronoValtellinesiApp> createState() =>
-      _CronoValtellinesiAppState();
+Future<void> sendTokenToBackend(String userId, String token) async {
+  final url = Uri.parse("http://192.168.1.21:3000/save-token");
+
+  try {
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "userId": userId,
+        "fcmToken": token,
+      }),
+    );
+
+    print("📡 Token inviato per $userId (status ${response.statusCode})");
+  } catch (e) {
+    print("❌ Errore invio token al backend: $e");
+  }
 }
 
-class _CronoValtellinesiAppState
-    extends State<CronoValtellinesiApp> {
+Future<void> _initFirebaseMessaging() async {
+  final messaging = FirebaseMessaging.instance;
+
+  // Permessi Android 13+ e iOS
+  await messaging.requestPermission();
+
+  // Token dispositivo
+  final token = await messaging.getToken();
+  print("FCM TOKEN: $token");
+  if (token != null && globalLoggedUserId != null) {
+    await sendTokenToBackend(globalLoggedUserId!, token);
+  }
+
+  // Inizializzazione notifiche locali
+  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const initSettings = InitializationSettings(android: androidSettings);
+
+  await flutterLocalNotificationsPlugin.initialize(initSettings);
+
+  // Notifiche in foreground
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    final notif = message.notification;
+    if (notif != null) {
+      flutterLocalNotificationsPlugin.show(
+        0,
+        notif.title,
+        notif.body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'default_channel',
+            'Notifiche',
+            importance: Importance.max,
+            priority: Priority.high,
+          ),
+        ),
+      );
+    }
+  });
+
+  // Notifica cliccata quando l'app e chiusa
+  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    print("Notifica aperta: ${message.notification?.title}");
+  });
+}
+
+// ------------------------------------------------------------
+//  APP ROOT
+// ------------------------------------------------------------
+
+class CronoValtellinesiApp extends StatefulWidget {
+  @override
+  State<CronoValtellinesiApp> createState() => _CronoValtellinesiAppState();
+}
+
+class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
   Map<String, dynamic>? loggedUser;
   bool restoringSession = true;
 
@@ -44,16 +129,20 @@ class _CronoValtellinesiAppState
   Future<void> _restoreSession() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getString('logged_user');
+
     Map<String, dynamic>? user;
+
     if (stored != null) {
       final decoded = jsonDecode(stored);
       if (decoded is Map<String, dynamic>) {
         user = decoded;
       } else if (decoded is Map) {
-        user = Map<String, dynamic>.from(decoded as Map);
+        user = Map<String, dynamic>.from(decoded);
       }
     }
+
     if (!mounted) return;
+
     setState(() {
       loggedUser = user;
       restoringSession = false;
@@ -63,16 +152,27 @@ class _CronoValtellinesiAppState
   Future<void> _handleLogin(Map<String, dynamic> user) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('logged_user', jsonEncode(user));
+
     if (!mounted) return;
+
     setState(() {
       loggedUser = user;
     });
+    globalLoggedUserId = user['id'];
+
+// 👉 ottieni di nuovo il token e invialo ORA al backend
+    final token = await FirebaseMessaging.instance.getToken();
+    if (token != null) {
+      sendTokenToBackend(globalLoggedUserId!, token);
+    }
   }
 
   Future<void> _handleLogout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('logged_user');
+
     if (!mounted) return;
+
     setState(() {
       loggedUser = null;
     });
@@ -108,11 +208,6 @@ class _CronoValtellinesiAppState
           side: const BorderSide(color: Colors.black),
         ),
       ),
-      bottomNavigationBarTheme: base.bottomNavigationBarTheme.copyWith(
-        backgroundColor: Colors.white,
-        selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.black.withOpacity(0.6),
-      ),
       iconTheme: base.iconTheme.copyWith(color: Colors.black),
     );
   }
@@ -131,26 +226,18 @@ class _CronoValtellinesiAppState
       );
     }
 
-    // 🔒 SE NON È LOGGATO → Mostra la schermata login
     if (loggedUser == null) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: theme,
-        home: LoginPage(
-          onLogin: (user) {
-            _handleLogin(user);
-          },
-        ),
+        home: LoginPage(onLogin: _handleLogin),
       );
     }
 
-    // 🔓 Se loggato → mostra la nuova home
     return MaterialApp(
       title: 'Crono Valtellinesi',
       debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.system,
       theme: theme,
-      darkTheme: theme,
       home: HomePage(
         loggedUser: loggedUser!,
         onLogout: _handleLogout,
@@ -158,6 +245,10 @@ class _CronoValtellinesiAppState
     );
   }
 }
+
+// ------------------------------------------------------------
+//  ROOT SCREEN (rapportino) – TUTTO IL TUO CODICE ORIGINALE
+// ------------------------------------------------------------
 
 class RootScreen extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
@@ -589,6 +680,10 @@ class _RootScreenState extends State<RootScreen> {
   }
 }
 
+// ------------------------------------------------------------
+//  HOME PAGE
+// ------------------------------------------------------------
+
 class HomePage extends StatelessWidget {
   final Map<String, dynamic> loggedUser;
   final VoidCallback onLogout;
@@ -677,7 +772,6 @@ class HomePage extends StatelessWidget {
             ),
           ),
         ),
-        // title: Text('Benvenuto $userName'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -688,11 +782,6 @@ class HomePage extends StatelessWidget {
               'Ciao $userName',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
-            const SizedBox(height: 8),
-            //  Text(
-            //   'Seleziona una sezione',
-            //    style: Theme.of(context).textTheme.titleMedium,
-            //  ),
             const SizedBox(height: 16),
             Expanded(
               child: GridView.count(
@@ -725,6 +814,10 @@ class HomePage extends StatelessWidget {
     );
   }
 }
+
+// ------------------------------------------------------------
+//  HOME CARD
+// ------------------------------------------------------------
 
 class _HomeNavData {
   final IconData icon;
@@ -776,3 +869,5 @@ class _HomeCard extends StatelessWidget {
     );
   }
 }
+
+String? globalLoggedUserId;

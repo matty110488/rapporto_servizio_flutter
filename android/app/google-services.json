@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "302480518812",
+    "project_id": "appkronos-1d181",
+    "storage_bucket": "appkronos-1d181.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:302480518812:android:e633198eedc5b5b870c759",
+        "android_client_info": {
+          "package_name": "com.mattia.app_kronos"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAz2M98-re41H8ofucaPTVaEZA9tkXBd7Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
