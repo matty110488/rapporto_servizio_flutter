@@ -1,4 +1,4 @@
-package com.example.rapporto_servizio
+package com.mattia.app_kronos
 
 import io.flutter.embedding.android.FlutterActivity
 
