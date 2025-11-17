@@ -87,7 +87,7 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
     globalLoggedUserId = null;
   }
 
-  ThemeData _buildWhiteBlueTheme() {
+  /* ThemeData _buildWhiteBlueTheme() {
     final base = ThemeData.light();
     final colorScheme = base.colorScheme.copyWith(
       primary: Colors.blue,
@@ -120,10 +120,79 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
       iconTheme: base.iconTheme.copyWith(color: Colors.black),
     );
   }
+*/
+
+  ThemeData _buildSportTheme() {
+    const primary = Color(0xFF006CFF); // blu elettrico
+    const accent = Color(0xFFFFC800); // giallo cronometro
+    const dark = Color(0xFF111111); // nero profondo
+    const grayDark = Color(0xFF333333); // grigio sportivo
+    const bg = Color(0xFFF7F7F7); // sfondo chiaro
+
+    final base = ThemeData.light();
+
+    return base.copyWith(
+      primaryColor: primary,
+      scaffoldBackgroundColor: bg,
+      colorScheme: base.colorScheme.copyWith(
+        primary: primary,
+        secondary: accent,
+        background: bg,
+        surface: Colors.white,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: dark,
+        foregroundColor: Colors.white,
+        elevation: 2,
+        centerTitle: true,
+      ),
+      textTheme: base.textTheme.apply(
+        bodyColor: dark,
+        displayColor: dark,
+        fontFamily: 'Roboto',
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+      ),
+      cardTheme: const CardThemeData(
+        color: Colors.white,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        labelStyle: const TextStyle(color: grayDark),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: primary, width: 2),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: grayDark, width: 1),
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = _buildWhiteBlueTheme();
+    // final theme = _buildWhiteBlueTheme();
+    final theme = _buildSportTheme();
 
     if (restoringSession) {
       return MaterialApp(
