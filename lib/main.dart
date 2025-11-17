@@ -122,66 +122,83 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
   }
 */
 
-  ThemeData _buildSportTheme() {
-    const primary = Color(0xFF006CFF); // blu elettrico
-    const accent = Color(0xFFFFC800); // giallo cronometro
-    const dark = Color(0xFF111111); // nero profondo
-    const grayDark = Color(0xFF333333); // grigio sportivo
-    const bg = Color(0xFFF7F7F7); // sfondo chiaro
+  ThemeData _buildPremiumTheme() {
+    const primary = Color(0xFF0A66C2); // blu elegante
+    const textColor = Color(0xFF1C1C1E); // nero soft
+    const lightGray = Color(0xFFF2F2F7); // grigio Apple
 
     final base = ThemeData.light();
 
     return base.copyWith(
       primaryColor: primary,
-      scaffoldBackgroundColor: bg,
+      scaffoldBackgroundColor: Colors.white,
       colorScheme: base.colorScheme.copyWith(
         primary: primary,
-        secondary: accent,
-        background: bg,
+        secondary: primary,
+        background: Colors.white,
         surface: Colors.white,
       ),
+
+      // --- APP BAR ---
       appBarTheme: const AppBarTheme(
-        backgroundColor: dark,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        centerTitle: true,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0.8,
+        shadowColor: Colors.black12,
+        centerTitle: false,
       ),
+
+      // --- TESTI ---
       textTheme: base.textTheme.apply(
-        bodyColor: dark,
-        displayColor: dark,
+        bodyColor: textColor,
+        displayColor: textColor,
         fontFamily: 'Roboto',
       ),
+
+      // --- CARD ---
+      cardTheme: CardThemeData(
+        color: Colors.white,
+        elevation: 2,
+        shadowColor: Colors.black12,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+      ),
+
+      // --- BOTTONI ---
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primary,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           textStyle: const TextStyle(
-            fontWeight: FontWeight.bold,
             fontSize: 16,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
-      cardTheme: const CardThemeData(
-        color: Colors.white,
-        elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(16)),
-        ),
+
+      // --- ICONS ---
+      iconTheme: const IconThemeData(
+        color: primary,
+        size: 28,
       ),
+
+      // --- CAMPI DI TESTO ---
       inputDecorationTheme: InputDecorationTheme(
-        labelStyle: const TextStyle(color: grayDark),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: primary, width: 2),
-        ),
+        filled: true,
+        fillColor: lightGray,
+        labelStyle: TextStyle(color: textColor.withOpacity(0.8)),
         enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: grayDark, width: 1),
+          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(12),
         ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+        focusedBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: primary, width: 2),
+          borderRadius: BorderRadius.circular(12),
         ),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -192,7 +209,7 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
   @override
   Widget build(BuildContext context) {
     // final theme = _buildWhiteBlueTheme();
-    final theme = _buildSportTheme();
+    final theme = _buildPremiumTheme();
 
     if (restoringSession) {
       return MaterialApp(
