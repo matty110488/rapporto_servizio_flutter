@@ -48,7 +48,7 @@ class _RootScreenState extends State<RootScreen> {
     super.initState();
     notion = NotionService(
       apiKey: "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",
-      databaseId: "2acde089ef958065aa24fce00357a425",
+      databaseId: "2afde089ef9580e2b0e7d19d44f3a3f6",
     );
     _loadGareDsc();
   }
@@ -272,8 +272,8 @@ class _RootScreenState extends State<RootScreen> {
                   )
                   .toList(),
               onChanged: (value) {
-                final gara =
-                    gareDisponibili.firstWhere((g) => g.id == value, orElse: () {
+                final gara = gareDisponibili.firstWhere((g) => g.id == value,
+                    orElse: () {
                   return gareDisponibili.first;
                 });
                 _selectGara(gara);

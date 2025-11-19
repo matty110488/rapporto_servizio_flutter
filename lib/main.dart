@@ -131,7 +131,8 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
 
     return base.copyWith(
       primaryColor: primary,
-      scaffoldBackgroundColor: Colors.white,
+      scaffoldBackgroundColor: const Color.fromARGB(255, 179, 209, 241),
+      //scaffoldBackgroundColor: Color(0xFFE9F2FF),
       colorScheme: base.colorScheme.copyWith(
         primary: primary,
         secondary: primary,

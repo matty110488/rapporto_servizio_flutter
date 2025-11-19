@@ -62,11 +62,63 @@ class Gara {
       return List<String>.from(list.map((x) => x["id"]));
     }
 
+    String selectOrStatusName(Map? obj) {
+      if (obj == null) return "";
+
+      String pick(Map? source) {
+        if (source == null) return "";
+        final name = source["name"];
+        if (name is String && name.isNotEmpty) return name;
+        return "";
+      }
+
+      final selectName = pick(obj["select"]);
+      if (selectName.isNotEmpty) return selectName;
+
+      final statusName = pick(obj["status"]);
+      if (statusName.isNotEmpty) return statusName;
+
+      return "";
+    }
+
     List<String> multiSelect(Map? obj) {
       if (obj == null) return [];
       final list = obj["multi_select"];
       if (list == null) return [];
       return List<String>.from(list.map((x) => x["name"]));
+    }
+
+    String pickLocalita(Map? props) {
+      if (props == null) return "";
+      const candidateKeys = [
+        "LOCALITA'",
+        "LOCALITA\u2019",
+        "LOCALIT\u00c0",
+        "LOCALITA",
+        "LOCALITA?",
+      ];
+
+      for (final key in candidateKeys) {
+        final value = text(props[key]);
+        if (value.isNotEmpty) return value;
+      }
+      return "";
+    }
+
+    String pickStatus(Map<String, dynamic>? props) {
+      if (props == null) return "";
+      const candidateKeys = [
+        "STATUS",
+        "STATUS GARA",
+        "STATO",
+        "STATO GARA",
+      ];
+
+      for (final key in candidateKeys) {
+        final value = selectOrStatusName(props[key]);
+        if (value.isNotEmpty) return value;
+      }
+      return "";
     }
 
     return Gara(
@@ -75,7 +127,7 @@ class Gara {
       sport: p["SPORT"]?["select"]?["name"] ?? "",
       dataGara: p["DATA GARA"]?["date"]?["start"] ?? "",
       dataGaraFine: p["DATA GARA"]?["date"]?["end"] ?? "",
-      localita: text(p["LOCALITÀ"]),
+      localita: pickLocalita(p),
       sitoGara: text(p["SITO GARA"]),
       organizzatore: text(p["ORGANIZZATORE"]),
       dataRichiesta: p["DATA RICHIESTA"]?["date"]?["start"] ?? "",
@@ -84,7 +136,7 @@ class Gara {
       pcSegreteriaIds: relation(p["PC SEGRETERIA"]),
       apparecchiature: multiSelect(p["APPARECCHIATURA"]),
       tipologia: p["TIPOLOGIA"]?["select"]?["name"] ?? "",
-      status: p["STATUS"]?["select"]?["name"] ?? "",
+      status: pickStatus(p),
     );
   }
 }

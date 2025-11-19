@@ -71,7 +71,7 @@ class HomePage extends StatelessWidget {
       ),
       _HomeNavData(
         icon: Icons.flag,
-        label: 'Gare',
+        label: 'Calendario Gare',
         onTap: () => _openPage(
           context,
           GarePage(loggedUser: loggedUser),
@@ -108,6 +108,7 @@ class HomePage extends StatelessWidget {
                 crossAxisCount: 2,
                 mainAxisSpacing: 16,
                 crossAxisSpacing: 16,
+                childAspectRatio: 0.9,
                 children: navItems
                     .map(
                       (item) => _HomeCard(
@@ -147,7 +148,7 @@ class _HomeNavData {
   });
 }
 
-class _HomeCard extends StatelessWidget {
+/* class _HomeCard extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
@@ -176,6 +177,54 @@ class _HomeCard extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+*/
+class _HomeCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _HomeCard({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      elevation: 2,
+      shadowColor: Colors.black12,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 26),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 48,
+                color: Theme.of(context).primaryColor,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
+                    ),
                 textAlign: TextAlign.center,
               ),
             ],

@@ -25,7 +25,7 @@ class _DettaglioGaraState extends State<DettaglioGara> {
     super.initState();
     notion = NotionService(
       apiKey: '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',
-      databaseId: '2acde089ef958065aa24fce00357a425',
+      databaseId: '2afde089ef9580e2b0e7d19d44f3a3f6',
     );
     loadPeople();
   }
@@ -79,6 +79,7 @@ class _DettaglioGaraState extends State<DettaglioGara> {
           Text('Data: ${widget.gara.dataGara}'),
           Text('Località: ${widget.gara.localita} - '
               '${widget.gara.sitoGara}'),
+          Text('Status: ${widget.gara.status.isEmpty ? 'Non specificato' : widget.gara.status}'),
           const SizedBox(height: 12),
           Text(
             'DSC: ${dsc.isEmpty ? 'Non assegnato' : dsc}',
