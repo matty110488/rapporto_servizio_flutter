@@ -182,9 +182,9 @@ class _RootScreenState extends State<RootScreen> {
     final end = gara.dataGaraFine.isNotEmpty
         ? _formatDateLabel(gara.dataGaraFine)
         : start;
-    final dateLabel = (end != start) ? "$start �+' $end" : start;
+    final dateLabel = (end != start) ? "$start - $end" : start;
     final luogo = gara.localita.isEmpty ? '-' : gara.localita;
-    return "$dateLabel A� ${gara.titolo} A� $luogo";
+    return "$dateLabel - ${gara.titolo} - $luogo";
   }
 
   String _garaDateRange(Gara gara) {
@@ -192,7 +192,7 @@ class _RootScreenState extends State<RootScreen> {
     final end = gara.dataGaraFine.isNotEmpty
         ? _formatDateLabel(gara.dataGaraFine)
         : start;
-    return end != start ? "$start �+' $end" : start;
+    return end != start ? "$start - $end" : start;
   }
 
   Widget _buildGareSelectionCard() {
@@ -314,63 +314,91 @@ class _RootScreenState extends State<RootScreen> {
   }
 
   Widget _buildRapportoForm() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        HeaderWidget(),
-        SizedBox(height: 24),
-        GaraForm(
-          key: garaKey,
-          onDateRangeChanged: (da, a) {
-            cronometristiKey.currentState?.syncDaysWithRange(da, a);
-          },
-        ),
-        SizedBox(height: 24),
-        CronometristiForm(key: cronometristiKey),
-        SizedBox(height: 24),
-        ApparecchiaturaForm(key: apparecchiaturaKey),
-        SizedBox(height: 24),
-        DanniForm(key: danniKey),
-        AllegatiForm(key: allegatiKey),
-        SizedBox(height: 24),
-        ElevatedButton.icon(
-          onPressed: () async {
-            final garaSelezionata = selectedGara;
-            if (garaSelezionata == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Seleziona prima una gara in cui sei DSC'),
-                ),
-              );
-              return;
-            }
+    final titleStyle = Theme.of(context)
+        .textTheme
+        .titleMedium
+        ?.copyWith(fontWeight: FontWeight.w700);
 
-            final gara = garaKey.currentState?.getData() ?? {};
-            final cronos = cronometristiKey.currentState?.getData() ?? [];
-            final app = apparecchiaturaKey.currentState?.getData() ?? [];
-            final danni = danniKey.currentState?.getData() ?? '';
-            final immagini = allegatiKey.currentState?.getImages() ?? [];
+    Widget sectionTitle(String text) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(text, style: titleStyle),
+      );
+    }
 
-            final file = await generaPdfConDati({
-              'gara': gara,
-              'cronometristi': cronos,
-              'apparecchiature': app,
-              'danni': danni,
-              'allegati': immagini,
-              'garaSelezionata': {
-                'id': garaSelezionata.id,
-                'titolo': garaSelezionata.titolo,
-                'data': garaSelezionata.dataGara,
-                'dataFine': garaSelezionata.dataGaraFine,
-                'luogo': garaSelezionata.localita,
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            HeaderWidget(),
+            const SizedBox(height: 16),
+            sectionTitle('Dati gara'),
+            GaraForm(
+              key: garaKey,
+              onDateRangeChanged: (da, a) {
+                cronometristiKey.currentState?.syncDaysWithRange(da, a);
               },
-            }, salvaLocalmente: true);
-            await Share.shareXFiles([XFile(file.path)], text: 'Rapporto PDF');
-          },
-          icon: Icon(Icons.picture_as_pdf),
-          label: Text("Genera e invia PDF"),
+            ),
+            const SizedBox(height: 16),
+            sectionTitle('Cronometristi'),
+            CronometristiForm(key: cronometristiKey),
+            const SizedBox(height: 16),
+            sectionTitle('Apparecchiatura'),
+            ApparecchiaturaForm(key: apparecchiaturaKey),
+            const SizedBox(height: 16),
+            sectionTitle('Danni'),
+            DanniForm(key: danniKey),
+            const SizedBox(height: 16),
+            sectionTitle('Allegati'),
+            AllegatiForm(key: allegatiKey),
+            const SizedBox(height: 20),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final garaSelezionata = selectedGara;
+                  if (garaSelezionata == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Seleziona prima una gara in cui sei DSC'),
+                      ),
+                    );
+                    return;
+                  }
+
+                  final gara = garaKey.currentState?.getData() ?? {};
+                  final cronos = cronometristiKey.currentState?.getData() ?? [];
+                  final app = apparecchiaturaKey.currentState?.getData() ?? [];
+                  final danni = danniKey.currentState?.getData() ?? '';
+                  final immagini = allegatiKey.currentState?.getImages() ?? [];
+
+                  final file = await generaPdfConDati({
+                    'gara': gara,
+                    'cronometristi': cronos,
+                    'apparecchiature': app,
+                    'danni': danni,
+                    'allegati': immagini,
+                    'garaSelezionata': {
+                      'id': garaSelezionata.id,
+                      'titolo': garaSelezionata.titolo,
+                      'data': garaSelezionata.dataGara,
+                      'dataFine': garaSelezionata.dataGaraFine,
+                      'luogo': garaSelezionata.localita,
+                    },
+                  }, salvaLocalmente: true);
+                  await Share.shareXFiles([XFile(file.path)], text: 'Rapporto PDF');
+                },
+                icon: const Icon(Icons.picture_as_pdf),
+                label: const Text("Genera e invia PDF"),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 

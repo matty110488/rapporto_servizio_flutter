@@ -193,6 +193,8 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
         filled: true,
         fillColor: lightGray,
         labelStyle: TextStyle(color: textColor.withOpacity(0.8)),
+        // Nasconde l'etichetta quando il campo ha un valore (anche se precompilato).
+        floatingLabelBehavior: FloatingLabelBehavior.never,
         enabledBorder: OutlineInputBorder(
           borderSide: BorderSide.none,
           borderRadius: BorderRadius.circular(12),
