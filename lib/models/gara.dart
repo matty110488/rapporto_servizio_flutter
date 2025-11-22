@@ -88,6 +88,33 @@ class Gara {
       return List<String>.from(list.map((x) => x["name"]));
     }
 
+    String pickSport(Map<String, dynamic>? props) {
+      if (props == null) return "";
+      const candidateKeys = [
+        "SPORT",
+        "Sport",
+        "DISCIPLINA",
+        "Disciplina",
+        "DISCIPLINE",
+        "Discipline",
+      ];
+
+      for (final key in candidateKeys) {
+        final value = props[key];
+        if (value is Map<String, dynamic>) {
+          // Select / Status
+          final selectValue = selectOrStatusName(value);
+          if (selectValue.isNotEmpty) return selectValue;
+
+          // Multi-select
+          final multi = multiSelect(value);
+          if (multi.isNotEmpty) return multi.join(', ');
+        }
+      }
+
+      return "";
+    }
+
     String pickLocalita(Map? props) {
       if (props == null) return "";
       const candidateKeys = [
@@ -136,7 +163,7 @@ class Gara {
     return Gara(
       id: json["id"],
       titolo: title(p["GARA"]),
-      sport: p["SPORT"]?["select"]?["name"] ?? "",
+      sport: pickSport(p),
       dataGara: p["DATA GARA"]?["date"]?["start"] ?? "",
       dataGaraFine: p["DATA GARA"]?["date"]?["end"] ?? "",
       localita: pickLocalita(p),
