@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../pdf/generatore_pdf2.dart';
 import '../services/notion_service.dart';
@@ -11,6 +12,7 @@ import '../widgets/cronometristi_form.dart';
 import '../widgets/danni_form.dart';
 import '../widgets/gara_form.dart';
 import '../widgets/header.dart';
+import '../widgets/help_dialog.dart';
 
 class RootScreen extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
@@ -489,6 +491,15 @@ class _RootScreenState extends State<RootScreen> {
       appBar: AppBar(
         title: Text('Crono Valtellinesi'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            tooltip: 'Aiuto',
+            onPressed: () => showHelpDialog(
+              context,
+              'Rapportini',
+              HelpContent.rapportini,
+            ),
+          ),
           TextButton.icon(
             onPressed: () {
               Navigator.of(context).popUntil((route) => route.isFirst);

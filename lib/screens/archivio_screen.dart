@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
 
+import '../constants/help_content.dart';
+import '../widgets/help_dialog.dart';
+
 class ArchivioScreen extends StatefulWidget {
   @override
   State<ArchivioScreen> createState() => _ArchivioScreenState();
@@ -37,6 +40,15 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
       appBar: AppBar(
         title: Text('Archivio PDF'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            tooltip: 'Aiuto',
+            onPressed: () => showHelpDialog(
+              context,
+              'Archivio',
+              HelpContent.archivio,
+            ),
+          ),
           TextButton.icon(
             onPressed: () {
               Navigator.of(context).popUntil((route) => route.isFirst);

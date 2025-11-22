@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../screens/archivio_screen.dart';
 import 'gare_page.dart';
 import 'root_screen.dart';
+import 'designazioni_page.dart';
+import 'help_page.dart';
 
 class HomePage extends StatelessWidget {
   final Map<String, dynamic> loggedUser;
@@ -57,8 +59,24 @@ class HomePage extends StatelessWidget {
     final userName = _extractUserName();
     final navItems = [
       _HomeNavData(
+        icon: Icons.flag,
+        label: 'Calendario Gare',
+        onTap: () => _openPage(
+          context,
+          GarePage(loggedUser: loggedUser),
+        ),
+      ),
+      _HomeNavData(
+        icon: Icons.assignment_turned_in,
+        label: 'Le tue designazioni',
+        onTap: () => _openPage(
+          context,
+          DesignazioniPage(loggedUser: loggedUser),
+        ),
+      ),
+      _HomeNavData(
         icon: Icons.assignment,
-        label: 'Rapportini',
+        label: 'Rapporti di Servizio',
         onTap: () => _openPage(
           context,
           RootScreen(loggedUser: loggedUser),
@@ -70,11 +88,11 @@ class HomePage extends StatelessWidget {
         onTap: () => _openPage(context, ArchivioScreen()),
       ),
       _HomeNavData(
-        icon: Icons.flag,
-        label: 'Calendario Gare',
+        icon: Icons.help_outline,
+        label: 'Aiuto',
         onTap: () => _openPage(
           context,
-          GarePage(loggedUser: loggedUser),
+          const HelpPage(),
         ),
       ),
     ];

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../constants/help_content.dart';
 import '../services/notion_service.dart';
 import '../models/gara.dart';
+import '../widgets/help_dialog.dart';
 import 'dettaglio_gara.dart';
 
 class GarePage extends StatefulWidget {
@@ -139,6 +142,15 @@ class _GarePageState extends State<GarePage> {
       appBar: AppBar(
         title: Text("Gare 2025"),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            tooltip: 'Aiuto',
+            onPressed: () => showHelpDialog(
+              context,
+              'Calendario',
+              HelpContent.calendario,
+            ),
+          ),
           TextButton.icon(
             onPressed: () {
               Navigator.of(context).popUntil((route) => route.isFirst);
@@ -174,29 +186,79 @@ class _GarePageState extends State<GarePage> {
                   },
                   children: entry.value.map((g) {
                     final showAction = _loggedUserId != null;
+                    final candidabile = _puoCandidarsi(g);
 
                     return Card(
                       margin: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
-                      child: ListTile(
-                        title: Text(g.titolo),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("${g.dataGara} - ${g.localita}"),
-                            if (g.sport.isNotEmpty) Text(g.sport),
-                            if (g.status.isNotEmpty) Text("Status: ${g.status}"),
-                            if (showAction)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: Align(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => DettaglioGara(gara: g),
+                            ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      g.titolo,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                  if (g.status.isNotEmpty) _statusChip(g.status),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  const Icon(Icons.event, size: 16),
+                                  const SizedBox(width: 4),
+                                  Text(_formatDateRange(g)),
+                                ],
+                              ),
+                              if (g.localita.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.place, size: 16),
+                                    const SizedBox(width: 4),
+                                    Flexible(child: Text(g.localita)),
+                                  ],
+                                ),
+                              ],
+                              if (g.sport.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.sports, size: 16),
+                                    const SizedBox(width: 4),
+                                    Flexible(child: Text(g.sport)),
+                                  ],
+                                ),
+                              ],
+                              if (showAction && candidabile) ...[
+                                const SizedBox(height: 10),
+                                Align(
                                   alignment: Alignment.centerLeft,
                                   child: Builder(
                                     builder: (context) {
-                                      final candidabile = _puoCandidarsi(g);
                                       return ElevatedButton(
-                                        onPressed: !candidabile ||
-                                                updatingGare.contains(g.id)
+                                        onPressed: updatingGare.contains(g.id)
                                             ? null
                                             : () => _toggleDisponibilita(
                                                   g,
@@ -213,24 +275,15 @@ class _GarePageState extends State<GarePage> {
                                               )
                                             : Text(_isUserAssigned(g)
                                                 ? "Rimuovimi dalla gara"
-                                                : candidabile
-                                                    ? "Mi rendo disponibile"
-                                                    : "Designazione chiusa"),
+                                                : "Mi rendo disponibile"),
                                       );
                                     },
                                   ),
                                 ),
-                              ),
-                          ],
+                              ],
+                            ],
+                          ),
                         ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => DettaglioGara(gara: g),
-                            ),
-                          );
-                        },
                       ),
                     );
                   }).toList(),
@@ -260,4 +313,45 @@ class _GarePageState extends State<GarePage> {
   }
 
   DateTime? _parseDate(String value) => DateTime.tryParse(value);
+
+  String _formatDateRange(Gara gara) {
+    final start = _fmtDate(gara.dataGara);
+    final end = gara.dataGaraFine.isNotEmpty ? _fmtDate(gara.dataGaraFine) : start;
+    if (start == null && end == null) return '-';
+    if (start != null && end != null && start != end) return '$start - $end';
+    return start ?? end ?? '-';
+  }
+
+  String? _fmtDate(String iso) {
+    final d = DateTime.tryParse(iso);
+    if (d == null) return null;
+    return DateFormat('dd/MM/yyyy').format(d);
+  }
+
+  Widget _statusChip(String status) {
+    final upper = status.trim().toUpperCase();
+    Color bg;
+    Color fg;
+    if (upper == 'DESIGNAZIONE INVIATA') {
+      bg = Colors.blue.shade50;
+      fg = Colors.blue.shade800;
+    } else if (upper == 'GARA COMPLETATA' || upper == 'SICWIN OK') {
+      bg = Colors.green.shade50;
+      fg = Colors.green.shade800;
+    } else {
+      bg = Colors.grey.shade200;
+      fg = Colors.grey.shade800;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
 }
