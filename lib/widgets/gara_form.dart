@@ -5,7 +5,7 @@ class GaraForm extends StatefulWidget {
   final ValueChanged<String>? onSportChanged;
   final void Function(DateTime?, DateTime?)? onDateRangeChanged;
   const GaraForm({Key? key, this.onSportChanged, this.onDateRangeChanged})
-      : super(key: key);
+    : super(key: key);
 
   @override
   GaraFormState createState() => GaraFormState();
@@ -13,8 +13,7 @@ class GaraForm extends StatefulWidget {
 
 class GaraFormState extends State<GaraForm> {
   final TextEditingController nomeController = TextEditingController();
-  final TextEditingController organizzatoreController =
-      TextEditingController();
+  final TextEditingController organizzatoreController = TextEditingController();
   final TextEditingController luogoController = TextEditingController();
   final TextEditingController dscController = TextEditingController();
   String sport = '';
@@ -28,16 +27,16 @@ class GaraFormState extends State<GaraForm> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
-      if (picked != null) {
-        setState(() {
-          if (isDa) {
-            dataDa = picked;
-          } else {
-            dataA = picked;
-          }
-        });
-        widget.onDateRangeChanged?.call(dataDa, dataA);
-      }
+    if (picked != null) {
+      setState(() {
+        if (isDa) {
+          dataDa = picked;
+        } else {
+          dataA = picked;
+        }
+      });
+      widget.onDateRangeChanged?.call(dataDa, dataA);
+    }
   }
 
   Map<String, dynamic> getData() {
@@ -103,8 +102,10 @@ class GaraFormState extends State<GaraForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Informazioni Gara",
-            style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          "Informazioni Gara",
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         const SizedBox(height: 12),
         _buildTextField("Nome Gara", nomeController),
         _buildTextField("Organizzatore", organizzatoreController),
@@ -113,12 +114,20 @@ class GaraFormState extends State<GaraForm> {
         Row(
           children: [
             Expanded(
-                child: _dataSelector(
-                    "Data da", dataDa, () => _selezionaData(context, true))),
+              child: _dataSelector(
+                "Data da",
+                dataDa,
+                () => _selezionaData(context, true),
+              ),
+            ),
             const SizedBox(width: 8),
             Expanded(
-                child: _dataSelector(
-                    "Data a", dataA, () => _selezionaData(context, false))),
+              child: _dataSelector(
+                "Data a",
+                dataA,
+                () => _selezionaData(context, false),
+              ),
+            ),
           ],
         ),
         _buildDropdownDsc(),
@@ -144,6 +153,8 @@ class GaraFormState extends State<GaraForm> {
       'Atletica - Strada',
       'Atletica - Pista',
       'Ciclismo su strada',
+      'Corsa',
+      'Corsa - FIDAL',
       'Corsa in montagna',
       'Hockey ghiaccio',
       'Nuoto',
@@ -163,13 +174,7 @@ class GaraFormState extends State<GaraForm> {
         .map((s) => DropdownMenuItem(value: s, child: Text(s)))
         .toList();
     if (sport.isNotEmpty && !sportList.contains(sport)) {
-      items.insert(
-        0,
-        DropdownMenuItem(
-          value: sport,
-          child: Text(sport),
-        ),
-      );
+      items.insert(0, DropdownMenuItem(value: sport, child: Text(sport)));
     }
     final dropdownValue = sport.isNotEmpty ? sport : null;
     return Padding(
@@ -201,10 +206,7 @@ class GaraFormState extends State<GaraForm> {
     if (currentDsc.isNotEmpty && !options.contains(currentDsc)) {
       items.insert(
         0,
-        DropdownMenuItem(
-          value: currentDsc,
-          child: Text(currentDsc),
-        ),
+        DropdownMenuItem(value: currentDsc, child: Text(currentDsc)),
       );
     }
     final dropdownValue = currentDsc.isNotEmpty ? currentDsc : null;
@@ -230,9 +232,11 @@ class GaraFormState extends State<GaraForm> {
         Text(label),
         TextButton(
           onPressed: onPressed,
-          child: Text(date == null
-              ? 'Seleziona'
-              : "${date.day}/${date.month}/${date.year}"),
+          child: Text(
+            date == null
+                ? 'Seleziona'
+                : "${date.day}/${date.month}/${date.year}",
+          ),
         ),
       ],
     );

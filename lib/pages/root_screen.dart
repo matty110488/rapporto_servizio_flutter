@@ -43,6 +43,71 @@ class _RootScreenState extends State<RootScreen> {
     return null;
   }
 
+  bool get _isAdmin {
+    final props = widget.loggedUser['properties'];
+    if (props is! Map<String, dynamic>) return false;
+
+    const adminKeys = [
+      'ADMIN',
+      'Admin',
+      'admin',
+      'RUOLO',
+      'Ruolo',
+      'ROLE',
+      'Role',
+      'role',
+    ];
+
+    bool matchAdminText(String? value) {
+      if (value == null) return false;
+      final lower = value.toLowerCase();
+      return lower == 'admin' || lower == 'amministratore';
+    }
+
+    bool hasAdminValue(Map<String, dynamic> field) {
+      if (field['checkbox'] == true) return true;
+
+      final select = field['select'];
+      if (select is Map<String, dynamic>) {
+        final name = select['name'];
+        if (name is String && matchAdminText(name)) return true;
+      }
+
+      final multi = field['multi_select'];
+      if (multi is List) {
+        for (final entry in multi) {
+          if (entry is Map<String, dynamic>) {
+            final name = entry['name'];
+            if (name is String && matchAdminText(name)) {
+              return true;
+            }
+          }
+        }
+      }
+
+      final rich = field['rich_text'];
+      if (rich is List && rich.isNotEmpty) {
+        final first = rich.first;
+        if (first is Map<String, dynamic>) {
+          final text = first['plain_text'];
+          if (text is String && matchAdminText(text)) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    }
+
+    for (final key in adminKeys) {
+      final value = props[key];
+      if (value is Map<String, dynamic> && hasAdminValue(value)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -63,9 +128,11 @@ class _RootScreenState extends State<RootScreen> {
       final allGare =
           results.map((e) => Gara.fromNotion(e)).toList(growable: false);
       final userId = _loggedUserId;
-      final filtered = userId == null
-          ? <Gara>[]
-          : allGare.where((g) => g.dscIds.contains(userId)).toList();
+      final filtered = _isAdmin
+          ? allGare
+          : userId == null
+              ? <Gara>[]
+              : allGare.where((g) => g.dscIds.contains(userId)).toList();
 
       final previousId = selectedGara?.id;
       Gara? nextSelection;
@@ -204,7 +271,7 @@ class _RootScreenState extends State<RootScreen> {
             children: const [
               CircularProgressIndicator(),
               SizedBox(width: 12),
-              Expanded(child: Text("Carico le gare in cui sei DSC...")),
+              Expanded(child: Text("Carico le gare disponibili...")),
             ],
           ),
         ),
@@ -243,7 +310,9 @@ class _RootScreenState extends State<RootScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Text(
-            "Non risultano gare in cui risulti DSC. Contatta la segreteria per abilitare il rapportino.",
+            _isAdmin
+                ? "Non risultano gare disponibili in questo momento."
+                : "Non risultano gare in cui risulti DSC. Contatta la segreteria per abilitare il rapportino.",
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ),
@@ -364,7 +433,7 @@ class _RootScreenState extends State<RootScreen> {
                   if (garaSelezionata == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Seleziona prima una gara in cui sei DSC'),
+                        content: Text('Seleziona prima una gara'),
                       ),
                     );
                     return;
