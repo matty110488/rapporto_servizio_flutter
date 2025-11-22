@@ -118,6 +118,18 @@ class Gara {
         final value = selectOrStatusName(props[key]);
         if (value.isNotEmpty) return value;
       }
+
+      // Fallback: pick the first status/select property available.
+      for (final entry in props.entries) {
+        final value = entry.value;
+        if (value is Map<String, dynamic>) {
+          final type = value["type"];
+          if (type == "status" || type == "select") {
+            final name = selectOrStatusName(value);
+            if (name.isNotEmpty) return name;
+          }
+        }
+      }
       return "";
     }
 

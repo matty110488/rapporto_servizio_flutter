@@ -108,6 +108,15 @@ class _RootScreenState extends State<RootScreen> {
     return false;
   }
 
+  bool _isStatusAbilitato(Gara gara) {
+    const allowed = {
+      'DESIGNAZIONE INVIATA',
+      'GARA COMPLETATA',
+    };
+    final status = gara.status.trim().toUpperCase();
+    return allowed.contains(status);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -133,23 +142,24 @@ class _RootScreenState extends State<RootScreen> {
           : userId == null
               ? <Gara>[]
               : allGare.where((g) => g.dscIds.contains(userId)).toList();
+      final gareValide = filtered.where(_isStatusAbilitato).toList();
 
       final previousId = selectedGara?.id;
       Gara? nextSelection;
       if (previousId != null) {
-        for (final gara in filtered) {
+        for (final gara in gareValide) {
           if (gara.id == previousId) {
             nextSelection = gara;
             break;
           }
         }
       }
-      nextSelection ??= filtered.length == 1 ? filtered.first : null;
+      nextSelection ??= gareValide.length == 1 ? gareValide.first : null;
       final selectionChanged = (previousId ?? '') != (nextSelection?.id ?? '');
 
       if (!mounted) return;
       setState(() {
-        gareDisponibili = filtered;
+        gareDisponibili = gareValide;
         loadingGareList = false;
         selectedGara = nextSelection;
         if (selectionChanged) {
@@ -311,8 +321,8 @@ class _RootScreenState extends State<RootScreen> {
           padding: const EdgeInsets.all(16),
           child: Text(
             _isAdmin
-                ? "Non risultano gare disponibili in questo momento."
-                : "Non risultano gare in cui risulti DSC. Contatta la segreteria per abilitare il rapportino.",
+                ? "Non risultano gare disponibili in stato \"DESIGNAZIONE INVIATA\" o \"GARA COMPLETATA\"."
+                : "Non risultano gare in cui risulti DSC con stato \"DESIGNAZIONE INVIATA\" o \"GARA COMPLETATA\".",
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ),
