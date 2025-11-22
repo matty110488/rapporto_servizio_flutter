@@ -132,6 +132,30 @@ class CronometristiFormState extends State<CronometristiForm> {
     });
   }
 
+  Widget _giornoHeader() {
+    Text header(String text) => Text(
+          text,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+          textAlign: TextAlign.center,
+        );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          const SizedBox(width: 100, child: Text('Data')),
+          const SizedBox(width: 8),
+          Expanded(child: header('Ore')),
+          const SizedBox(width: 8),
+          Expanded(child: header('Km')),
+          const SizedBox(width: 8),
+          Expanded(child: header('Spese')),
+          const SizedBox(width: 40), // spazio per l'icona remove
+        ],
+      ),
+    );
+  }
+
   Widget _campoGiorno(
     Map<String, dynamic> giorno,
     int index,
@@ -273,6 +297,7 @@ class CronometristiFormState extends State<CronometristiForm> {
                       ],
                     ),
                     const SizedBox(height: 8),
+                    if (giorni.isNotEmpty) _giornoHeader(),
                     Column(
                       children: List.generate(giorni.length, (g) {
                         return _campoGiorno(
