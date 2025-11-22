@@ -162,7 +162,11 @@ class CronometristiFormState extends State<CronometristiForm> {
             child: TextFormField(
               initialValue: (giorno['ore'] ?? '').toString(),
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Ore'),
+              decoration: const InputDecoration(
+                labelText: 'Ore',
+                hintText: 'Ore',
+                floatingLabelBehavior: FloatingLabelBehavior.never,
+              ),
               onChanged: (val) => onUpdate('ore', val),
             ),
           ),
@@ -171,7 +175,11 @@ class CronometristiFormState extends State<CronometristiForm> {
             child: TextFormField(
               initialValue: (giorno['km'] ?? '').toString(),
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Km'),
+              decoration: const InputDecoration(
+                labelText: 'Km',
+                hintText: 'Km',
+                floatingLabelBehavior: FloatingLabelBehavior.never,
+              ),
               onChanged: (val) => onUpdate('km', val),
             ),
           ),
@@ -180,7 +188,11 @@ class CronometristiFormState extends State<CronometristiForm> {
             child: TextFormField(
               initialValue: (giorno['spese'] ?? '').toString(),
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Spese'),
+              decoration: const InputDecoration(
+                labelText: 'Spese',
+                hintText: 'Spese',
+                floatingLabelBehavior: FloatingLabelBehavior.never,
+              ),
               onChanged: (val) => onUpdate('spese', val),
             ),
           ),
