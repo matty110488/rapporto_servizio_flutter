@@ -59,12 +59,30 @@ Future<File> generaPdfConDati(
   final danni = (dati['danni'] ?? '') as String;
   final allegati = (dati['allegati'] ?? []) as List;
   final direttore = (gara['dsc'] ?? '').toString().trim();
+  final Map<String, dynamic> orariGiornata = {};
+  final rawOrari = dati['orariGiornata'];
+  if (rawOrari is Map) {
+    rawOrari.forEach((key, value) {
+      if (value is Map) {
+        orariGiornata[key.toString()] = {
+          'oraDa': (value['oraDa'] ?? '').toString(),
+          'oraA': (value['oraA'] ?? '').toString(),
+        };
+      }
+    });
+  }
   final mostraRiepilogo = _isMultiDay(gara);
 
   final contenuto = <pw.Widget>[
     _sezioneGara(gara, base, bold),
     pw.SizedBox(height: 16),
-    _sezioneCronometristi(cronos, base, bold, mostraRiepilogo: mostraRiepilogo),
+    _sezioneCronometristi(
+      cronos,
+      base,
+      bold,
+      mostraRiepilogo: mostraRiepilogo,
+      orariGiornata: orariGiornata,
+    ),
     pw.SizedBox(height: 16),
     _sezioneApparecchiatura(apparecchiature, base, bold),
     pw.SizedBox(height: 16),
@@ -207,6 +225,7 @@ pw.Widget _sezioneCronometristi(
   pw.Font base,
   pw.Font bold, {
   bool mostraRiepilogo = true,
+  Map<String, dynamic> orariGiornata = const {},
 }) {
   double sum(List giorni, String campo) {
     return giorni.fold<double>(0, (t, g) {
@@ -241,7 +260,12 @@ pw.Widget _sezioneCronometristi(
   final children = <pw.Widget>[
     pw.Text('Cronometristi', style: pw.TextStyle(font: bold, fontSize: 14)),
     pw.SizedBox(height: 8),
-    _sezioneGiornate(elenco, base, bold),
+    _sezioneGiornate(
+      elenco,
+      base,
+      bold,
+      orariGiornata: orariGiornata,
+    ),
     pw.SizedBox(height: 4),
     pw.Text(
       '',
@@ -272,7 +296,22 @@ pw.Widget _sezioneCronometristi(
 }
 
 // Raggruppa per data (yyyy-MM-dd) e stampa una tabella per giornata
-pw.Widget _sezioneGiornate(List elenco, pw.Font base, pw.Font bold) {
+pw.Widget _sezioneGiornate(
+  List elenco,
+  pw.Font base,
+  pw.Font bold, {
+  Map<String, dynamic> orariGiornata = const {},
+}) {
+  final Map<String, Map<String, String>> orariPerData = {};
+  orariGiornata.forEach((key, value) {
+    if (value is Map) {
+      orariPerData[key.toString()] = {
+        'oraDa': (value['oraDa'] ?? '').toString(),
+        'oraA': (value['oraA'] ?? '').toString(),
+      };
+    }
+  });
+
   final Map<String, List<Map<String, String>>> perData = {};
   for (final c in elenco) {
     final nome = (c['nome'] ?? '').toString();
@@ -285,6 +324,12 @@ pw.Widget _sezioneGiornate(List elenco, pw.Font base, pw.Font bold) {
       final ore = (g['ore'] ?? '').toString();
       final km = (g['km'] ?? '').toString();
       final spese = (g['spese'] ?? '').toString();
+      final oraDa = (g['oraDa'] ?? '').toString();
+      final oraA = (g['oraA'] ?? '').toString();
+      if (!orariPerData.containsKey(dIso) &&
+          (oraDa.isNotEmpty || oraA.isNotEmpty)) {
+        orariPerData[dIso] = {'oraDa': oraDa, 'oraA': oraA};
+      }
       perData.putIfAbsent(dIso, () => []);
       perData[dIso]!.add({
         'nome': nome,
@@ -309,6 +354,8 @@ pw.Widget _sezioneGiornate(List elenco, pw.Font base, pw.Font bold) {
   for (int i = 0; i < dates.length; i++) {
     final d = dates[i];
     final rows = perData[d]!..sort((a, b) => a['nome']!.compareTo(b['nome']!));
+    final orari = _orariForDate(orariPerData, d);
+    final orarioLabel = _formatOrarioRange(orari['oraDa'], orari['oraA']);
     widgets.add(
       pw.Container(
         margin: const pw.EdgeInsets.only(bottom: 12),
@@ -325,16 +372,26 @@ pw.Widget _sezioneGiornate(List elenco, pw.Font base, pw.Font bold) {
                 vertical: 4,
               ),
               decoration: const pw.BoxDecoration(color: _tableHeaderColor),
-              child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text(
-                    'GIORNO ${i + 1}',
-                    style: pw.TextStyle(font: bold, fontSize: 12),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(
+                        'GIORNO ${i + 1}',
+                        style: pw.TextStyle(font: bold, fontSize: 12),
+                      ),
+                      pw.Text(
+                        _formatDateHuman(d),
+                        style: pw.TextStyle(font: base, fontSize: 11),
+                      ),
+                    ],
                   ),
+                  pw.SizedBox(height: 2),
                   pw.Text(
-                    _formatDateHuman(d),
-                    style: pw.TextStyle(font: base, fontSize: 11),
+                    'Orario: $orarioLabel',
+                    style: pw.TextStyle(font: base, fontSize: 10),
                   ),
                 ],
               ),
@@ -776,6 +833,27 @@ String _formatDateHuman(String iso) {
 String _fmtValue(String? value) {
   if (value == null || value.isEmpty) return '-';
   return value;
+}
+
+Map<String, String> _orariForDate(
+  Map<String, Map<String, String>> orariPerData,
+  String iso,
+) {
+  final raw = orariPerData[iso];
+  if (raw == null) return {'oraDa': '', 'oraA': ''};
+  return {
+    'oraDa': (raw['oraDa'] ?? '').toString(),
+    'oraA': (raw['oraA'] ?? '').toString(),
+  };
+}
+
+String _formatOrarioRange(String? da, String? a) {
+  final start = (da ?? '').trim();
+  final end = (a ?? '').trim();
+  if (start.isEmpty && end.isEmpty) return '-';
+  final startLabel = start.isEmpty ? '-' : start;
+  final endLabel = end.isEmpty ? '-' : end;
+  return '$startLabel - $endLabel';
 }
 
 // ===== Header & Footer =====

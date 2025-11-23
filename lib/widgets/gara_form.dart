@@ -4,8 +4,13 @@ import '../constants/cronometristi.dart';
 class GaraForm extends StatefulWidget {
   final ValueChanged<String>? onSportChanged;
   final void Function(DateTime?, DateTime?)? onDateRangeChanged;
-  const GaraForm({Key? key, this.onSportChanged, this.onDateRangeChanged})
-    : super(key: key);
+  final ValueChanged<Map<String, Map<String, String>>>? onOrariChanged;
+  const GaraForm({
+    Key? key,
+    this.onSportChanged,
+    this.onDateRangeChanged,
+    this.onOrariChanged,
+  }) : super(key: key);
 
   @override
   GaraFormState createState() => GaraFormState();
@@ -19,6 +24,7 @@ class GaraFormState extends State<GaraForm> {
   String sport = '';
   DateTime? dataDa;
   DateTime? dataA;
+  Map<String, Map<String, String>> orariPerData = {};
 
   Future<void> _selezionaData(BuildContext context, bool isDa) async {
     final picked = await showDatePicker(
@@ -34,8 +40,10 @@ class GaraFormState extends State<GaraForm> {
         } else {
           dataA = picked;
         }
+        _syncOrariWithRange();
       });
       widget.onDateRangeChanged?.call(dataDa, dataA);
+      widget.onOrariChanged?.call(getOrariGiornata());
     }
   }
 
@@ -55,6 +63,9 @@ class GaraFormState extends State<GaraForm> {
     };
   }
 
+  Map<String, Map<String, String>> getOrariGiornata() =>
+      Map<String, Map<String, String>>.from(orariPerData);
+
   @override
   void dispose() {
     nomeController.dispose();
@@ -69,6 +80,38 @@ class GaraFormState extends State<GaraForm> {
   DateTime? _parseDate(String value) {
     if (value.isEmpty) return null;
     return DateTime.tryParse(value);
+  }
+
+  void _syncOrariWithRange() {
+    if (dataDa == null || dataA == null || dataA!.isBefore(dataDa!)) {
+      orariPerData = {};
+      return;
+    }
+    final total = dataA!.difference(dataDa!).inDays + 1;
+    final Map<String, Map<String, String>> updated = {};
+    for (int i = 0; i < total; i++) {
+      final d = DateTime(dataDa!.year, dataDa!.month, dataDa!.day)
+          .add(Duration(days: i));
+      final iso = "${d.year}-${_2(d.month)}-${_2(d.day)}";
+      final existing = orariPerData[iso] ?? {};
+      updated[iso] = {
+        'oraDa': (existing['oraDa'] ?? '').toString(),
+        'oraA': (existing['oraA'] ?? '').toString(),
+      };
+    }
+    orariPerData = updated;
+  }
+
+  void _aggiornaOrarioPerData(String data, String campo, String valore) {
+    setState(() {
+      final corrente = Map<String, String>.from(orariPerData[data] ?? {});
+      corrente[campo] = valore;
+      orariPerData[data] = {
+        'oraDa': (corrente['oraDa'] ?? '').toString(),
+        'oraA': (corrente['oraA'] ?? '').toString(),
+      };
+    });
+    widget.onOrariChanged?.call(getOrariGiornata());
   }
 
   void applyNotionData({
@@ -89,12 +132,14 @@ class GaraFormState extends State<GaraForm> {
       sport = sportValue;
       dataDa = start;
       dataA = end;
+      _syncOrariWithRange();
       if (dsc != null) {
         dscController.text = dsc;
       }
     });
     widget.onSportChanged?.call(sport);
     widget.onDateRangeChanged?.call(dataDa, dataA);
+    widget.onOrariChanged?.call(getOrariGiornata());
   }
 
   @override
@@ -130,6 +175,7 @@ class GaraFormState extends State<GaraForm> {
             ),
           ],
         ),
+        _buildOrariGiornate(),
         _buildDropdownDsc(),
       ],
     );
@@ -223,6 +269,89 @@ class GaraFormState extends State<GaraForm> {
         isExpanded: true,
       ),
     );
+  }
+
+  Widget _buildOrariGiornate() {
+    if (orariPerData.isEmpty) return const SizedBox.shrink();
+    final giorni = orariPerData.keys.toList()..sort();
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Orari giornate',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Column(
+              children: giorni.map((data) {
+                final orari = orariPerData[data] ?? {};
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 110,
+                        child: Text(_formatDateLabel(data)),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          key: ValueKey('ora-da-gara-$data'),
+                          initialValue: orari['oraDa'] ?? '',
+                          decoration: const InputDecoration(
+                            labelText: 'Da',
+                            hintText: 'HH:MM',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.datetime,
+                          onChanged: (val) =>
+                              _aggiornaOrarioPerData(data, 'oraDa', val),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          key: ValueKey('ora-a-gara-$data'),
+                          initialValue: orari['oraA'] ?? '',
+                          decoration: const InputDecoration(
+                            labelText: 'A',
+                            hintText: 'HH:MM',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.datetime,
+                          onChanged: (val) =>
+                              _aggiornaOrarioPerData(data, 'oraA', val),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDateLabel(dynamic value) {
+    final d = value?.toString() ?? '';
+    if (d.isEmpty) return '';
+    final parts = d.split('-');
+    if (parts.length == 3) {
+      final dd = parts[2].padLeft(2, '0');
+      final mm = parts[1].padLeft(2, '0');
+      final yyyy = parts[0];
+      return "$dd/$mm/$yyyy";
+    }
+    return d;
   }
 
   Widget _dataSelector(String label, DateTime? date, VoidCallback onPressed) {

@@ -423,6 +423,9 @@ class _RootScreenState extends State<RootScreen> {
               onDateRangeChanged: (da, a) {
                 cronometristiKey.currentState?.syncDaysWithRange(da, a);
               },
+              onOrariChanged: (orari) {
+                cronometristiKey.currentState?.setOrari(orari);
+              },
             ),
             const SizedBox(height: 16),
             sectionTitle('Cronometristi'),
@@ -453,6 +456,8 @@ class _RootScreenState extends State<RootScreen> {
 
                   final gara = garaKey.currentState?.getData() ?? {};
                   final cronos = cronometristiKey.currentState?.getData() ?? [];
+                  final orariGiornata =
+                      garaKey.currentState?.getOrariGiornata() ?? {};
                   final app = apparecchiaturaKey.currentState?.getData() ?? [];
                   final danni = danniKey.currentState?.getData() ?? '';
                   final immagini = allegatiKey.currentState?.getImages() ?? [];
@@ -460,6 +465,7 @@ class _RootScreenState extends State<RootScreen> {
                   final file = await generaPdfConDati({
                     'gara': gara,
                     'cronometristi': cronos,
+                    'orariGiornata': orariGiornata,
                     'apparecchiature': app,
                     'danni': danni,
                     'allegati': immagini,

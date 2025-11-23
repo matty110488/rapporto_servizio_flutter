@@ -13,12 +13,13 @@ class CronometristiFormState extends State<CronometristiForm> {
   DateTime? _rangeA;
   final List<String> cronometristiDisponibili =
       List<String>.from(availableCronometristi);
+  Map<String, Map<String, String>> orariPerData = {};
 
   List<Map<String, dynamic>> righe = [
     {
       'nome': null,
       'giorni': [
-        {'ore': '', 'km': '', 'spese': ''}
+        {'ore': '', 'km': '', 'spese': '', 'oraDa': '', 'oraA': ''}
       ],
       'segreteria': null,
       'note': '',
@@ -26,6 +27,8 @@ class CronometristiFormState extends State<CronometristiForm> {
   ];
 
   List<Map<String, dynamic>> getData() => righe;
+  Map<String, Map<String, String>> getOrariGiornata() =>
+      Map<String, Map<String, String>>.from(orariPerData);
 
   // Sincronizza i giorni con l'intervallo [da, a] impostato nella sezione gara.
   // Crea un elemento per ciascun giorno calendario e preserva i valori esistenti per indice.
@@ -33,22 +36,37 @@ class CronometristiFormState extends State<CronometristiForm> {
     if (da == null || a == null) return;
     if (a.isBefore(da)) return;
     final total = a.difference(da).inDays + 1;
+    final Map<String, Map<String, String>> nuoviOrari = {};
+    for (int i = 0; i < total; i++) {
+      final date = DateTime(da.year, da.month, da.day).add(Duration(days: i));
+      final iso =
+          "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+      final esistente = orariPerData[iso] ?? {};
+      nuoviOrari[iso] = {
+        'oraDa': (esistente['oraDa'] ?? '').toString(),
+        'oraA': (esistente['oraA'] ?? '').toString(),
+      };
+    }
     setState(() {
       _rangeDa = da;
       _rangeA = a;
+      orariPerData = nuoviOrari;
       for (final riga in righe) {
         final List<dynamic> cur = List<dynamic>.from(riga['giorni'] ?? []);
         final List<Map<String, dynamic>> nuovo = [];
         for (int i = 0; i < total; i++) {
           final date =
               DateTime(da.year, da.month, da.day).add(Duration(days: i));
+          final iso =
+              "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
           final existing = (i < cur.length) ? cur[i] : <String, dynamic>{};
           nuovo.add({
-            'data':
-                "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}",
+            'data': iso,
             'ore': existing['ore'] ?? '',
             'km': existing['km'] ?? '',
             'spese': existing['spese'] ?? '',
+            'oraDa': orariPerData[iso]?['oraDa'] ?? '',
+            'oraA': orariPerData[iso]?['oraA'] ?? '',
           });
         }
         riga['giorni'] = nuovo;
@@ -75,17 +93,21 @@ class CronometristiFormState extends State<CronometristiForm> {
         final d =
             DateTime(_rangeDa!.year, _rangeDa!.month, _rangeDa!.day)
                 .add(Duration(days: index));
+        final iso =
+            "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
+        final orari = orariPerData[iso] ?? {};
         return {
-          'data':
-              "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}",
+          'data': iso,
           'ore': '',
           'km': '',
           'spese': '',
+          'oraDa': (orari['oraDa'] ?? '').toString(),
+          'oraA': (orari['oraA'] ?? '').toString(),
         };
       });
     }
     return [
-      {'ore': '', 'km': '', 'spese': ''}
+      {'ore': '', 'km': '', 'spese': '', 'oraDa': '', 'oraA': ''}
     ];
   }
 
@@ -113,6 +135,21 @@ class CronometristiFormState extends State<CronometristiForm> {
     });
   }
 
+  void setOrari(Map<String, Map<String, String>> orari) {
+    setState(() {
+      orariPerData = Map<String, Map<String, String>>.from(orari);
+      for (final riga in righe) {
+        final giorni = (riga['giorni'] as List?) ?? [];
+        for (final g in giorni) {
+          final data = (g['data'] ?? '').toString();
+          final orariData = orariPerData[data] ?? {};
+          g['oraDa'] = (orariData['oraDa'] ?? '').toString();
+          g['oraA'] = (orariData['oraA'] ?? '').toString();
+        }
+      }
+    });
+  }
+
   void rimuoviRiga(int index) {
     setState(() {
       righe.removeAt(index);
@@ -122,7 +159,8 @@ class CronometristiFormState extends State<CronometristiForm> {
   void aggiungiGiorno(Map<String, dynamic> riga) {
     if ((riga['giorni'] as List).length >= 10) return;
     setState(() {
-      (riga['giorni'] as List).add({'ore': '', 'km': '', 'spese': ''});
+      (riga['giorni'] as List)
+          .add({'ore': '', 'km': '', 'spese': '', 'oraDa': '', 'oraA': ''});
     });
   }
 
@@ -162,25 +200,13 @@ class CronometristiFormState extends State<CronometristiForm> {
     Function(String, String) onUpdate,
     VoidCallback onRemove,
   ) {
-    String labelData() {
-      final d = giorno['data'];
-      if (d == null || d.isEmpty) return "Giorno ${index + 1}: ";
-      // formato atteso yyyy-MM-dd
-      final parts = d.split('-');
-      if (parts.length == 3) {
-        final dd = parts[2].padLeft(2, '0');
-        final mm = parts[1].padLeft(2, '0');
-        final yyyy = parts[0];
-        return "$dd/$mm/$yyyy";
-      }
-      return d;
-    }
-
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          SizedBox(width: 100, child: Text(labelData())),
+          SizedBox(
+              width: 100,
+              child: Text(_formatDateLabel(giorno['data'], index: index))),
           const SizedBox(width: 8),
           Expanded(
             child: TextFormField(
@@ -238,6 +264,19 @@ class CronometristiFormState extends State<CronometristiForm> {
       speseTot += num.tryParse((g['spese'] ?? '').toString()) ?? 0;
     }
     return {'ore': oreTot, 'km': kmTot, 'spese': speseTot};
+  }
+
+  String _formatDateLabel(dynamic value, {int? index}) {
+    final d = value?.toString() ?? '';
+    if (d.isEmpty) return index != null ? "Giorno ${index + 1}: " : '';
+    final parts = d.split('-');
+    if (parts.length == 3) {
+      final dd = parts[2].padLeft(2, '0');
+      final mm = parts[1].padLeft(2, '0');
+      final yyyy = parts[0];
+      return "$dd/$mm/$yyyy";
+    }
+    return d;
   }
 
   @override
