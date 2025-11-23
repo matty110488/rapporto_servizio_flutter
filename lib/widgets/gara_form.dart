@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../constants/cronometristi.dart';
 
 class GaraForm extends StatefulWidget {
@@ -205,8 +205,8 @@ class GaraFormState extends State<GaraForm> {
       'Hockey ghiaccio',
       'Nuoto',
       'Rally',
-      'Regolarità auto',
-      'Regolarità storiche',
+      'Regolarita auto',
+      'Regolarita storiche',
       'Sci Alpinismo',
       'Sci Alpino FIS',
       'Sci Alpino FISI',
@@ -274,70 +274,127 @@ class GaraFormState extends State<GaraForm> {
   Widget _buildOrariGiornate() {
     if (orariPerData.isEmpty) return const SizedBox.shrink();
     final giorni = orariPerData.keys.toList()..sort();
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Orari giornate',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            Column(
-              children: giorni.map((data) {
-                final orari = orariPerData[data] ?? {};
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 110,
-                        child: Text(_formatDateLabel(data)),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          key: ValueKey('ora-da-gara-$data'),
-                          initialValue: orari['oraDa'] ?? '',
-                          decoration: const InputDecoration(
-                            labelText: 'Da',
-                            hintText: 'HH:MM',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.datetime,
-                          onChanged: (val) =>
-                              _aggiornaOrarioPerData(data, 'oraDa', val),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          key: ValueKey('ora-a-gara-$data'),
-                          initialValue: orari['oraA'] ?? '',
-                          decoration: const InputDecoration(
-                            labelText: 'A',
-                            hintText: 'HH:MM',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.datetime,
-                          onChanged: (val) =>
-                              _aggiornaOrarioPerData(data, 'oraA', val),
-                        ),
-                      ),
-                    ],
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Orari giornate',
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Aggiungi ora inizio e fine.',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
+          ),
+          const SizedBox(height: 12),
+          Column(
+            children: giorni.map((data) {
+              final orari = orariPerData[data] ?? {};
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceVariant.withOpacity(0.35),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: colorScheme.outline.withOpacity(0.4),
                   ),
-                );
-              }).toList(),
-            )
-          ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          _formatDateLabel(data),
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                        ),
+                        const Spacer(),
+                        Icon(
+                          Icons.calendar_today_rounded,
+                          size: 16,
+                          color: colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _timeField(
+                            label: 'Ora inizio',
+                            hint: 'HH:MM',
+                            initialValue: orari['oraDa'] ?? '',
+                            onChanged: (val) =>
+                                _aggiornaOrarioPerData(data, 'oraDa', val),
+                            fieldKey: ValueKey('ora-da-gara-$data'),
+                            colorScheme: colorScheme,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _timeField(
+                            label: 'Ora fine',
+                            hint: 'HH:MM',
+                            initialValue: orari['oraA'] ?? '',
+                            onChanged: (val) =>
+                                _aggiornaOrarioPerData(data, 'oraA', val),
+                            fieldKey: ValueKey('ora-a-gara-$data'),
+                            colorScheme: colorScheme,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _timeField({
+    required String label,
+    required String hint,
+    required String initialValue,
+    required ValueChanged<String> onChanged,
+    required Key fieldKey,
+    required ColorScheme colorScheme,
+  }) {
+    return TextFormField(
+      key: fieldKey,
+      initialValue: initialValue,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(Icons.schedule_rounded,
+            size: 18, color: colorScheme.primary.withOpacity(0.8)),
+        filled: true,
+        fillColor: colorScheme.surface.withOpacity(0.95),
+        isDense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
         ),
       ),
+      keyboardType: TextInputType.datetime,
+      onChanged: onChanged,
     );
   }
 

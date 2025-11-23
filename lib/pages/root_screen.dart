@@ -428,16 +428,16 @@ class _RootScreenState extends State<RootScreen> {
               },
             ),
             const SizedBox(height: 16),
-            sectionTitle('Cronometristi'),
+            sectionTitle('==============================='),
             CronometristiForm(key: cronometristiKey),
             const SizedBox(height: 16),
-            sectionTitle('Apparecchiatura'),
+            sectionTitle('==============================='),
             ApparecchiaturaForm(key: apparecchiaturaKey),
             const SizedBox(height: 16),
-            sectionTitle('Danni'),
+            sectionTitle('==============================='),
             DanniForm(key: danniKey),
             const SizedBox(height: 16),
-            sectionTitle('Allegati'),
+            sectionTitle('==============================='),
             AllegatiForm(key: allegatiKey),
             const SizedBox(height: 20),
             Align(
@@ -477,7 +477,8 @@ class _RootScreenState extends State<RootScreen> {
                       'luogo': garaSelezionata.localita,
                     },
                   }, salvaLocalmente: true);
-                  await Share.shareXFiles([XFile(file.path)], text: 'Rapporto PDF');
+                  await Share.shareXFiles([XFile(file.path)],
+                      text: 'Rapporto PDF');
                 },
                 icon: const Icon(Icons.picture_as_pdf),
                 label: const Text("Genera e invia PDF"),

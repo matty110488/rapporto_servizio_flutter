@@ -90,9 +90,8 @@ class CronometristiFormState extends State<CronometristiForm> {
     if (_rangeDa != null && _rangeA != null && !_rangeA!.isBefore(_rangeDa!)) {
       final total = _rangeA!.difference(_rangeDa!).inDays + 1;
       return List.generate(total, (index) {
-        final d =
-            DateTime(_rangeDa!.year, _rangeDa!.month, _rangeDa!.day)
-                .add(Duration(days: index));
+        final d = DateTime(_rangeDa!.year, _rangeDa!.month, _rangeDa!.day)
+            .add(Duration(days: index));
         final iso =
             "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
         final orari = orariPerData[iso] ?? {};
@@ -170,86 +169,157 @@ class CronometristiFormState extends State<CronometristiForm> {
     });
   }
 
-  Widget _giornoHeader() {
-    Text header(String text) => Text(
-          text,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-          textAlign: TextAlign.center,
-        );
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+  Widget _giornoTile({
+    required Map<String, dynamic> giorno,
+    required int index,
+    required Function(String, String) onUpdate,
+    required VoidCallback onRemove,
+    required ColorScheme colorScheme,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceVariant.withOpacity(0.35),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(width: 100, child: Text('Data')),
-          const SizedBox(width: 8),
-          Expanded(child: header('Ore')),
-          const SizedBox(width: 8),
-          Expanded(child: header('Km')),
-          const SizedBox(width: 8),
-          Expanded(child: header('Spese')),
-          const SizedBox(width: 40), // spazio per l'icona remove
+          Row(
+            children: [
+              Icon(Icons.calendar_month_rounded,
+                  size: 18, color: colorScheme.onSurface.withOpacity(0.7)),
+              const SizedBox(width: 6),
+              Text(
+                _formatDateLabel(giorno['data'], index: index),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.close_rounded),
+                color: colorScheme.onSurface.withOpacity(0.6),
+                onPressed: onRemove,
+                tooltip: 'Rimuovi questo giorno',
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _miniField(
+                  hint: 'Ore',
+                  initialValue: (giorno['ore'] ?? '').toString(),
+                  prefix: 'Ore',
+                  onChanged: (val) => onUpdate('ore', val),
+                  colorScheme: colorScheme,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _miniField(
+                  hint: 'Km',
+                  initialValue: (giorno['km'] ?? '').toString(),
+                  prefix: 'Km',
+                  onChanged: (val) => onUpdate('km', val),
+                  colorScheme: colorScheme,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _miniField(
+                  hint: 'EUR',
+                  initialValue: (giorno['spese'] ?? '').toString(),
+                  prefix: 'EUR',
+                  onChanged: (val) => onUpdate('spese', val),
+                  colorScheme: colorScheme,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _campoGiorno(
-    Map<String, dynamic> giorno,
-    int index,
-    Function(String, String) onUpdate,
-    VoidCallback onRemove,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+  Widget _miniField({
+    required String hint,
+    required String initialValue,
+    required String prefix,
+    required ValueChanged<String> onChanged,
+    required ColorScheme colorScheme,
+  }) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final fill = isDark
+        ? colorScheme.surface.withOpacity(0.25)
+        : colorScheme.surface.withOpacity(0.9);
+    final outline = colorScheme.outline.withOpacity(0.6);
+
+    return TextFormField(
+      initialValue: initialValue,
+      keyboardType: TextInputType.number,
+      style: TextStyle(
+        color: colorScheme.onSurface,
+        fontWeight: FontWeight.w700,
+      ),
+      decoration: InputDecoration(
+        labelText: prefix,
+        labelStyle: TextStyle(
+          color: colorScheme.onSurface.withOpacity(0.85),
+          fontWeight: FontWeight.w700,
+        ),
+        hintText: hint,
+        hintStyle: TextStyle(
+          color: colorScheme.onSurface.withOpacity(0.6),
+          fontWeight: FontWeight.w600,
+        ),
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        isDense: true,
+        filled: true,
+        fillColor: fill,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: outline),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: outline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: colorScheme.primary),
+        ),
+      ),
+      onChanged: onChanged,
+    );
+  }
+
+  Widget _totalPill(String label, num value, IconData icon, ColorScheme cs) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: cs.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.primary.withOpacity(0.2)),
+      ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-              width: 100,
-              child: Text(_formatDateLabel(giorno['data'], index: index))),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextFormField(
-              initialValue: (giorno['ore'] ?? '').toString(),
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Ore',
-                hintText: 'Ore',
-                floatingLabelBehavior: FloatingLabelBehavior.never,
-              ),
-              onChanged: (val) => onUpdate('ore', val),
+          Icon(icon, size: 16, color: cs.primary),
+          const SizedBox(width: 6),
+          Text(
+            "$label: $value",
+            style: TextStyle(
+              color: cs.onSurface,
+              fontWeight: FontWeight.w600,
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextFormField(
-              initialValue: (giorno['km'] ?? '').toString(),
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Km',
-                hintText: 'Km',
-                floatingLabelBehavior: FloatingLabelBehavior.never,
-              ),
-              onChanged: (val) => onUpdate('km', val),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextFormField(
-              initialValue: (giorno['spese'] ?? '').toString(),
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Spese',
-                hintText: 'Spese',
-                floatingLabelBehavior: FloatingLabelBehavior.never,
-              ),
-              onChanged: (val) => onUpdate('spese', val),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.remove_circle, color: Colors.red),
-            onPressed: onRemove,
-            tooltip: 'Rimuovi questo giorno',
           ),
         ],
       ),
@@ -281,10 +351,19 @@ class CronometristiFormState extends State<CronometristiForm> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text("Cronometristi", style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 4),
+        Text(
+          "Ore, km e spese per cronometrista, per giornata.",
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
+        ),
         const SizedBox(height: 12),
         ListView.builder(
           shrinkWrap: true,
@@ -299,73 +378,94 @@ class CronometristiFormState extends State<CronometristiForm> {
 
             final totali = calcolaTotali(giorni);
 
-            return Card(
+            return Container(
               margin: const EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: nomeCorrente,
-                            items: voci
-                                .map((nome) => DropdownMenuItem(
-                                    value: nome,
-                                    child: Text(nome,
-                                        overflow: TextOverflow.ellipsis)))
-                                .toList(),
-                            isExpanded: true,
-                            onChanged: (val) =>
-                                setState(() => riga['nome'] = val),
-                            decoration: const InputDecoration(
-                              labelText: 'Cronometrista',
-                              border: OutlineInputBorder(),
-                            ),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceVariant.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: nomeCorrente,
+                          items: voci
+                              .map((nome) => DropdownMenuItem(
+                                  value: nome,
+                                  child: Text(nome,
+                                      overflow: TextOverflow.ellipsis)))
+                              .toList(),
+                          isExpanded: true,
+                          onChanged: (val) =>
+                              setState(() => riga['nome'] = val),
+                          decoration: InputDecoration(
+                            labelText: 'Cronometrista',
+                            filled: true,
+                            fillColor: colorScheme.surface.withOpacity(0.95),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10)),
                           ),
-                        ),
-                        if (righe.length > 1)
-                          IconButton(
-                            onPressed: () => rimuoviRiga(index),
-                            icon: const Icon(Icons.remove_circle,
-                                color: Colors.red),
-                            tooltip: 'Rimuovi questo cronometrista',
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (giorni.isNotEmpty) _giornoHeader(),
-                    Column(
-                      children: List.generate(giorni.length, (g) {
-                        return _campoGiorno(
-                          giorni[g] as Map<String, dynamic>,
-                          g,
-                          (campo, val) =>
-                              setState(() => (giorni[g] as Map)[campo] = val),
-                          () => rimuoviGiorno(riga, g),
-                        );
-                      }),
-                    ),
-                    if (_rangeDa == null || _rangeA == null)
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: OutlinedButton.icon(
-                          onPressed: () => aggiungiGiorno(riga),
-                          icon: const Icon(Icons.add),
-                          label: const Text("Aggiungi giorno"),
                         ),
                       ),
-                    const SizedBox(height: 8),
-                    Text("Totale ore: ${totali['ore']}",
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text("Totale km: ${totali['km']}",
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text("Totale spese: ${totali['spese']}",
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Column(
+                      if (righe.length > 1)
+                        IconButton(
+                          onPressed: () => rimuoviRiga(index),
+                          icon: const Icon(Icons.close_rounded),
+                          tooltip: 'Rimuovi questo cronometrista',
+                          color: colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Column(
+                    children: List.generate(giorni.length, (g) {
+                      return _giornoTile(
+                        giorno: giorni[g] as Map<String, dynamic>,
+                        index: g,
+                        onUpdate: (campo, val) =>
+                            setState(() => (giorni[g] as Map)[campo] = val),
+                        onRemove: () => rimuoviGiorno(riga, g),
+                        colorScheme: colorScheme,
+                      );
+                    }),
+                  ),
+                  if (_rangeDa == null || _rangeA == null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: () => aggiungiGiorno(riga),
+                        icon: const Icon(Icons.add),
+                        label: const Text("Aggiungi giorno"),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _totalPill(
+                          'Ore', totali['ore'] ?? 0, Icons.timer, colorScheme),
+                      _totalPill('Km', totali['km'] ?? 0,
+                          Icons.directions_car_rounded, colorScheme),
+                      _totalPill('Spese', totali['spese'] ?? 0,
+                          Icons.account_balance_wallet_rounded, colorScheme),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface.withOpacity(0.8),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: colorScheme.outline.withOpacity(0.25)),
+                    ),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
@@ -400,18 +500,22 @@ class CronometristiFormState extends State<CronometristiForm> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      initialValue: riga['note'],
-                      onChanged: (val) => riga['note'] = val,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Varie / Note',
-                        border: OutlineInputBorder(),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    initialValue: riga['note'],
+                    onChanged: (val) => riga['note'] = val,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText: 'Varie / Note',
+                      filled: true,
+                      fillColor: colorScheme.surface.withOpacity(0.95),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             );
           },
