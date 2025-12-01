@@ -29,6 +29,8 @@ class _RootScreenState extends State<RootScreen> {
   final apparecchiaturaKey = GlobalKey<ApparecchiaturaFormState>();
   final danniKey = GlobalKey<DanniFormState>();
   final allegatiKey = GlobalKey<AllegatiFormState>();
+  static const _db2025 = "2afde089ef9580e2b0e7d19d44f3a3f6";
+  static const _db2026 = "2b1de089ef9580729622ff9543046cbc";
 
   late NotionService notion;
   List<Gara> gareDisponibili = [];
@@ -124,7 +126,7 @@ class _RootScreenState extends State<RootScreen> {
     super.initState();
     notion = NotionService(
       apiKey: "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",
-      databaseId: "2afde089ef9580e2b0e7d19d44f3a3f6",
+      databaseId: _db2025,
     );
     _loadGareDsc();
   }
@@ -135,7 +137,9 @@ class _RootScreenState extends State<RootScreen> {
       gareError = null;
     });
     try {
-      final results = await notion.fetchGare();
+      final results = await notion.fetchGare(
+        additionalDatabaseIds: const [_db2026],
+      );
       final allGare =
           results.map((e) => Gara.fromNotion(e)).toList(growable: false);
       final userId = _loggedUserId;

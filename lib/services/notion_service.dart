@@ -13,8 +13,19 @@ class NotionService {
   // ---------------------------
   // 📌 QUERY DATABASE
   // ---------------------------
-  Future<List<Map<String, dynamic>>> fetchGare() async {
-    final url = "https://api.notion.com/v1/databases/$databaseId/query";
+  Future<List<Map<String, dynamic>>> fetchGare({
+    List<String> additionalDatabaseIds = const [],
+  }) async {
+    final ids = <String>{databaseId, ...additionalDatabaseIds.where((id) => id.isNotEmpty)};
+    final List<Map<String, dynamic>> all = [];
+    for (final id in ids) {
+      all.addAll(await _fetchGareFromDatabase(id));
+    }
+    return all;
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchGareFromDatabase(String dbId) async {
+    final url = "https://api.notion.com/v1/databases/$dbId/query";
 
     final res = await http.post(
       Uri.parse(url),
@@ -28,6 +39,11 @@ class NotionService {
     if (res.statusCode != 200) {
       print("STATUS CODE: ${res.statusCode}");
       print("BODY: ${res.body}");
+      // Se il database non è condiviso con l'integrazione o l'ID è errato,
+      // evitiamo di bloccare l'app e proseguiamo con gli altri database.
+      if (res.statusCode == 404) {
+        return [];
+      }
       throw Exception("Errore Notion: ${res.body}");
     }
 
@@ -35,7 +51,7 @@ class NotionService {
 
     // DEBUG — stampa tutte le proprietà della prima riga
     if (data["results"].isNotEmpty) {
-      print("\n=== DEBUG PROPERTIES ===");
+      print("\n=== DEBUG PROPERTIES ($dbId) ===");
       final props = data["results"][0]["properties"];
       _debugProperties(props);
     }

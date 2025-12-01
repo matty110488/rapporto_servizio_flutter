@@ -15,6 +15,9 @@ class GarePage extends StatefulWidget {
 }
 
 class _GarePageState extends State<GarePage> {
+  static const _db2025 = "2afde089ef9580e2b0e7d19d44f3a3f6";
+  static const _db2026 = "2b1de089ef9580729622ff9543046cbc";
+
   late NotionService notion;
   List<Gara> gare = [];
   bool loading = true;
@@ -27,7 +30,7 @@ class _GarePageState extends State<GarePage> {
 
     notion = NotionService(
       apiKey: "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",
-      databaseId: "2afde089ef9580e2b0e7d19d44f3a3f6",
+      databaseId: _db2025,
     );
 
     load();
@@ -39,7 +42,9 @@ class _GarePageState extends State<GarePage> {
         loading = true;
       });
     }
-    final results = await notion.fetchGare();
+    final results = await notion.fetchGare(
+      additionalDatabaseIds: const [_db2026],
+    );
 
     if (!mounted) return;
     setState(() {
@@ -140,7 +145,7 @@ class _GarePageState extends State<GarePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Gare 2025"),
+        title: Text("Calendario gare"),
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),

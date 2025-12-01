@@ -4,6 +4,7 @@ import '../screens/archivio_screen.dart';
 import 'gare_page.dart';
 import 'root_screen.dart';
 import 'designazioni_page.dart';
+// ignore: unused_import
 import 'help_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -59,11 +60,11 @@ class HomePage extends StatelessWidget {
     final userName = _extractUserName();
     final navItems = [
       _HomeNavData(
-        icon: Icons.flag,
-        label: 'Calendario Gare',
+        icon: Icons.assignment,
+        label: 'Rapporti di Servizio',
         onTap: () => _openPage(
           context,
-          GarePage(loggedUser: loggedUser),
+          RootScreen(loggedUser: loggedUser),
         ),
       ),
       _HomeNavData(
@@ -75,24 +76,16 @@ class HomePage extends StatelessWidget {
         ),
       ),
       _HomeNavData(
-        icon: Icons.assignment,
-        label: 'Rapporti di Servizio',
-        onTap: () => _openPage(
-          context,
-          RootScreen(loggedUser: loggedUser),
-        ),
-      ),
-      _HomeNavData(
         icon: Icons.folder,
         label: 'Archivio rapportini',
         onTap: () => _openPage(context, ArchivioScreen()),
       ),
       _HomeNavData(
-        icon: Icons.help_outline,
-        label: 'Aiuto',
+        icon: Icons.flag,
+        label: 'Calendario Gare',
         onTap: () => _openPage(
           context,
-          const HelpPage(),
+          GarePage(loggedUser: loggedUser),
         ),
       ),
     ];

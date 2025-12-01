@@ -16,6 +16,9 @@ class DesignazioniPage extends StatefulWidget {
 }
 
 class _DesignazioniPageState extends State<DesignazioniPage> {
+  static const _db2025 = "2afde089ef9580e2b0e7d19d44f3a3f6";
+  static const _db2026 = "2b1de089ef9580729622ff9543046cbc";
+
   late NotionService notion;
   List<Gara> gareDaSvolgere = [];
   List<Gara> gareConcluse = [];
@@ -33,7 +36,7 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
     super.initState();
     notion = NotionService(
       apiKey: "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",
-      databaseId: "2afde089ef9580e2b0e7d19d44f3a3f6",
+      databaseId: _db2025,
     );
     _caricaGare();
   }
@@ -44,7 +47,9 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
       errore = null;
     });
     try {
-      final results = await notion.fetchGare();
+      final results = await notion.fetchGare(
+        additionalDatabaseIds: const [_db2026],
+      );
       final all = results.map((e) => Gara.fromNotion(e)).toList();
       final userId = _loggedUserId;
 
