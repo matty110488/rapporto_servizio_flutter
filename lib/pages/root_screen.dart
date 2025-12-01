@@ -323,8 +323,8 @@ class _RootScreenState extends State<RootScreen> {
           padding: const EdgeInsets.all(16),
           child: Text(
             _isAdmin
-                ? "Non risultano gare disponibili in stato \"DESIGNAZIONE INVIATA\" o \"GARA COMPLETATA\"."
-                : "Non risultano gare in cui risulti DSC con stato \"DESIGNAZIONE INVIATA\" o \"GARA COMPLETATA\".",
+                ? "Rapportini completati per tutte le gare."
+                : "Non risultano gare in cui risulti DSC.",
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ),

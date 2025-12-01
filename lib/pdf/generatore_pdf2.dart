@@ -39,6 +39,28 @@ const PdfColor _tableHeaderColor = PdfColor.fromInt(0xFFD9EEFF);
 const PdfColor _tableHeaderTextColor = PdfColors.blueGrey900;
 const PdfColor _tableAltRowColor = PdfColor.fromInt(0xFFF2F8FF);
 
+String _sanitizeText(String value) {
+  const replacements = {
+    '\u2019': "'",
+    '\u2018': "'",
+    '\u2032': "'",
+    '\u02BC': "'",
+    '\u02BB': "'",
+    '\u0060': "'",
+    '\u00B4': "'",
+    '\u201C': '"',
+    '\u201D': '"',
+    '\u2033': '"',
+  };
+  var result = value;
+  replacements.forEach((from, to) {
+    result = result.replaceAll(from, to);
+  });
+  return result;
+}
+
+String _txt(Object? value) => _sanitizeText((value ?? '').toString());
+
 Future<File> generaPdfConDati(
   Map<String, dynamic> dati, {
   bool salvaLocalmente = false,
@@ -56,17 +78,17 @@ Future<File> generaPdfConDati(
 
   final cronos = (dati['cronometristi'] ?? []) as List;
   final apparecchiature = (dati['apparecchiature'] ?? []) as List;
-  final danni = (dati['danni'] ?? '') as String;
+  final danni = _txt(dati['danni']);
   final allegati = (dati['allegati'] ?? []) as List;
-  final direttore = (gara['dsc'] ?? '').toString().trim();
+  final direttore = _txt(gara['dsc']).trim();
   final Map<String, dynamic> orariGiornata = {};
   final rawOrari = dati['orariGiornata'];
   if (rawOrari is Map) {
     rawOrari.forEach((key, value) {
       if (value is Map) {
         orariGiornata[key.toString()] = {
-          'oraDa': (value['oraDa'] ?? '').toString(),
-          'oraA': (value['oraA'] ?? '').toString(),
+          'oraDa': _txt(value['oraDa']),
+          'oraA': _txt(value['oraA']),
         };
       }
     });
@@ -113,9 +135,8 @@ Future<File> generaPdfConDati(
   );
 
   final dir = await getApplicationDocumentsDirectory();
-  final String nomeGara = ((dati['gara'] ?? {})['nome'] ?? 'Rapporto')
-      .toString()
-      .replaceAll(' ', '');
+  final String nomeGara =
+      _txt(((dati['gara'] ?? {})['nome'] ?? 'Rapporto')).replaceAll(' ', '');
   final String dataFile = ((dati['gara'] ?? {})['dataDa'] ?? '00000000')
       .toString()
       .replaceAll('-', '');
@@ -129,22 +150,23 @@ Future<File> generaPdfConDati(
 // ===== Sezioni =====
 pw.Widget _sezioneGara(Map<String, dynamic> gara, pw.Font base, pw.Font bold) {
   String fmt(String? iso) {
-    if (iso == null || iso.isEmpty) return '';
+    iso = _txt(iso);
+    if (iso.isEmpty) return '';
     try {
       final d = DateTime.parse(iso);
       return DateFormat('dd/MM/yyyy').format(d);
     } catch (_) {
-      return iso;
+      return _txt(iso);
     }
   }
 
-  final nome = (gara['nome'] ?? '').toString();
-  final organizzatore = (gara['organizzatore'] ?? '').toString();
-  final sport = (gara['sport'] ?? '').toString();
-  final luogo = (gara['luogo'] ?? '').toString();
+  final nome = _txt(gara['nome']);
+  final organizzatore = _txt(gara['organizzatore']);
+  final sport = _txt(gara['sport']);
+  final luogo = _txt(gara['luogo']);
   final dataDa = fmt(gara['dataDa']?.toString());
   final dataA = fmt(gara['dataA']?.toString());
-  final dsc = (gara['dsc'] ?? '').toString();
+  final dsc = _txt(gara['dsc']);
 
   pw.Widget infoRow(String label, String value) => pw.Padding(
         padding: const pw.EdgeInsets.symmetric(vertical: 4),
@@ -156,7 +178,7 @@ pw.Widget _sezioneGara(Map<String, dynamic> gara, pw.Font base, pw.Font bold) {
                 style: pw.TextStyle(font: bold, fontSize: 12),
               ),
               pw.TextSpan(
-                text: value.isEmpty ? '-' : value,
+                text: value.isEmpty ? '-' : _txt(value),
                 style: pw.TextStyle(font: base, fontSize: 12),
               ),
             ],
@@ -248,12 +270,12 @@ pw.Widget _sezioneCronometristi(
     totKm += km;
     totSpese += spese;
     rows.add([
-      (c['nome'] ?? '').toString(),
+      _txt(c['nome']),
       ore.toStringAsFixed(1),
       km.toStringAsFixed(1),
       spese.toStringAsFixed(2),
-      (c['segreteria'] ?? '').toString(),
-      (c['note'] ?? '').toString(),
+      _txt(c['segreteria']),
+      _txt(c['note']),
     ]);
   }
 
@@ -314,18 +336,18 @@ pw.Widget _sezioneGiornate(
 
   final Map<String, List<Map<String, String>>> perData = {};
   for (final c in elenco) {
-    final nome = (c['nome'] ?? '').toString();
-    final segreteria = (c['segreteria'] ?? '').toString();
-    final note = (c['note'] ?? '').toString();
+    final nome = _txt(c['nome']);
+    final segreteria = _txt(c['segreteria']);
+    final note = _txt(c['note']);
     final giorni = (c['giorni'] as List?) ?? [];
     for (final g in giorni) {
-      final dIso = (g['data'] ?? '').toString();
+      final dIso = _txt(g['data']);
       if (dIso.isEmpty) continue;
-      final ore = (g['ore'] ?? '').toString();
-      final km = (g['km'] ?? '').toString();
-      final spese = (g['spese'] ?? '').toString();
-      final oraDa = (g['oraDa'] ?? '').toString();
-      final oraA = (g['oraA'] ?? '').toString();
+      final ore = _txt(g['ore']);
+      final km = _txt(g['km']);
+      final spese = _txt(g['spese']);
+      final oraDa = _txt(g['oraDa']);
+      final oraA = _txt(g['oraA']);
       if (!orariPerData.containsKey(dIso) &&
           (oraDa.isNotEmpty || oraA.isNotEmpty)) {
         orariPerData[dIso] = {'oraDa': oraDa, 'oraA': oraA};
@@ -490,7 +512,7 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
   pw.Widget valueCell(String text) => pw.Container(
         padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         child: pw.Text(
-          text.isEmpty ? '-' : text,
+          text.isEmpty ? '-' : _txt(text),
           style: pw.TextStyle(font: base, fontSize: 10),
           textAlign: pw.TextAlign.left,
         ),
@@ -500,7 +522,7 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
         padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         alignment: pw.Alignment.center,
         child: pw.Text(
-          text,
+          _txt(text),
           style: pw.TextStyle(font: base, fontSize: 10),
           textAlign: pw.TextAlign.center,
         ),
@@ -564,7 +586,7 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
                 style: pw.TextStyle(font: bold, fontSize: 10),
               ),
               pw.TextSpan(
-                text: altText,
+                text: _txt(altText),
                 style: pw.TextStyle(font: base, fontSize: 10),
               ),
             ],
@@ -591,7 +613,7 @@ pw.Widget _sezioneDanni(String testo, pw.Font base, pw.Font bold) {
           borderRadius: pw.BorderRadius.circular(6),
         ),
         child: pw.Text(
-          testo.isEmpty ? '-' : testo,
+          testo.isEmpty ? '-' : _txt(testo),
           style: pw.TextStyle(font: base),
         ),
       ),
@@ -612,7 +634,7 @@ pw.Widget _sezioneDirettore(String direttore, pw.Font base, pw.Font bold) {
           style: pw.TextStyle(font: bold, fontSize: 12),
         ),
         pw.SizedBox(height: 4),
-        pw.Text(text, style: pw.TextStyle(font: base, fontSize: 12)),
+        pw.Text(_txt(text), style: pw.TextStyle(font: base, fontSize: 12)),
       ],
     ),
   );
@@ -667,7 +689,7 @@ pw.Widget _tabellaRiepilogo(
         color: header ? _tableHeaderColor : background,
         alignment: center ? pw.Alignment.center : pw.Alignment.centerLeft,
         child: pw.Text(
-          text,
+          _txt(text),
           style: pw.TextStyle(
             font: boldText ? bold : base,
             color: header ? _tableHeaderTextColor : PdfColors.black,
@@ -752,9 +774,9 @@ Map<String, dynamic> _classificaApparecchiature(List elenco) {
 
   for (final voce in elenco) {
     if (voce is! Map) continue;
-    final nome = (voce['dispositivo'] ?? '').toString().trim();
+    final nome = _txt(voce['dispositivo']).trim();
     if (nome.isEmpty) continue;
-    final qty = (voce['quantita'] ?? '').toString().trim();
+    final qty = _txt(voce['quantita']).trim();
     final key = nome.toLowerCase();
 
     Map<String, String> entry() => {
@@ -809,7 +831,7 @@ pw.Widget _giornoCell(
       alignment: center ? pw.Alignment.center : pw.Alignment.centerLeft,
       color: background ?? (header ? _tableHeaderColor : null),
       child: pw.Text(
-        text,
+        _txt(text),
         style: pw.TextStyle(
           font: font,
           color: header ? _tableHeaderTextColor : PdfColors.black,
@@ -826,13 +848,14 @@ String _formatDateHuman(String iso) {
     final d = DateTime.parse(iso);
     return DateFormat('dd/MM/yyyy').format(d);
   } catch (_) {
-    return iso;
+    return _txt(iso);
   }
 }
 
 String _fmtValue(String? value) {
-  if (value == null || value.isEmpty) return '-';
-  return value;
+  final sanitized = _txt(value);
+  if (sanitized.isEmpty) return '-';
+  return sanitized;
 }
 
 Map<String, String> _orariForDate(
@@ -842,14 +865,14 @@ Map<String, String> _orariForDate(
   final raw = orariPerData[iso];
   if (raw == null) return {'oraDa': '', 'oraA': ''};
   return {
-    'oraDa': (raw['oraDa'] ?? '').toString(),
-    'oraA': (raw['oraA'] ?? '').toString(),
+    'oraDa': _txt(raw['oraDa']),
+    'oraA': _txt(raw['oraA']),
   };
 }
 
 String _formatOrarioRange(String? da, String? a) {
-  final start = (da ?? '').trim();
-  final end = (a ?? '').trim();
+  final start = _txt(da).trim();
+  final end = _txt(a).trim();
   if (start.isEmpty && end.isEmpty) return '-';
   final startLabel = start.isEmpty ? '-' : start;
   final endLabel = end.isEmpty ? '-' : end;
