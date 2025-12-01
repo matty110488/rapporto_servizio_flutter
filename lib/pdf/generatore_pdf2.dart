@@ -34,10 +34,10 @@ const Set<String> _varieDevices = {
   'smartphone',
 };
 
-const PdfColor _tableBorderColor = PdfColor.fromInt(0xFF8BB8E8);
-const PdfColor _tableHeaderColor = PdfColor.fromInt(0xFFD9EEFF);
-const PdfColor _tableHeaderTextColor = PdfColors.blueGrey900;
-const PdfColor _tableAltRowColor = PdfColor.fromInt(0xFFF2F8FF);
+const PdfColor _tableBorderColor = PdfColors.grey600;
+const PdfColor _tableHeaderColor = PdfColors.grey200;
+const PdfColor _tableHeaderTextColor = PdfColors.black;
+const PdfColor _tableAltRowColor = PdfColors.white;
 
 String _sanitizeText(String value) {
   const replacements = {
@@ -97,7 +97,7 @@ Future<File> generaPdfConDati(
 
   final contenuto = <pw.Widget>[
     _sezioneGara(gara, base, bold),
-    pw.SizedBox(height: 16),
+    pw.SizedBox(height: 12),
     _sezioneCronometristi(
       cronos,
       base,
@@ -105,19 +105,19 @@ Future<File> generaPdfConDati(
       mostraRiepilogo: mostraRiepilogo,
       orariGiornata: orariGiornata,
     ),
-    pw.SizedBox(height: 16),
+    pw.SizedBox(height: 12),
     _sezioneApparecchiatura(apparecchiature, base, bold),
-    pw.SizedBox(height: 16),
+    pw.SizedBox(height: 12),
     _sezioneDanni(danni, base, bold),
   ];
 
   if (allegati.isNotEmpty) {
-    contenuto.addAll([pw.SizedBox(height: 16), _sezioneAllegati(allegati)]);
+    contenuto.addAll([pw.SizedBox(height: 12), _sezioneAllegati(allegati)]);
   }
 
   if (direttore.isNotEmpty) {
     contenuto.addAll([
-      pw.SizedBox(height: 16),
+      pw.SizedBox(height: 12),
       _sezioneDirettore(direttore, base, bold),
     ]);
   }
@@ -125,7 +125,7 @@ Future<File> generaPdfConDati(
   pdf.addPage(
     pw.MultiPage(
       pageTheme: const pw.PageTheme(
-        margin: pw.EdgeInsets.symmetric(horizontal: 32, vertical: 36),
+        margin: pw.EdgeInsets.symmetric(horizontal: 22, vertical: 22),
       ),
       header: (context) => _header(bold, logo: logoImage),
       footer: (context) =>
@@ -207,9 +207,8 @@ pw.Widget _sezioneGara(Map<String, dynamic> gara, pw.Font base, pw.Font bold) {
   final right = entries.sublist(splitIndex);
 
   return pw.Container(
-    padding: const pw.EdgeInsets.all(14),
+    padding: const pw.EdgeInsets.all(10),
     decoration: pw.BoxDecoration(
-      color: _tableAltRowColor,
       border: pw.Border.all(color: _tableBorderColor),
       borderRadius: pw.BorderRadius.circular(8),
     ),
@@ -280,15 +279,15 @@ pw.Widget _sezioneCronometristi(
   }
 
   final children = <pw.Widget>[
-    pw.Text('Cronometristi', style: pw.TextStyle(font: bold, fontSize: 14)),
-    pw.SizedBox(height: 8),
+    pw.Text('Cronometristi', style: pw.TextStyle(font: bold, fontSize: 13)),
+    pw.SizedBox(height: 6),
     _sezioneGiornate(
       elenco,
       base,
       bold,
       orariGiornata: orariGiornata,
     ),
-    pw.SizedBox(height: 4),
+    pw.SizedBox(height: 3),
     pw.Text(
       '',
       style: pw.TextStyle(font: base, fontSize: 9, color: PdfColors.grey700),
@@ -297,14 +296,14 @@ pw.Widget _sezioneCronometristi(
 
   if (mostraRiepilogo && rows.isNotEmpty) {
     children.addAll([
-      pw.SizedBox(height: 14),
+      pw.SizedBox(height: 10),
       pw.Text(
         'Riepilogo cronometristi',
-        style: pw.TextStyle(font: bold, fontSize: 14),
+        style: pw.TextStyle(font: bold, fontSize: 13),
       ),
-      pw.SizedBox(height: 6),
+      pw.SizedBox(height: 5),
       _tabellaRiepilogo(rows, totOre, totKm, totSpese, base, bold),
-      pw.SizedBox(height: 4),
+      pw.SizedBox(height: 3),
       //pw.Text('* Specificare SI/NO',
       //    style:
       //        pw.TextStyle(font: base, fontSize: 9, color: PdfColors.grey700)),
@@ -380,7 +379,7 @@ pw.Widget _sezioneGiornate(
     final orarioLabel = _formatOrarioRange(orari['oraDa'], orari['oraA']);
     widgets.add(
       pw.Container(
-        margin: const pw.EdgeInsets.only(bottom: 12),
+        margin: const pw.EdgeInsets.only(bottom: 8),
         decoration: pw.BoxDecoration(
           border: pw.Border.all(color: _tableBorderColor),
           borderRadius: pw.BorderRadius.circular(6),
@@ -391,7 +390,7 @@ pw.Widget _sezioneGiornate(
             pw.Container(
               padding: const pw.EdgeInsets.symmetric(
                 horizontal: 8,
-                vertical: 4,
+                vertical: 3,
               ),
               decoration: const pw.BoxDecoration(color: _tableHeaderColor),
               child: pw.Column(
@@ -413,7 +412,7 @@ pw.Widget _sezioneGiornate(
                   pw.SizedBox(height: 2),
                   pw.Text(
                     'Orario: $orarioLabel',
-                    style: pw.TextStyle(font: base, fontSize: 10),
+                    style: pw.TextStyle(font: base, fontSize: 9),
                   ),
                 ],
               ),
@@ -494,13 +493,13 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
   );
 
   pw.Widget headerCell(String text) => pw.Container(
-        padding: const pw.EdgeInsets.all(4),
+        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
         color: _tableHeaderColor,
         child: pw.Text(
           text,
           style: pw.TextStyle(
             font: bold,
-            fontSize: 10,
+            fontSize: 9,
             color: _tableHeaderTextColor,
           ),
           textAlign: pw.TextAlign.center,
@@ -510,20 +509,20 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
       );
 
   pw.Widget valueCell(String text) => pw.Container(
-        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: pw.Text(
           text.isEmpty ? '-' : _txt(text),
-          style: pw.TextStyle(font: base, fontSize: 10),
+          style: pw.TextStyle(font: base, fontSize: 9.5),
           textAlign: pw.TextAlign.left,
         ),
       );
 
   pw.Widget qtyCell(String text) => pw.Container(
-        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         alignment: pw.Alignment.center,
         child: pw.Text(
           _txt(text),
-          style: pw.TextStyle(font: base, fontSize: 10),
+          style: pw.TextStyle(font: base, fontSize: 9.5),
           textAlign: pw.TextAlign.center,
         ),
       );
@@ -533,9 +532,9 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
     children: [
       pw.Text(
         'Apparecchiature impiegate',
-        style: pw.TextStyle(font: bold, fontSize: 14),
+        style: pw.TextStyle(font: bold, fontSize: 13),
       ),
-      pw.SizedBox(height: 8),
+      pw.SizedBox(height: 6),
       pw.Table(
         border: pw.TableBorder.all(color: _tableBorderColor),
         columnWidths: const {
@@ -603,11 +602,11 @@ pw.Widget _sezioneDanni(String testo, pw.Font base, pw.Font bold) {
     children: [
       pw.Text(
         'Note / Malfunzionamenti',
-        style: pw.TextStyle(font: bold, fontSize: 14),
+        style: pw.TextStyle(font: bold, fontSize: 13),
       ),
-      pw.SizedBox(height: 8),
+      pw.SizedBox(height: 6),
       pw.Container(
-        padding: const pw.EdgeInsets.all(8),
+        padding: const pw.EdgeInsets.all(7),
         decoration: pw.BoxDecoration(
           border: pw.Border.all(color: PdfColors.grey400),
           borderRadius: pw.BorderRadius.circular(6),
@@ -631,10 +630,10 @@ pw.Widget _sezioneDirettore(String direttore, pw.Font base, pw.Font bold) {
       children: [
         pw.Text(
           'Direttore Servizio di Cronometraggio',
-          style: pw.TextStyle(font: bold, fontSize: 12),
+          style: pw.TextStyle(font: bold, fontSize: 11),
         ),
-        pw.SizedBox(height: 4),
-        pw.Text(_txt(text), style: pw.TextStyle(font: base, fontSize: 12)),
+        pw.SizedBox(height: 3),
+        pw.Text(_txt(text), style: pw.TextStyle(font: base, fontSize: 11)),
       ],
     ),
   );
@@ -646,9 +645,9 @@ pw.Widget _sezioneAllegati(List allegati) {
     children: [
       pw.Text(
         'Allegati fotografici',
-        style: pw.TextStyle(font: pw.Font.helveticaBold(), fontSize: 14),
+        style: pw.TextStyle(font: pw.Font.helveticaBold(), fontSize: 12),
       ),
-      pw.SizedBox(height: 8),
+      pw.SizedBox(height: 6),
       pw.Wrap(
         spacing: 8,
         runSpacing: 8,
@@ -685,7 +684,7 @@ pw.Widget _tabellaRiepilogo(
     PdfColor? background,
   }) =>
       pw.Container(
-        padding: const pw.EdgeInsets.all(4),
+        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
         color: header ? _tableHeaderColor : background,
         alignment: center ? pw.Alignment.center : pw.Alignment.centerLeft,
         child: pw.Text(
@@ -696,7 +695,7 @@ pw.Widget _tabellaRiepilogo(
             fontSize: 10,
             fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
           ),
-          maxLines: header ? 1 : null,
+          maxLines: header ? 1 : 2,
           softWrap: header ? false : true,
         ),
       );
@@ -827,7 +826,7 @@ pw.Widget _giornoCell(
   PdfColor? background,
 }) =>
     pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       alignment: center ? pw.Alignment.center : pw.Alignment.centerLeft,
       color: background ?? (header ? _tableHeaderColor : null),
       child: pw.Text(
@@ -893,48 +892,48 @@ pw.Widget _header(pw.Font bold, {pw.ImageProvider? logo}) {
             children: [
               pw.Text(
                 'ASD Cronometristi Valtellinesi',
-                style: pw.TextStyle(font: bold, fontSize: 12),
+                style: pw.TextStyle(font: bold, fontSize: 11),
               ),
               pw.Text(
                 'Piazzale Valgoi, 5',
-                style: pw.TextStyle(font: pw.Font.helvetica(), fontSize: 10),
+                style: pw.TextStyle(font: pw.Font.helvetica(), fontSize: 9),
               ),
               pw.Text(
                 '23100 - Sondrio',
-                style: pw.TextStyle(font: pw.Font.helvetica(), fontSize: 10),
+                style: pw.TextStyle(font: pw.Font.helvetica(), fontSize: 9),
               ),
             ],
           ),
           if (logo != null)
             pw.Container(
-              width: 120,
-              height: 120,
+              width: 90,
+              height: 90,
               child: pw.Image(logo, fit: pw.BoxFit.contain),
             )
           else
             pw.Container(
-              width: 60,
-              height: 60,
+              width: 48,
+              height: 48,
               alignment: pw.Alignment.center,
               decoration: pw.BoxDecoration(
                 border: pw.Border.all(color: PdfColors.grey600),
-                borderRadius: pw.BorderRadius.circular(30),
+                borderRadius: pw.BorderRadius.circular(24),
               ),
               child: pw.Text(
                 'LOGO',
-                style: pw.TextStyle(font: bold, fontSize: 10),
+                style: pw.TextStyle(font: bold, fontSize: 9),
               ),
             ),
         ],
       ),
-      pw.SizedBox(height: 6),
+      pw.SizedBox(height: 4),
       pw.Center(
         child: pw.Text(
           'RAPPORTO DI SERVIZIO',
-          style: pw.TextStyle(font: bold, fontSize: 18),
+          style: pw.TextStyle(font: bold, fontSize: 16),
         ),
       ),
-      pw.SizedBox(height: 6),
+      pw.SizedBox(height: 4),
       pw.Divider(color: PdfColors.grey400),
     ],
   );
@@ -947,11 +946,11 @@ pw.Widget _footer(pw.Font base, int page, int pages) {
     children: [
       pw.Text(
         'Generato: ' + now,
-        style: pw.TextStyle(font: base, fontSize: 9, color: PdfColors.grey700),
+        style: pw.TextStyle(font: base, fontSize: 8.5, color: PdfColors.grey700),
       ),
       pw.Text(
         'Pagina ' + page.toString() + ' di ' + pages.toString(),
-        style: pw.TextStyle(font: base, fontSize: 9, color: PdfColors.grey700),
+        style: pw.TextStyle(font: base, fontSize: 8.5, color: PdfColors.grey700),
       ),
     ],
   );
