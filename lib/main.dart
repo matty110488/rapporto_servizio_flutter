@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'pages/home_page.dart';
@@ -10,11 +11,19 @@ import 'pages/login_page.dart';
 import 'services/push_notification_service.dart';
 import 'state/session_state.dart';
 
-void main() async {
+import 'firebase_options.dart';
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp();
-  await initFirebaseMessaging();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  if (defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS) {
+    await initFirebaseMessaging();
+  }
 
   runApp(CronoValtellinesiApp());
 }
@@ -69,9 +78,13 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
     });
     globalLoggedUserId = user['id'];
 
-    final token = await FirebaseMessaging.instance.getToken();
-    if (token != null && globalLoggedUserId != null) {
-      sendTokenToBackend(globalLoggedUserId!, token);
+    if (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS) {
+      final token = await FirebaseMessaging.instance.getToken();
+
+      if (token != null && globalLoggedUserId != null) {
+        sendTokenToBackend(globalLoggedUserId!, token);
+      }
     }
   }
 
@@ -87,41 +100,6 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
     globalLoggedUserId = null;
   }
 
-  /* ThemeData _buildWhiteBlueTheme() {
-    final base = ThemeData.light();
-    final colorScheme = base.colorScheme.copyWith(
-      primary: Colors.blue,
-      secondary: Colors.blueAccent,
-      background: Colors.white,
-      surface: Colors.white,
-    );
-
-    return base.copyWith(
-      primaryColor: Colors.blue,
-      scaffoldBackgroundColor: Colors.white,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-      colorScheme: colorScheme,
-      textTheme: base.textTheme.apply(
-        bodyColor: Colors.black,
-        displayColor: Colors.black,
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          side: const BorderSide(color: Colors.black),
-        ),
-      ),
-      iconTheme: base.iconTheme.copyWith(color: Colors.black),
-    );
-  }
-*/
-
   ThemeData _buildPremiumTheme() {
     const primary = Color(0xFF0A66C2); // blu elegante
     const textColor = Color(0xFF1C1C1E); // nero soft
@@ -132,15 +110,12 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
     return base.copyWith(
       primaryColor: primary,
       scaffoldBackgroundColor: const Color.fromARGB(255, 179, 209, 241),
-      //scaffoldBackgroundColor: Color(0xFFE9F2FF),
       colorScheme: base.colorScheme.copyWith(
         primary: primary,
         secondary: primary,
         background: Colors.white,
         surface: Colors.white,
       ),
-
-      // --- APP BAR ---
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
@@ -148,15 +123,11 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
         shadowColor: Colors.black12,
         centerTitle: false,
       ),
-
-      // --- TESTI ---
       textTheme: base.textTheme.apply(
         bodyColor: textColor,
         displayColor: textColor,
         fontFamily: 'Roboto',
       ),
-
-      // --- CARD ---
       cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 2,
@@ -165,8 +136,6 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
           borderRadius: BorderRadius.circular(18),
         ),
       ),
-
-      // --- BOTTONI ---
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primary,
@@ -181,19 +150,14 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
           ),
         ),
       ),
-
-      // --- ICONS ---
       iconTheme: const IconThemeData(
         color: primary,
         size: 28,
       ),
-
-      // --- CAMPI DI TESTO ---
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: lightGray,
         labelStyle: TextStyle(color: textColor.withOpacity(0.8)),
-        // Mostra l'etichetta solo quando il campo è vuoto; scompare quando il valore è presente.
         floatingLabelBehavior: FloatingLabelBehavior.auto,
         enabledBorder: OutlineInputBorder(
           borderSide: BorderSide.none,
@@ -211,7 +175,6 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
 
   @override
   Widget build(BuildContext context) {
-    // final theme = _buildWhiteBlueTheme();
     final theme = _buildPremiumTheme();
 
     if (restoringSession) {

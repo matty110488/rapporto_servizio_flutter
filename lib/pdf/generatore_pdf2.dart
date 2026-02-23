@@ -61,6 +61,14 @@ String _sanitizeText(String value) {
 
 String _txt(Object? value) => _sanitizeText((value ?? '').toString());
 
+String _safeFileName(String raw) {
+  // Remove path separators and other invalid filename characters, and trim spaces.
+  final cleaned = raw.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+  final noSpaces = cleaned.replaceAll(RegExp(r'\\s+'), '');
+  final noTrailingDots = noSpaces.replaceAll(RegExp(r'[.]+$'), '');
+  return noTrailingDots.isEmpty ? 'Rapporto' : noTrailingDots;
+}
+
 Future<File> generaPdfConDati(
   Map<String, dynamic> dati, {
   bool salvaLocalmente = false,
@@ -136,7 +144,7 @@ Future<File> generaPdfConDati(
 
   final dir = await getApplicationDocumentsDirectory();
   final String nomeGara =
-      _txt(((dati['gara'] ?? {})['nome'] ?? 'Rapporto')).replaceAll(' ', '');
+      _safeFileName(_txt(((dati['gara'] ?? {})['nome'] ?? 'Rapporto')));
   final String dataFile = ((dati['gara'] ?? {})['dataDa'] ?? '00000000')
       .toString()
       .replaceAll('-', '');
