@@ -114,7 +114,7 @@ Future<File> generaPdfConDati(
       orariGiornata: orariGiornata,
     ),
     pw.SizedBox(height: 12),
-    _sezioneGaraPreparataGiornoPrima(apparecchiature, base, bold),
+    _sezioneNumeroGiornateSegreteria(apparecchiature, base, bold),
     pw.SizedBox(height: 12),
     _sezioneApparecchiatura(apparecchiature, base, bold),
     pw.SizedBox(height: 12),
@@ -488,9 +488,8 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
   if (first is Map && first['fisMode'] == true) {
     final tipoGara = _txt(first['tipoGara']).trim();
     final tabellone = _txt(first['quantita']).trim().toUpperCase();
-    final tabelloneLabel = (tabellone == 'SI' || tabellone == 'NO')
-        ? tabellone
-        : 'NO';
+    final tabelloneLabel =
+        (tabellone == 'SI' || tabellone == 'NO') ? tabellone : 'NO';
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -812,23 +811,20 @@ pw.Widget _tabellaRiepilogo(
   );
 }
 
-pw.Widget _sezioneGaraPreparataGiornoPrima(
+pw.Widget _sezioneNumeroGiornateSegreteria(
   List apparecchiature,
   pw.Font base,
   pw.Font bold,
 ) {
-  int giornate = 0;
+  String giornateSegreteria = '';
   for (final voce in apparecchiature) {
     if (voce is! Map) continue;
     final raw = _txt(voce['giornateSegreteria']).trim();
     if (raw.isEmpty) continue;
-    final parsed = int.tryParse(raw);
-    if (parsed != null) {
-      giornate = parsed;
-      break;
-    }
+    giornateSegreteria = raw;
+    break;
   }
-  final valoreFinale = giornate > 0 ? 'SI' : 'NO';
+  final valoreFinale = giornateSegreteria.isEmpty ? '-' : giornateSegreteria;
 
   return pw.Column(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -843,7 +839,7 @@ pw.Widget _sezioneGaraPreparataGiornoPrima(
           children: [
             pw.Expanded(
               child: pw.Text(
-                'GARA PREPARATA IL GIORNO PRIMA?',
+                'NUMERO GIORNATE DI SEGRETERIA',
                 style: pw.TextStyle(font: bold, fontSize: 11),
               ),
             ),
@@ -1038,11 +1034,13 @@ pw.Widget _footer(pw.Font base, int page, int pages) {
     children: [
       pw.Text(
         'Generato: ' + now,
-        style: pw.TextStyle(font: base, fontSize: 8.5, color: PdfColors.grey700),
+        style:
+            pw.TextStyle(font: base, fontSize: 8.5, color: PdfColors.grey700),
       ),
       pw.Text(
         'Pagina ' + page.toString() + ' di ' + pages.toString(),
-        style: pw.TextStyle(font: base, fontSize: 8.5, color: PdfColors.grey700),
+        style:
+            pw.TextStyle(font: base, fontSize: 8.5, color: PdfColors.grey700),
       ),
     ],
   );
