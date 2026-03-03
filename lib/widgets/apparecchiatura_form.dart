@@ -92,6 +92,59 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
     });
   }
 
+  Widget _sectionHeader({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.primary.withOpacity(0.22)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: cs.primary.withOpacity(0.16),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: cs.primary),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: cs.onSurface.withOpacity(0.72),
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -101,42 +154,81 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Apparecchiatura per gara $tipoGaraLabel",
-            style: Theme.of(context).textTheme.titleLarge,
+          _sectionHeader(
+            title: "Apparecchiatura per gara $tipoGaraLabel",
+            subtitle: "Compila i dati di segreteria e presenza tabellone.",
+            icon: Icons.precision_manufacturing_rounded,
           ),
-          const SizedBox(height: 4),
-          // Text(
-          //   "Indica se e presente il TABELLONE.",
-          //   style: Theme.of(context)
-          //       .textTheme
-          //       .bodySmall
-          //       ?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
-          // ),
           const SizedBox(height: 12),
-          TextFormField(
-            initialValue: giornateSegreteria,
-            keyboardType: TextInputType.number,
-            onChanged: (val) => setState(() => giornateSegreteria = val),
-            decoration: const InputDecoration(
-              labelText: 'Indicare il numero di giornate segreteria',
-              border: OutlineInputBorder(),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: colorScheme.surface.withOpacity(0.92),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: colorScheme.outline.withOpacity(0.24)),
             ),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            value: tabelloneFis,
-            items: const [
-              DropdownMenuItem(value: 'SI', child: Text('SI')),
-              DropdownMenuItem(value: 'NO', child: Text('NO')),
-            ],
-            onChanged: (val) {
-              if (val == null) return;
-              setState(() => tabelloneFis = val);
-            },
-            decoration: const InputDecoration(
-              labelText: 'TABELLONE',
-              border: OutlineInputBorder(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  initialValue: giornateSegreteria,
+                  keyboardType: TextInputType.number,
+                  onChanged: (val) => setState(() => giornateSegreteria = val),
+                  decoration: const InputDecoration(
+                    labelText: 'Numero giornate segreteria',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: colorScheme.outline.withOpacity(0.25)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'TABELLONE',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: RadioListTile<String>(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('SI'),
+                              value: 'SI',
+                              groupValue: tabelloneFis,
+                              onChanged: (val) {
+                                if (val == null) return;
+                                setState(() => tabelloneFis = val);
+                              },
+                              dense: true,
+                            ),
+                          ),
+                          Expanded(
+                            child: RadioListTile<String>(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('NO'),
+                              value: 'NO',
+                              groupValue: tabelloneFis,
+                              onChanged: (val) {
+                                if (val == null) return;
+                                setState(() => tabelloneFis = val);
+                              },
+                              dense: true,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -146,14 +238,10 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Apparecchiatura", style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 4),
-        Text(
-          "Apparecchiatura utilizzata in gara.",
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
+        _sectionHeader(
+          title: "Apparecchiatura",
+          subtitle: "Indica i dispositivi utilizzati in gara e la quantita.",
+          icon: Icons.handyman_rounded,
         ),
         const SizedBox(height: 12),
         ListView.builder(
@@ -167,99 +255,106 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
                 .toList();
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceVariant.withOpacity(0.35),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: colorScheme.outline.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceVariant.withOpacity(0.35),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: colorScheme.outline.withOpacity(0.3),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: riga['dispositivo'],
-                              items: opzioni
-                                  .where((d) =>
-                                      !righe
-                                          .any((r) => r['dispositivo'] == d) ||
-                                      riga['dispositivo'] == d)
-                                  .map((d) => DropdownMenuItem(
-                                      value: d,
-                                      child: Text(d,
-                                          overflow: TextOverflow.ellipsis)))
-                                  .toList(),
-                              isExpanded: true,
-                              onChanged: (val) =>
-                                  setState(() => riga['dispositivo'] = val),
-                              decoration: InputDecoration(
-                                labelText: 'Dispositivo',
-                                filled: true,
-                                fillColor:
-                                    colorScheme.surface.withOpacity(0.95),
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10)),
-                              ),
-                            ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          "Dispositivo ${index + 1}",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.primary,
                           ),
-                          (((riga['dispositivo'] ?? '')
-                                      .toString()
-                                      .isNotEmpty) ||
-                                  ((riga['quantita'] ?? '')
-                                      .toString()
-                                      .isNotEmpty))
-                              ? IconButton(
-                                  icon: const Icon(Icons.close_rounded),
-                                  color: colorScheme.onSurface.withOpacity(0.6),
-                                  onPressed: () => rimuoviRiga(index),
-                                  tooltip: 'Rimuovi questo dispositivo',
-                                )
-                              : const SizedBox(width: 8),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: 160,
-                        child: TextFormField(
-                          initialValue: riga['quantita'],
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: 'Quantita',
-                            hintText: 'Es. 2',
-                            prefixIcon: Icon(Icons.numbers_rounded,
-                                size: 18,
-                                color: colorScheme.primary.withOpacity(0.8)),
-                            filled: true,
-                            fillColor: colorScheme.surface.withOpacity(0.95),
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          onChanged: (val) => riga['quantita'] = val,
                         ),
                       ),
+                      const Spacer(),
+                      (((riga['dispositivo'] ?? '').toString().isNotEmpty) ||
+                              ((riga['quantita'] ?? '').toString().isNotEmpty))
+                          ? IconButton(
+                              icon: const Icon(Icons.close_rounded),
+                              color: colorScheme.onSurface.withOpacity(0.6),
+                              onPressed: () => rimuoviRiga(index),
+                              tooltip: 'Rimuovi questo dispositivo',
+                            )
+                          : const SizedBox(width: 8),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    value: riga['dispositivo'],
+                    items: opzioni
+                        .where((d) =>
+                            !righe.any((r) => r['dispositivo'] == d) ||
+                            riga['dispositivo'] == d)
+                        .map((d) => DropdownMenuItem(
+                            value: d,
+                            child: Text(d, overflow: TextOverflow.ellipsis)))
+                        .toList(),
+                    isExpanded: true,
+                    onChanged: (val) =>
+                        setState(() => riga['dispositivo'] = val),
+                    decoration: InputDecoration(
+                      labelText: 'Dispositivo',
+                      filled: true,
+                      fillColor: colorScheme.surface.withOpacity(0.95),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: 170,
+                    child: TextFormField(
+                      initialValue: riga['quantita'],
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Quantita',
+                        hintText: 'Es. 2',
+                        prefixIcon: Icon(Icons.numbers_rounded,
+                            size: 18,
+                            color: colorScheme.primary.withOpacity(0.8)),
+                        filled: true,
+                        fillColor: colorScheme.surface.withOpacity(0.95),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onChanged: (val) => riga['quantita'] = val,
+                    ),
+                  ),
+                ],
               ),
             );
           },
         ),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: aggiungiRiga,
-          icon: const Icon(Icons.add),
-          label: const Text('Aggiungi dispositivo'),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: aggiungiRiga,
+            icon: const Icon(Icons.add),
+            label: const Text('Aggiungi dispositivo'),
+          ),
         ),
       ],
     );
