@@ -92,6 +92,22 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
     });
   }
 
+  void _showSegreteriaInfoDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Numero giornate segreteria'),
+        content: const Text('Giornate di gara + giornate di preparazione gara'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _sectionHeader({
     required String title,
     required String subtitle,
@@ -174,9 +190,20 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
                   initialValue: giornateSegreteria,
                   keyboardType: TextInputType.number,
                   onChanged: (val) => setState(() => giornateSegreteria = val),
-                  decoration: const InputDecoration(
+                  validator: (value) {
+                    if ((value ?? '').trim().isEmpty) {
+                      return 'Campo obbligatorio';
+                    }
+                    return null;
+                  },
+                  decoration: InputDecoration(
                     labelText: 'Numero giornate segreteria',
                     border: OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      tooltip: 'Informazioni',
+                      icon: const Icon(Icons.help_outline_rounded),
+                      onPressed: _showSegreteriaInfoDialog,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
