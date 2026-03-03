@@ -25,6 +25,7 @@ class GaraFormState extends State<GaraForm> {
   DateTime? dataDa;
   DateTime? dataA;
   Map<String, Map<String, String>> orariPerData = {};
+  final Map<String, TextEditingController> _timeControllers = {};
 
   Future<void> _selezionaData(BuildContext context, bool isDa) async {
     final picked = await showDatePicker(
@@ -72,6 +73,9 @@ class GaraFormState extends State<GaraForm> {
     organizzatoreController.dispose();
     luogoController.dispose();
     dscController.dispose();
+    for (final controller in _timeControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -100,6 +104,7 @@ class GaraFormState extends State<GaraForm> {
       };
     }
     orariPerData = updated;
+    _pruneTimeControllers();
   }
 
   void _aggiornaOrarioPerData(String data, String campo, String valore) {
@@ -112,6 +117,97 @@ class GaraFormState extends State<GaraForm> {
       };
     });
     widget.onOrariChanged?.call(getOrariGiornata());
+  }
+
+  String _timeKey(String data, String campo) => '$data::$campo';
+
+  TextEditingController _getTimeController({
+    required String data,
+    required String campo,
+    required String value,
+  }) {
+    final key = _timeKey(data, campo);
+    final existing = _timeControllers[key];
+    if (existing != null) {
+      if (existing.text != value) {
+        existing.text = value;
+      }
+      return existing;
+    }
+    final controller = TextEditingController(text: value);
+    _timeControllers[key] = controller;
+    return controller;
+  }
+
+  void _pruneTimeControllers() {
+    final validKeys = <String>{};
+    for (final data in orariPerData.keys) {
+      validKeys.add(_timeKey(data, 'oraDa'));
+      validKeys.add(_timeKey(data, 'oraA'));
+    }
+    final keysToRemove = _timeControllers.keys
+        .where((k) => !validKeys.contains(k))
+        .toList(growable: false);
+    for (final key in keysToRemove) {
+      _timeControllers.remove(key)?.dispose();
+    }
+  }
+
+  String _normalizeTime(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return '';
+
+    final onlyHour = RegExp(r'^\d{1,2}$');
+    if (onlyHour.hasMatch(value)) {
+      final hour = int.tryParse(value);
+      if (hour != null && hour >= 0 && hour <= 23) {
+        return '$hour:00';
+      }
+      return value;
+    }
+
+    final hourMinute = RegExp(r'^(\d{1,2}):(\d{1,2})$').firstMatch(value);
+    if (hourMinute != null) {
+      final hour = int.tryParse(hourMinute.group(1)!);
+      final minute = int.tryParse(hourMinute.group(2)!);
+      if (hour != null && minute != null) {
+        if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+          return '$hour:${minute.toString().padLeft(2, '0')}';
+        }
+      }
+      return value;
+    }
+
+    final compact = RegExp(r'^(\d{1,2})(\d{2})$').firstMatch(value);
+    if (compact != null) {
+      final hour = int.tryParse(compact.group(1)!);
+      final minute = int.tryParse(compact.group(2)!);
+      if (hour != null &&
+          minute != null &&
+          hour >= 0 &&
+          hour <= 23 &&
+          minute >= 0 &&
+          minute <= 59) {
+        return '$hour:${minute.toString().padLeft(2, '0')}';
+      }
+    }
+
+    return value;
+  }
+
+  void _normalizeAndSaveTime({
+    required String data,
+    required String campo,
+    required TextEditingController controller,
+  }) {
+    final normalized = _normalizeTime(controller.text);
+    if (controller.text != normalized) {
+      controller.value = controller.value.copyWith(
+        text: normalized,
+        selection: TextSelection.collapsed(offset: normalized.length),
+      );
+    }
+    _aggiornaOrarioPerData(data, campo, normalized);
   }
 
   void applyNotionData({
@@ -337,9 +433,18 @@ class GaraFormState extends State<GaraForm> {
                           child: _timeField(
                             label: 'Ora inizio',
                             hint: 'HH:MM',
-                            initialValue: orari['oraDa'] ?? '',
+                            controller: _getTimeController(
+                              data: data,
+                              campo: 'oraDa',
+                              value: (orari['oraDa'] ?? '').toString(),
+                            ),
                             onChanged: (val) =>
                                 _aggiornaOrarioPerData(data, 'oraDa', val),
+                            onNormalize: (controller) => _normalizeAndSaveTime(
+                              data: data,
+                              campo: 'oraDa',
+                              controller: controller,
+                            ),
                             fieldKey: ValueKey('ora-da-gara-$data'),
                             colorScheme: colorScheme,
                           ),
@@ -349,9 +454,18 @@ class GaraFormState extends State<GaraForm> {
                           child: _timeField(
                             label: 'Ora fine',
                             hint: 'HH:MM',
-                            initialValue: orari['oraA'] ?? '',
+                            controller: _getTimeController(
+                              data: data,
+                              campo: 'oraA',
+                              value: (orari['oraA'] ?? '').toString(),
+                            ),
                             onChanged: (val) =>
                                 _aggiornaOrarioPerData(data, 'oraA', val),
+                            onNormalize: (controller) => _normalizeAndSaveTime(
+                              data: data,
+                              campo: 'oraA',
+                              controller: controller,
+                            ),
                             fieldKey: ValueKey('ora-a-gara-$data'),
                             colorScheme: colorScheme,
                           ),
@@ -371,14 +485,15 @@ class GaraFormState extends State<GaraForm> {
   Widget _timeField({
     required String label,
     required String hint,
-    required String initialValue,
+    required TextEditingController controller,
     required ValueChanged<String> onChanged,
+    required ValueChanged<TextEditingController> onNormalize,
     required Key fieldKey,
     required ColorScheme colorScheme,
   }) {
     return TextFormField(
       key: fieldKey,
-      initialValue: initialValue,
+      controller: controller,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -395,6 +510,9 @@ class GaraFormState extends State<GaraForm> {
       ),
       keyboardType: TextInputType.datetime,
       onChanged: onChanged,
+      onEditingComplete: () => onNormalize(controller),
+      onTapOutside: (_) => onNormalize(controller),
+      onFieldSubmitted: (_) => onNormalize(controller),
     );
   }
 

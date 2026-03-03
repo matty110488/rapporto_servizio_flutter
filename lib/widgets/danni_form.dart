@@ -22,7 +22,7 @@ class DanniFormState extends State<DanniForm> {
             style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 4),
         Text(
-          "Annota eventuqli problemi/malfunzionamenti o note di servizio.",
+          "Annota eventuali problemi/malfunzionamenti o note di servizio.",
           style: Theme.of(context)
               .textTheme
               .bodySmall
