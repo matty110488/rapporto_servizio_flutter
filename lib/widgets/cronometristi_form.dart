@@ -480,8 +480,9 @@ class CronometristiFormState extends State<CronometristiForm> {
                                 title: const Text('SI'),
                                 value: 'SI',
                                 groupValue: riga['segreteria'],
-                                onChanged: (val) =>
-                                    setState(() => riga['segreteria'] = val),
+                                onChanged: (val) => setState(() {
+                                  riga['segreteria'] = val;
+                                }),
                                 dense: true,
                               ),
                             ),

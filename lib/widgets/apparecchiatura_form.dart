@@ -44,6 +44,7 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
   ];
 
   String tabelloneFis = 'NO';
+  String giornateSegreteria = '';
 
   @override
   void didUpdateWidget(covariant ApparecchiaturaForm oldWidget) {
@@ -54,6 +55,7 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
           {'dispositivo': null, 'quantita': ''}
         ];
         tabelloneFis = 'NO';
+        giornateSegreteria = '';
       });
     }
   }
@@ -64,6 +66,7 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
         {
           'dispositivo': 'TABELLONE',
           'quantita': tabelloneFis,
+          'giornateSegreteria': giornateSegreteria,
           'fisMode': true,
           'tipoGara': widget.tipoGara,
         }
@@ -103,12 +106,22 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 4),
-          Text(
-            "Indica se e presente il TABELLONE.",
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
+          // Text(
+          //   "Indica se e presente il TABELLONE.",
+          //   style: Theme.of(context)
+          //       .textTheme
+          //       .bodySmall
+          //       ?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
+          // ),
+          const SizedBox(height: 12),
+          TextFormField(
+            initialValue: giornateSegreteria,
+            keyboardType: TextInputType.number,
+            onChanged: (val) => setState(() => giornateSegreteria = val),
+            decoration: const InputDecoration(
+              labelText: 'Indicare il numero di giornate segreteria',
+              border: OutlineInputBorder(),
+            ),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(

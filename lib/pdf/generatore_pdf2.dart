@@ -114,6 +114,8 @@ Future<File> generaPdfConDati(
       orariGiornata: orariGiornata,
     ),
     pw.SizedBox(height: 12),
+    _sezioneGaraPreparataGiornoPrima(apparecchiature, base, bold),
+    pw.SizedBox(height: 12),
     _sezioneApparecchiatura(apparecchiature, base, bold),
     pw.SizedBox(height: 12),
     _sezioneDanni(danni, base, bold),
@@ -273,6 +275,7 @@ pw.Widget _sezioneCronometristi(
     final ore = sum(giorni, 'ore');
     final km = sum(giorni, 'km');
     final spese = sum(giorni, 'spese');
+    final segreteria = _txt(c['segreteria']).toUpperCase();
     totOre += ore;
     totKm += km;
     totSpese += spese;
@@ -281,7 +284,7 @@ pw.Widget _sezioneCronometristi(
       ore.toStringAsFixed(1),
       km.toStringAsFixed(1),
       spese.toStringAsFixed(2),
-      _txt(c['segreteria']),
+      segreteria,
       _txt(c['note']),
     ]);
   }
@@ -344,8 +347,7 @@ pw.Widget _sezioneGiornate(
   final Map<String, List<Map<String, String>>> perData = {};
   for (final c in elenco) {
     final nome = _txt(c['nome']);
-    final segreteria = _txt(c['segreteria']);
-    final note = _txt(c['note']);
+    final segreteria = _txt(c['segreteria']).toUpperCase();
     final giorni = (c['giorni'] as List?) ?? [];
     for (final g in giorni) {
       final dIso = _txt(g['data']);
@@ -366,7 +368,6 @@ pw.Widget _sezioneGiornate(
         'km': km,
         'spese': spese,
         'segreteria': segreteria,
-        'note': note,
       });
     }
   }
@@ -433,7 +434,6 @@ pw.Widget _sezioneGiornate(
                 2: pw.FlexColumnWidth(1),
                 3: pw.FlexColumnWidth(1),
                 4: pw.FlexColumnWidth(1.3),
-                5: pw.FlexColumnWidth(2.4),
               },
               children: [
                 _giornoHeaderRow(bold),
@@ -441,6 +441,7 @@ pw.Widget _sezioneGiornate(
                   final idx = entry.key;
                   final r = entry.value;
                   final rowBg = idx.isOdd ? _tableAltRowColor : null;
+                  final segreteria = _fmtValue(r['segreteria']).toUpperCase();
                   return pw.TableRow(
                     children: [
                       _giornoCell(r['nome'] ?? '', base, background: rowBg),
@@ -463,14 +464,9 @@ pw.Widget _sezioneGiornate(
                         background: rowBg,
                       ),
                       _giornoCell(
-                        _fmtValue(r['segreteria']),
+                        segreteria,
                         base,
                         center: true,
-                        background: rowBg,
-                      ),
-                      _giornoCell(
-                        _fmtValue(r['note']),
-                        base,
                         background: rowBg,
                       ),
                     ],
@@ -816,6 +812,52 @@ pw.Widget _tabellaRiepilogo(
   );
 }
 
+pw.Widget _sezioneGaraPreparataGiornoPrima(
+  List apparecchiature,
+  pw.Font base,
+  pw.Font bold,
+) {
+  int giornate = 0;
+  for (final voce in apparecchiature) {
+    if (voce is! Map) continue;
+    final raw = _txt(voce['giornateSegreteria']).trim();
+    if (raw.isEmpty) continue;
+    final parsed = int.tryParse(raw);
+    if (parsed != null) {
+      giornate = parsed;
+      break;
+    }
+  }
+  final valoreFinale = giornate > 0 ? 'SI' : 'NO';
+
+  return pw.Column(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      pw.Container(
+        padding: const pw.EdgeInsets.all(8),
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: _tableBorderColor),
+          borderRadius: pw.BorderRadius.circular(6),
+        ),
+        child: pw.Row(
+          children: [
+            pw.Expanded(
+              child: pw.Text(
+                'GARA PREPARATA IL GIORNO PRIMA?',
+                style: pw.TextStyle(font: bold, fontSize: 11),
+              ),
+            ),
+            pw.Text(
+              valoreFinale,
+              style: pw.TextStyle(font: base, fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
 Map<String, dynamic> _classificaApparecchiature(List elenco) {
   final cronometri = <Map<String, String>>[];
   final tabelloni = <Map<String, String>>[];
@@ -865,7 +907,6 @@ pw.TableRow _giornoHeaderRow(pw.Font bold) => pw.TableRow(
         _giornoCell('Km', bold, header: true, center: true),
         _giornoCell('Spese', bold, header: true, center: true),
         _giornoCell('Segreteria', bold, header: true, center: true),
-        _giornoCell('Note', bold, header: true),
       ],
     );
 
