@@ -488,6 +488,49 @@ pw.Widget _sezioneGiornate(
 }
 
 pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
+  final first = elenco.isNotEmpty ? elenco.first : null;
+  if (first is Map && first['fisMode'] == true) {
+    final tipoGara = _txt(first['tipoGara']).trim();
+    final tabellone = _txt(first['quantita']).trim().toUpperCase();
+    final tabelloneLabel = (tabellone == 'SI' || tabellone == 'NO')
+        ? tabellone
+        : 'NO';
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          tipoGara.isEmpty
+              ? 'Apparecchiatura per gara'
+              : 'Apparecchiatura per gara $tipoGara',
+          style: pw.TextStyle(font: bold, fontSize: 13),
+        ),
+        pw.SizedBox(height: 6),
+        pw.Container(
+          padding: const pw.EdgeInsets.all(8),
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(color: _tableBorderColor),
+            borderRadius: pw.BorderRadius.circular(6),
+          ),
+          child: pw.Row(
+            children: [
+              pw.Expanded(
+                child: pw.Text(
+                  'TABELLONE',
+                  style: pw.TextStyle(font: bold, fontSize: 11),
+                ),
+              ),
+              pw.Text(
+                tabelloneLabel,
+                style: pw.TextStyle(font: base, fontSize: 11),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   final categorizzate = _classificaApparecchiature(elenco);
   final cronometri = categorizzate['cronometri'] as List<Map<String, String>>;
   final tabelloni = categorizzate['tabelloni'] as List<Map<String, String>>;

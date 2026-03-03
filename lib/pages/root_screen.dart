@@ -37,9 +37,26 @@ class _RootScreenState extends State<RootScreen> {
   bool loadingGareList = true;
   String? gareError;
   Gara? selectedGara;
+  String selectedSport = '';
   int formVersion = 0;
   bool prefilling = false;
   int _prefillTicket = 0;
+
+  bool _containsFisKeyword(String value) {
+    final sport = value.trim();
+    if (sport.isEmpty) return false;
+    return RegExp(r'\b(FISI|FIS)\b', caseSensitive: false).hasMatch(sport);
+  }
+
+  bool get _isFisSport {
+    return _containsFisKeyword(selectedSport);
+  }
+
+  String get _tipoGaraLabel {
+    final sport = selectedSport.trim();
+    if (sport.isNotEmpty) return sport;
+    return 'N/D';
+  }
 
   String? get _loggedUserId {
     final id = widget.loggedUser['id'];
@@ -168,6 +185,7 @@ class _RootScreenState extends State<RootScreen> {
         gareDisponibili = gareValide;
         loadingGareList = false;
         selectedGara = nextSelection;
+        selectedSport = nextSelection?.sport ?? '';
         if (selectionChanged) {
           formVersion++;
         }
@@ -191,6 +209,7 @@ class _RootScreenState extends State<RootScreen> {
   void _selectGara(Gara gara) {
     setState(() {
       selectedGara = gara;
+      selectedSport = gara.sport;
       formVersion++;
     });
     _prefillFromSelectedGara();
@@ -240,6 +259,9 @@ class _RootScreenState extends State<RootScreen> {
       await Future<void>.microtask(() {});
       if (!mounted || ticket != _prefillTicket) return;
       cronometristiKey.currentState?.setCronometristi(kronosNames);
+      setState(() {
+        selectedSport = gara.sport;
+      });
     } catch (e) {
       if (!mounted || ticket != _prefillTicket) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -424,6 +446,11 @@ class _RootScreenState extends State<RootScreen> {
             sectionTitle('Dati gara'),
             GaraForm(
               key: garaKey,
+              onSportChanged: (sport) {
+                setState(() {
+                  selectedSport = sport;
+                });
+              },
               onDateRangeChanged: (da, a) {
                 cronometristiKey.currentState?.syncDaysWithRange(da, a);
               },
@@ -436,7 +463,11 @@ class _RootScreenState extends State<RootScreen> {
             CronometristiForm(key: cronometristiKey),
             const SizedBox(height: 16),
             sectionTitle('==============================='),
-            ApparecchiaturaForm(key: apparecchiaturaKey),
+            ApparecchiaturaForm(
+              key: apparecchiaturaKey,
+              isFisSport: _isFisSport,
+              tipoGara: _tipoGaraLabel,
+            ),
             const SizedBox(height: 16),
             sectionTitle('==============================='),
             DanniForm(key: danniKey),

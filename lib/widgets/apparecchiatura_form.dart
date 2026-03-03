@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 
 class ApparecchiaturaForm extends StatefulWidget {
-  const ApparecchiaturaForm({Key? key}) : super(key: key);
+  final bool isFisSport;
+  final String tipoGara;
+
+  const ApparecchiaturaForm({
+    Key? key,
+    this.isFisSport = false,
+    this.tipoGara = '',
+  }) : super(key: key);
 
   @override
   ApparecchiaturaFormState createState() => ApparecchiaturaFormState();
@@ -36,7 +43,34 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
     {'dispositivo': null, 'quantita': ''}
   ];
 
-  List<Map<String, dynamic>> getData() => righe;
+  String tabelloneFis = 'NO';
+
+  @override
+  void didUpdateWidget(covariant ApparecchiaturaForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isFisSport != widget.isFisSport) {
+      setState(() {
+        righe = [
+          {'dispositivo': null, 'quantita': ''}
+        ];
+        tabelloneFis = 'NO';
+      });
+    }
+  }
+
+  List<Map<String, dynamic>> getData() {
+    if (widget.isFisSport) {
+      return [
+        {
+          'dispositivo': 'TABELLONE',
+          'quantita': tabelloneFis,
+          'fisMode': true,
+          'tipoGara': widget.tipoGara,
+        }
+      ];
+    }
+    return righe;
+  }
 
   void aggiungiRiga() {
     setState(() {
@@ -58,6 +92,44 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    if (widget.isFisSport) {
+      final tipoGaraLabel =
+          widget.tipoGara.trim().isEmpty ? 'N/D' : widget.tipoGara.trim();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Apparecchiatura per gara $tipoGaraLabel",
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "Indica se e presente il TABELLONE.",
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: tabelloneFis,
+            items: const [
+              DropdownMenuItem(value: 'SI', child: Text('SI')),
+              DropdownMenuItem(value: 'NO', child: Text('NO')),
+            ],
+            onChanged: (val) {
+              if (val == null) return;
+              setState(() => tabelloneFis = val);
+            },
+            decoration: const InputDecoration(
+              labelText: 'TABELLONE',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
