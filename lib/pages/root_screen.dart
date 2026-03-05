@@ -578,7 +578,12 @@ class _RootScreenState extends State<RootScreen> {
                   'luogo': garaSelezionata.localita,
                 },
               }, salvaLocalmente: true);
-              await Share.shareXFiles([XFile(file.path)], text: 'Rapporto PDF');
+              await SharePlus.instance.share(
+                ShareParams(
+                  text: 'Rapporto PDF',
+                  files: [XFile(file.path)],
+                ),
+              );
             },
             icon: const Icon(Icons.picture_as_pdf),
             label: const Text("Genera e invia PDF"),
