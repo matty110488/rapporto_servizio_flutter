@@ -268,10 +268,11 @@ class _RootScreenState extends State<RootScreen> {
         SnackBar(content: Text('Errore nel precompilare la gara: $e')),
       );
     } finally {
-      if (!mounted || ticket != _prefillTicket) return;
-      setState(() {
-        prefilling = false;
-      });
+      if (mounted && ticket == _prefillTicket) {
+        setState(() {
+          prefilling = false;
+        });
+      }
     }
   }
 
@@ -302,98 +303,94 @@ class _RootScreenState extends State<RootScreen> {
 
   Widget _buildGareSelectionCard() {
     if (loadingGareList) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: const [
-              CircularProgressIndicator(),
-              SizedBox(width: 12),
-              Expanded(child: Text("Carico le gare disponibili...")),
-            ],
-          ),
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: _panelDecoration(),
+        child: const Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 12),
+            Expanded(child: Text("Carico le gare disponibili...")),
+          ],
         ),
       );
     }
 
     if (gareError != null) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Impossibile recuperare le gare",
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(gareError!),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: _loadGareDsc,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Riprova'),
-                ),
-              ),
-            ],
-          ),
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: _panelDecoration(
+          borderColor: const Color(0xFFFFD8D8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Impossibile recuperare le gare",
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(gareError!),
+            const SizedBox(height: 10),
+            FilledButton.icon(
+              onPressed: _loadGareDsc,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Riprova'),
+            ),
+          ],
         ),
       );
     }
 
     if (gareDisponibili.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(
-            _isAdmin
-                ? "Rapportini completati per tutte le gare."
-                : "Non risultano gare in cui risulti DSC.",
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: _panelDecoration(),
+        child: Text(
+          _isAdmin
+              ? "Rapportini completati per tutte le gare."
+              : "Non risultano gare in cui risulti DSC.",
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
       );
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Seleziona la gara per cui vuoi compilare il rapportino",
-              style: Theme.of(context).textTheme.titleMedium,
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: _panelDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Seleziona la gara per cui vuoi compilare il rapportino",
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: selectedGara?.id,
+            items: gareDisponibili
+                .map(
+                  (g) => DropdownMenuItem(
+                    value: g.id,
+                    child: Text(_garaDisplayLabel(g)),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              final gara =
+                  gareDisponibili.firstWhere((g) => g.id == value, orElse: () {
+                return gareDisponibili.first;
+              });
+              _selectGara(gara);
+            },
+            decoration: const InputDecoration(
+              labelText: 'Gara',
+              border: OutlineInputBorder(),
             ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: selectedGara?.id,
-              items: gareDisponibili
-                  .map(
-                    (g) => DropdownMenuItem(
-                      value: g.id,
-                      child: Text(_garaDisplayLabel(g)),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                final gara = gareDisponibili.firstWhere((g) => g.id == value,
-                    orElse: () {
-                  return gareDisponibili.first;
-                });
-                _selectGara(gara);
-              },
-              decoration: const InputDecoration(
-                labelText: 'Gara',
-                border: OutlineInputBorder(),
-              ),
-              isExpanded: true,
-              hint: const Text('Seleziona una gara'),
-            ),
-          ],
-        ),
+            isExpanded: true,
+            hint: const Text('Seleziona una gara'),
+          ),
+        ],
       ),
     );
   }
@@ -402,125 +399,231 @@ class _RootScreenState extends State<RootScreen> {
     final gara = selectedGara;
     if (gara == null) return const SizedBox.shrink();
 
-    return Card(
-      child: ListTile(
-        leading: const Icon(Icons.event_available),
-        title: Text(gara.titolo),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Date: ${_garaDateRange(gara)}"),
-            Text("Luogo: ${gara.localita.isEmpty ? '-' : gara.localita}"),
-            if (gara.organizzatore.isNotEmpty)
-              Text("Organizzatore: ${gara.organizzatore}"),
-            if (gara.sport.isNotEmpty) Text("Sport: ${gara.sport}"),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _panelDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.event_available),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  gara.titolo,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text("Date: ${_garaDateRange(gara)}"),
+          Text("Luogo: ${gara.localita.isEmpty ? '-' : gara.localita}"),
+          if (gara.organizzatore.isNotEmpty)
+            Text("Organizzatore: ${gara.organizzatore}"),
+          if (gara.sport.isNotEmpty) Text("Sport: ${gara.sport}"),
+        ],
       ),
     );
   }
 
-  Widget _buildRapportoForm() {
-    final titleStyle = Theme.of(context)
-        .textTheme
-        .titleMedium
-        ?.copyWith(fontWeight: FontWeight.w700);
-
-    Widget sectionTitle(String text) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(text, style: titleStyle),
-      );
-    }
-
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            HeaderWidget(),
-            const SizedBox(height: 16),
-            sectionTitle('Dati gara'),
-            GaraForm(
-              key: garaKey,
-              onSportChanged: (sport) {
-                setState(() {
-                  selectedSport = sport;
-                });
-              },
-              onDateRangeChanged: (da, a) {
-                cronometristiKey.currentState?.syncDaysWithRange(da, a);
-              },
-              onOrariChanged: (orari) {
-                cronometristiKey.currentState?.setOrari(orari);
-              },
-            ),
-            const SizedBox(height: 16),
-            sectionTitle('==============================='),
-            CronometristiForm(key: cronometristiKey),
-            const SizedBox(height: 16),
-            sectionTitle('==============================='),
-            ApparecchiaturaForm(
-              key: apparecchiaturaKey,
-              isFisSport: _isFisSport,
-              tipoGara: _tipoGaraLabel,
-            ),
-            const SizedBox(height: 16),
-            sectionTitle('==============================='),
-            DanniForm(key: danniKey),
-            const SizedBox(height: 16),
-            sectionTitle('==============================='),
-            AllegatiForm(key: allegatiKey),
-            const SizedBox(height: 20),
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  final garaSelezionata = selectedGara;
-                  if (garaSelezionata == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Seleziona prima una gara'),
-                      ),
-                    );
-                    return;
-                  }
-
-                  final gara = garaKey.currentState?.getData() ?? {};
-                  final cronos = cronometristiKey.currentState?.getData() ?? [];
-                  final orariGiornata =
-                      garaKey.currentState?.getOrariGiornata() ?? {};
-                  final app = apparecchiaturaKey.currentState?.getData() ?? [];
-                  final danni = danniKey.currentState?.getData() ?? '';
-                  final immagini = allegatiKey.currentState?.getImages() ?? [];
-
-                  final file = await generaPdfConDati({
-                    'gara': gara,
-                    'cronometristi': cronos,
-                    'orariGiornata': orariGiornata,
-                    'apparecchiature': app,
-                    'danni': danni,
-                    'allegati': immagini,
-                    'garaSelezionata': {
-                      'id': garaSelezionata.id,
-                      'titolo': garaSelezionata.titolo,
-                      'data': garaSelezionata.dataGara,
-                      'dataFine': garaSelezionata.dataGaraFine,
-                      'luogo': garaSelezionata.localita,
-                    },
-                  }, salvaLocalmente: true);
-                  await Share.shareXFiles([XFile(file.path)],
-                      text: 'Rapporto PDF');
-                },
-                icon: const Icon(Icons.picture_as_pdf),
-                label: const Text("Genera e invia PDF"),
+  Widget _sectionCard({
+    required String title,
+    required Widget child,
+    IconData icon = Icons.circle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _panelDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: const Color(0xFF0A66C2)),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+
+  BoxDecoration _panelDecoration(
+      {Color borderColor = const Color(0xFFDCE8F6)}) {
+    return BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: borderColor),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x11000000),
+          blurRadius: 14,
+          offset: Offset(0, 5),
         ),
+      ],
+    );
+  }
+
+  Widget _buildRapportoForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: _panelDecoration(),
+          child: HeaderWidget(),
+        ),
+        const SizedBox(height: 12),
+        _sectionCard(
+          title: 'Dati gara',
+          icon: Icons.sports_score,
+          child: GaraForm(
+            key: garaKey,
+            onSportChanged: (sport) {
+              setState(() {
+                selectedSport = sport;
+              });
+            },
+            onDateRangeChanged: (da, a) {
+              cronometristiKey.currentState?.syncDaysWithRange(da, a);
+            },
+            onOrariChanged: (orari) {
+              cronometristiKey.currentState?.setOrari(orari);
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        _sectionCard(
+          title: 'Cronometristi',
+          icon: Icons.groups,
+          child: CronometristiForm(key: cronometristiKey),
+        ),
+        const SizedBox(height: 12),
+        _sectionCard(
+          title: 'Apparecchiatura',
+          icon: Icons.precision_manufacturing,
+          child: ApparecchiaturaForm(
+            key: apparecchiaturaKey,
+            isFisSport: _isFisSport,
+            tipoGara: _tipoGaraLabel,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _sectionCard(
+          title: 'Danni',
+          icon: Icons.report_problem,
+          child: DanniForm(key: danniKey),
+        ),
+        const SizedBox(height: 12),
+        _sectionCard(
+          title: 'Allegati',
+          icon: Icons.attach_file,
+          child: AllegatiForm(key: allegatiKey),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF0A66C2),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            onPressed: () async {
+              final garaSelezionata = selectedGara;
+              if (garaSelezionata == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Seleziona prima una gara'),
+                  ),
+                );
+                return;
+              }
+
+              final gara = garaKey.currentState?.getData() ?? {};
+              final cronos = cronometristiKey.currentState?.getData() ?? [];
+              final orariGiornata =
+                  garaKey.currentState?.getOrariGiornata() ?? {};
+              final app = apparecchiaturaKey.currentState?.getData() ?? [];
+              final danni = danniKey.currentState?.getData() ?? '';
+              final immagini = allegatiKey.currentState?.getImages() ?? [];
+
+              final file = await generaPdfConDati({
+                'gara': gara,
+                'cronometristi': cronos,
+                'orariGiornata': orariGiornata,
+                'apparecchiature': app,
+                'danni': danni,
+                'allegati': immagini,
+                'garaSelezionata': {
+                  'id': garaSelezionata.id,
+                  'titolo': garaSelezionata.titolo,
+                  'data': garaSelezionata.dataGara,
+                  'dataFine': garaSelezionata.dataGaraFine,
+                  'luogo': garaSelezionata.localita,
+                },
+              }, salvaLocalmente: true);
+              await Share.shareXFiles([XFile(file.path)], text: 'Rapporto PDF');
+            },
+            icon: const Icon(Icons.picture_as_pdf),
+            label: const Text("Genera e invia PDF"),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeroCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF004E9A), Color(0xFF0A66C2), Color(0xFF338FE5)],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x300A66C2),
+            blurRadius: 20,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Rapporti di servizio',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'Seleziona la gara e compila il rapportino in tutte le sezioni.',
+            style: TextStyle(color: Colors.white),
+          ),
+        ],
       ),
     );
   }
@@ -555,43 +658,54 @@ class _RootScreenState extends State<RootScreen> {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildGareSelectionCard(),
-              const SizedBox(height: 16),
-              _buildSelectedGaraInfo(),
-              if (prefilling)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: LinearProgressIndicator(),
-                ),
-              if (!canFillForm &&
-                  !loadingGareList &&
-                  gareDisponibili.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'Seleziona una gara per abilitare il rapportino.',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFEAF3FF), Color(0xFFF7FBFF), Color(0xFFFFFFFF)],
+            ),
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeroCard(),
+                const SizedBox(height: 12),
+                _buildGareSelectionCard(),
+                const SizedBox(height: 12),
+                _buildSelectedGaraInfo(),
+                if (prefilling)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: LinearProgressIndicator(),
+                  ),
+                if (!canFillForm &&
+                    !loadingGareList &&
+                    gareDisponibili.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'Seleziona una gara per abilitare il rapportino.',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                IgnorePointer(
+                  ignoring: !canFillForm,
+                  child: Opacity(
+                    opacity: canFillForm ? 1 : 0.35,
+                    child: KeyedSubtree(
+                      key: ValueKey(formVersion),
+                      child: _buildRapportoForm(),
                     ),
                   ),
                 ),
-              const SizedBox(height: 8),
-              IgnorePointer(
-                ignoring: !canFillForm,
-                child: Opacity(
-                  opacity: canFillForm ? 1 : 0.35,
-                  child: KeyedSubtree(
-                    key: ValueKey(formVersion),
-                    child: _buildRapportoForm(),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

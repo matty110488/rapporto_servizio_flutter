@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../constants/help_content.dart';
-import '../services/notion_service.dart';
 import '../models/gara.dart';
+import '../services/notion_service.dart';
 import '../widgets/help_dialog.dart';
 import 'dettaglio_gara.dart';
 
@@ -15,8 +16,8 @@ class GarePage extends StatefulWidget {
 }
 
 class _GarePageState extends State<GarePage> {
-  static const _db2025 = "2afde089ef9580e2b0e7d19d44f3a3f6";
-  static const _db2026 = "2b1de089ef9580729622ff9543046cbc";
+  static const _db2025 = '2afde089ef9580e2b0e7d19d44f3a3f6';
+  static const _db2026 = '2b1de089ef9580729622ff9543046cbc';
 
   late NotionService notion;
   List<Gara> gare = [];
@@ -29,7 +30,7 @@ class _GarePageState extends State<GarePage> {
     super.initState();
 
     notion = NotionService(
-      apiKey: "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",
+      apiKey: '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',
       databaseId: _db2025,
     );
 
@@ -80,7 +81,7 @@ class _GarePageState extends State<GarePage> {
           final cmp = da.compareTo(db);
           if (cmp != 0) return cmp;
         } else if (da != null && db == null) {
-          return -1; // gare con data prima di quelle senza data
+          return -1;
         } else if (da == null && db != null) {
           return 1;
         }
@@ -95,7 +96,6 @@ class _GarePageState extends State<GarePage> {
       grouped.putIfAbsent(label, () => []).add(gara);
     }
 
-    // La mappa mantiene l'ordine di inserimento, che segue ordinamento cronologico.
     return grouped;
   }
 
@@ -123,29 +123,31 @@ class _GarePageState extends State<GarePage> {
         SnackBar(
           content: Text(
             join
-                ? "Ti sei reso disponibile per ${gara.titolo}"
-                : "Hai annullato la disponibilità per ${gara.titolo}",
+                ? 'Ti sei reso disponibile per ${gara.titolo}'
+                : 'Hai annullato la disponibilita per ${gara.titolo}',
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Errore durante l'aggiornamento: $e")),
+        SnackBar(content: Text('Errore durante l\'aggiornamento: $e')),
       );
     } finally {
-      if (!mounted) return;
-      setState(() {
-        updatingGare.remove(gara.id);
-      });
+      if (mounted) {
+        setState(() {
+          updatingGare.remove(gara.id);
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final grouped = _garePerMese();
     return Scaffold(
       appBar: AppBar(
-        title: Text("Calendario gare"),
+        title: const Text('Calendario gare'),
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
@@ -168,133 +170,274 @@ class _GarePageState extends State<GarePage> {
           ),
         ],
       ),
-      body: loading
-          ? Center(child: CircularProgressIndicator())
-          : ListView(
-              children: _garePerMese().entries.map((entry) {
-                final isExpanded = expandedMonths.contains(entry.key);
-                return ExpansionTile(
-                  key: PageStorageKey(entry.key),
-                  initiallyExpanded: isExpanded,
-                  title: Text(
-                    entry.key.toUpperCase(),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  onExpansionChanged: (open) {
-                    setState(() {
-                      if (open) {
-                        expandedMonths.add(entry.key);
-                      } else {
-                        expandedMonths.remove(entry.key);
-                      }
-                    });
-                  },
-                  children: entry.value.map((g) {
-                    final showAction = _loggedUserId != null;
-                    final candidabile = _puoCandidarsi(g);
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFEAF3FF), Color(0xFFF8FBFF), Color(0xFFFFFFFF)],
+          ),
+        ),
+        child: loading
+            ? _buildLoadingState()
+            : RefreshIndicator(
+                onRefresh: () => load(showSpinner: false),
+                child: grouped.isEmpty
+                    ? _buildEmptyState()
+                    : ListView(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
+                        children: [
+                          ...grouped.entries.map(_buildMonthSection),
+                        ],
+                      ),
+              ),
+      ),
+    );
+  }
 
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(8),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => DettaglioGara(gara: g),
+  Widget _buildLoadingState() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 20),
+      children: [
+        Container(
+          height: 130,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: Colors.white,
+          ),
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(20),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x14000000),
+                blurRadius: 18,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Icon(Icons.event_busy, size: 44, color: Colors.blueGrey.shade300),
+              const SizedBox(height: 10),
+              const Text(
+                'Nessuna gara disponibile',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Quando verranno aggiunte nuove gare in Notion, le vedrai qui.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.blueGrey.shade600),
+              ),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: () => load(showSpinner: true),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Aggiorna'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMonthSection(MapEntry<String, List<Gara>> entry) {
+    final isExpanded = expandedMonths.contains(entry.key);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFDCE8F6)),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: PageStorageKey(entry.key),
+          initiallyExpanded: isExpanded,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          childrenPadding: const EdgeInsets.only(bottom: 10),
+          title: Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFF0A66C2),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  entry.key.toUpperCase(),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              Text(
+                '${entry.value.length}',
+                style: TextStyle(
+                  color: Colors.blueGrey.shade700,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          onExpansionChanged: (open) {
+            setState(() {
+              if (open) {
+                expandedMonths.add(entry.key);
+              } else {
+                expandedMonths.remove(entry.key);
+              }
+            });
+          },
+          children: entry.value
+              .map((g) => Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
+                    child: _buildRaceCard(g),
+                  ))
+              .toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRaceCard(Gara g) {
+    final showAction = _loggedUserId != null;
+    final candidabile = _puoCandidarsi(g);
+    final statusStyle = _statusStyle(g.status);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DettaglioGara(gara: g),
+            ),
+          );
+        },
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: const Color(0xFFF9FCFF),
+            border: Border.all(color: const Color(0xFFD9E8FA)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 5,
+                  height: 110,
+                  decoration: BoxDecoration(
+                    color: statusStyle.accent,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              g.titolo,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
                             ),
-                          );
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      g.titolo,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                    ),
-                                  ),
-                                  if (g.status.isNotEmpty) _statusChip(g.status),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  const Icon(Icons.event, size: 16),
-                                  const SizedBox(width: 4),
-                                  Text(_formatDateRange(g)),
-                                ],
-                              ),
-                              if (g.localita.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.place, size: 16),
-                                    const SizedBox(width: 4),
-                                    Flexible(child: Text(g.localita)),
-                                  ],
-                                ),
-                              ],
-                              if (g.sport.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.sports, size: 16),
-                                    const SizedBox(width: 4),
-                                    Flexible(child: Text(g.sport)),
-                                  ],
-                                ),
-                              ],
-                              if (showAction && candidabile) ...[
-                                const SizedBox(height: 10),
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Builder(
-                                    builder: (context) {
-                                      return ElevatedButton(
-                                        onPressed: updatingGare.contains(g.id)
-                                            ? null
-                                            : () => _toggleDisponibilita(
-                                                  g,
-                                                  !_isUserAssigned(g),
-                                                ),
-                                        child: updatingGare.contains(g.id)
-                                            ? const SizedBox(
-                                                width: 18,
-                                                height: 18,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                ),
-                                              )
-                                            : Text(_isUserAssigned(g)
-                                                ? "Rimuovimi dalla gara"
-                                                : "Mi rendo disponibile"),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ],
+                          ),
+                          const SizedBox(width: 8),
+                          _statusChip(g.status),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _metaRow(Icons.event, _formatDateRange(g)),
+                      if (g.localita.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        _metaRow(Icons.place, g.localita),
+                      ],
+                      if (g.sport.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        _metaRow(Icons.sports, g.sport),
+                      ],
+                      if (showAction && candidabile) ...[
+                        const SizedBox(height: 10),
+                        FilledButton.icon(
+                          onPressed: updatingGare.contains(g.id)
+                              ? null
+                              : () =>
+                                  _toggleDisponibilita(g, !_isUserAssigned(g)),
+                          icon: updatingGare.contains(g.id)
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : Icon(_isUserAssigned(g)
+                                  ? Icons.person_remove_alt_1
+                                  : Icons.person_add_alt_1),
+                          label: Text(_isUserAssigned(g)
+                              ? 'Rimuovimi dalla gara'
+                              : 'Mi rendo disponibile'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF0A66C2),
+                            foregroundColor: Colors.white,
                           ),
                         ),
-                      ),
-                    );
-                  }).toList(),
-                );
-              }).toList(),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _metaRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: const Color(0xFF306AA3)),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            text,
+            style: const TextStyle(color: Color(0xFF27415F)),
+          ),
+        ),
+      ],
     );
   }
 
@@ -321,7 +464,8 @@ class _GarePageState extends State<GarePage> {
 
   String _formatDateRange(Gara gara) {
     final start = _fmtDate(gara.dataGara);
-    final end = gara.dataGaraFine.isNotEmpty ? _fmtDate(gara.dataGaraFine) : start;
+    final end =
+        gara.dataGaraFine.isNotEmpty ? _fmtDate(gara.dataGaraFine) : start;
     if (start == null && end == null) return '-';
     if (start != null && end != null && start != end) return '$start - $end';
     return start ?? end ?? '-';
@@ -333,30 +477,66 @@ class _GarePageState extends State<GarePage> {
     return DateFormat('dd/MM/yyyy').format(d);
   }
 
-  Widget _statusChip(String status) {
+  _StatusStyle _statusStyle(String status) {
     final upper = status.trim().toUpperCase();
-    Color bg;
-    Color fg;
     if (upper == 'DESIGNAZIONE INVIATA') {
-      bg = Colors.blue.shade50;
-      fg = Colors.blue.shade800;
-    } else if (upper == 'GARA COMPLETATA' || upper == 'SICWIN OK') {
-      bg = Colors.green.shade50;
-      fg = Colors.green.shade800;
-    } else {
-      bg = Colors.grey.shade200;
-      fg = Colors.grey.shade800;
+      return const _StatusStyle(
+        soft: Color(0xFFE4F0FF),
+        strong: Color(0xFF1F5FA8),
+        accent: Color(0xFF2D83D6),
+      );
     }
+    if (upper == 'GARA COMPLETATA' || upper == 'SICWIN OK') {
+      return const _StatusStyle(
+        soft: Color(0xFFE8F7EF),
+        strong: Color(0xFF1D7C4B),
+        accent: Color(0xFF2EA568),
+      );
+    }
+    if (upper == 'IN PROGRESS') {
+      return const _StatusStyle(
+        soft: Color(0xFFFFF3DE),
+        strong: Color(0xFF9D6400),
+        accent: Color(0xFFE2A53C),
+      );
+    }
+    return const _StatusStyle(
+      soft: Color(0xFFEDEFF3),
+      strong: Color(0xFF515A68),
+      accent: Color(0xFF8B95A5),
+    );
+  }
+
+  Widget _statusChip(String status) {
+    final style = _statusStyle(status);
+    final text = status.trim().isEmpty ? 'N/D' : status;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(12),
+        color: style.soft,
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        status,
-        style: TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w600),
+        text,
+        style: TextStyle(
+          color: style.strong,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
+        ),
       ),
     );
   }
+}
+
+class _StatusStyle {
+  final Color soft;
+  final Color strong;
+  final Color accent;
+
+  const _StatusStyle({
+    required this.soft,
+    required this.strong,
+    required this.accent,
+  });
 }
