@@ -198,11 +198,11 @@ class HomePage extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Scegli un\'area per iniziare rapidamente.',
-            style: TextStyle(color: Colors.white),
-          ),
+          //  const SizedBox(height: 8),
+          //  const Text(
+          //    'Scegli un\'area per iniziare rapidamente.',
+          //    style: TextStyle(color: Colors.white),
+          //  ),
         ],
       ),
     );
