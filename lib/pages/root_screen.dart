@@ -361,10 +361,10 @@ class _RootScreenState extends State<RootScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Seleziona la gara per cui vuoi compilare il rapportino",
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
+          //const Text(
+          //  "Seleziona la gara per cui vuoi compilare il rapportino",
+          //  style: TextStyle(fontWeight: FontWeight.w700),
+          //),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: selectedGara?.id,
