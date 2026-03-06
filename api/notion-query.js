@@ -6,10 +6,10 @@ function setCorsHeaders(req, res) {
   }
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   setCorsHeaders(req, res);
 
   if (req.method === 'OPTIONS') {
@@ -48,4 +48,4 @@ module.exports = async function handler(req, res) {
       details: error instanceof Error ? error.message : String(error),
     });
   }
-};
+}
