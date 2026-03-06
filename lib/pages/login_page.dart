@@ -37,6 +37,7 @@ class _LoginPageState extends State<LoginPage> {
       userCtrl.text.trim(),
       passCtrl.text.trim(),
     );
+    if (!mounted) return;
 
     if (user == null) {
       setState(() {
