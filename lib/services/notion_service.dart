@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class NotionService {
@@ -28,12 +29,18 @@ class NotionService {
   }
 
   Future<List<Map<String, dynamic>>> _fetchGareFromDatabase(String dbId) async {
-    final url = 'https://api.notion.com/v1/databases/$dbId/query';
-    final headers = {
-      'Authorization': 'Bearer $apiKey',
-      'Content-Type': 'application/json',
-      'Notion-Version': '2022-06-28',
-    };
+    final url = kIsWeb
+        ? 'https://rapporto-servizio-flutter.vercel.app/api/notion-query'
+        : 'https://api.notion.com/v1/databases/$dbId/query';
+    final headers = kIsWeb
+        ? {
+            'Content-Type': 'application/json',
+          }
+        : {
+            'Authorization': 'Bearer $apiKey',
+            'Content-Type': 'application/json',
+            'Notion-Version': '2022-06-28',
+          };
 
     final all = <Map<String, dynamic>>[];
     String? cursor;
