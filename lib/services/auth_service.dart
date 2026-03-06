@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class AuthService {
@@ -12,7 +13,9 @@ class AuthService {
 
   // LOGIN: restituisce la pagina dell'utente se username + password sono corretti
   Future<Map<String, dynamic>?> login(String username, String password) async {
-    final url = "https://api.notion.com/v1/databases/$cronometristiDbId/query";
+    final url = kIsWeb
+        ? "https://rapporto-servizio-flutter.vercel.app/api/notion-query"
+        : "https://api.notion.com/v1/databases/$cronometristiDbId/query";
 
     final body = {
       "filter": {
@@ -31,11 +34,15 @@ class AuthService {
 
     final res = await http.post(
       Uri.parse(url),
-      headers: {
-        "Authorization": "Bearer $apiKey",
-        "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json",
-      },
+      headers: kIsWeb
+          ? {
+              "Content-Type": "application/json",
+            }
+          : {
+              "Authorization": "Bearer $apiKey",
+              "Notion-Version": "2022-06-28",
+              "Content-Type": "application/json",
+            },
       body: jsonEncode(body),
     );
 
