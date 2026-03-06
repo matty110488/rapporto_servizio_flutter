@@ -1,87 +1,10 @@
-import 'dart:convert';
-
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:http/http.dart' as http;
-
-import '../state/session_state.dart';
-
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
+// Push notifications are intentionally disabled for now.
+// Keep no-op APIs so call sites can be restored quickly later.
 
 Future<void> initFirebaseMessaging() async {
-  final messaging = FirebaseMessaging.instance;
-  const webVapidKey = String.fromEnvironment('FCM_VAPID_KEY');
-
-  await messaging.requestPermission();
-
-  final token = kIsWeb
-      ? await messaging.getToken(
-          vapidKey: webVapidKey.isNotEmpty ? webVapidKey : null,
-        )
-      : await messaging.getToken();
-  print("FCM TOKEN: $token");
-  final userId = globalLoggedUserId;
-  if (token != null && userId != null) {
-    await sendTokenToBackend(userId, token);
-  }
-
-  if (!kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS)) {
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: androidSettings);
-
-    await flutterLocalNotificationsPlugin.initialize(
-      settings: initSettings,
-    );
-  }
-
-  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    final notif = message.notification;
-    if (notif != null) {
-      if (!kIsWeb) {
-        flutterLocalNotificationsPlugin.show(
-          id: 0,
-          title: notif.title,
-          body: notif.body,
-          notificationDetails: const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'default_channel',
-              'Notifiche',
-              importance: Importance.max,
-              priority: Priority.high,
-            ),
-          ),
-        );
-      } else {
-        print("Notifica in foreground (web): ${notif.title}");
-      }
-    }
-  });
-
-  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-    print("Notifica aperta: ${message.notification?.title}");
-  });
+  // Disabled on purpose.
 }
 
 Future<void> sendTokenToBackend(String userId, String token) async {
-  final url = Uri.parse("http://192.168.1.21:3000/save-token");
-
-  try {
-    final response = await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "userId": userId,
-        "fcmToken": token,
-      }),
-    );
-
-    print("Token inviato per $userId (status ${response.statusCode})");
-  } catch (e) {
-    print("Errore invio token al backend: $e");
-  }
+  // Disabled on purpose.
 }

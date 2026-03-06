@@ -1,14 +1,12 @@
 import 'dart:convert';
 
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
-import 'services/push_notification_service.dart';
 import 'state/session_state.dart';
 
 import 'firebase_options.dart';
@@ -20,11 +18,12 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  if (kIsWeb ||
-      defaultTargetPlatform == TargetPlatform.android ||
-      defaultTargetPlatform == TargetPlatform.iOS) {
-    await initFirebaseMessaging();
-  }
+  // Push notifications temporarily disabled.
+  // if (kIsWeb ||
+  //     defaultTargetPlatform == TargetPlatform.android ||
+  //     defaultTargetPlatform == TargetPlatform.iOS) {
+  //   await initFirebaseMessaging();
+  // }
 
   runApp(CronoValtellinesiApp());
 }
@@ -79,15 +78,16 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
     });
     globalLoggedUserId = user['id'];
 
-    if (kIsWeb ||
-        defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS) {
-      final token = await FirebaseMessaging.instance.getToken();
-
-      if (token != null && globalLoggedUserId != null) {
-        sendTokenToBackend(globalLoggedUserId!, token);
-      }
-    }
+    // Push notifications temporarily disabled.
+    // if (kIsWeb ||
+    //     defaultTargetPlatform == TargetPlatform.android ||
+    //     defaultTargetPlatform == TargetPlatform.iOS) {
+    //   final token = await FirebaseMessaging.instance.getToken();
+    //
+    //   if (token != null && globalLoggedUserId != null) {
+    //     sendTokenToBackend(globalLoggedUserId!, token);
+    //   }
+    // }
   }
 
   Future<void> _handleLogout() async {
