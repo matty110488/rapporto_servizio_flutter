@@ -32074,8 +32074,7 @@ avV:function avV(a){this.a=a},
 avR:function avR(a,b){this.a=a
 this.b=b},
 avQ:function avQ(a){this.a=a},
-a86:function a86(a,b){this.a=a
-this.b=b},
+a86:function a86(){},
 tp:function tp(a,b){this.a=a
 this.b=b},
 amh:function amh(){},
@@ -112063,7 +112062,7 @@ return new B.KN(new B.fU(A.dP,s),new B.fU(A.dP,s))},
 aE9(a){return this.c.$1(a)}}
 B.KN.prototype={
 aC(){this.aY()
-this.w=new B.a86(u.w,"2afde089ef9580a0ad6dd2b6155384ed")},
+this.w=new B.a86()},
 Em(){var s=0,r=B.J(t.H),q,p=this,o,n
 var $async$Em=B.K(function(a,b){if(a===1)return B.G(b,r)
 for(;;)switch(s){case 0:p.Z(new B.aBX(p))
@@ -112679,24 +112678,24 @@ $0(){return B.aLA(this.a.gcD())},
 $S:0}
 B.a86.prototype={
 Fv(a,b){return this.aDg(a,b)},
-aDg(a,b){var s=0,r=B.J(t.nA),q,p=this,o,n,m,l,k
+aDg(a,b){var s=0,r=B.J(t.nA),q,p,o,n,m,l
 var $async$Fv=B.K(function(c,d){if(c===1)return B.G(d,r)
-for(;;)switch(s){case 0:m=t.N
-l=t.K
-k=B.a2(["filter",B.a2(["and",B.b([B.a2(["property","USERNAME","rich_text",B.a2(["equals",a],m,m)],m,l),B.a2(["property","PASSWORD","rich_text",B.a2(["equals",b],m,m)],m,l)],t.Mq)],m,t.JD)],m,t.R3)
-l=B.hL("https://api.notion.com/v1/databases/"+p.b+"/query",0,null)
-m=B.a2(["Authorization","Bearer "+p.a,"Notion-Version","2022-06-28","Content-Type","application/json"],m,m)
+for(;;)switch(s){case 0:n=t.N
+m=t.K
+l=B.a2(["filter",B.a2(["and",B.b([B.a2(["property","USERNAME","rich_text",B.a2(["equals",a],n,n)],n,m),B.a2(["property","PASSWORD","rich_text",B.a2(["equals",b],n,n)],n,m)],t.Mq)],n,t.JD)],n,t.R3)
+m=B.hL("https://rapporto-servizio-flutter.vercel.app/api/notion-query",0,null)
+n=B.a2(["Content-Type","application/json"],n,n)
 s=3
-return B.L(B.aWC(l,A.bQ.uw(k,null),m),$async$Fv)
-case 3:o=d
-if(o.b!==200){B.B7("\u274c Errore Notion login: "+B.O0(B.NU(o.e)).d9(o.w))
+return B.L(B.aWC(m,A.bQ.uw(l,null),n),$async$Fv)
+case 3:p=d
+if(p.b!==200){B.B7("\u274c Errore Notion login: "+B.O0(B.NU(p.e)).d9(p.w))
 q=null
 s=1
-break}n=A.bQ.yl(B.O0(B.NU(o.e)).d9(o.w),null)
-m=J.aF(n)
-if(J.kV(m.h(n,"results"))){q=null
+break}o=A.bQ.yl(B.O0(B.NU(p.e)).d9(p.w),null)
+n=J.aF(o)
+if(J.kV(n.h(o,"results"))){q=null
 s=1
-break}q=J.k(m.h(n,"results"),0)
+break}q=J.k(n.h(o,"results"),0)
 s=1
 break
 case 1:return B.H(q,r)}})
