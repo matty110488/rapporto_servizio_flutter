@@ -1,11 +1,14 @@
 {
-    "name": "rapporto_servizio",
-    "short_name": "rapporto_servizio",
+    "id": "/",
+    "name": "Rapporto Servizio",
+    "short_name": "Rapporti",
     "start_url": ".",
+    "scope": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Compilazione e gestione rapporti di servizio Crono Valtellinesi.",
+    "lang": "it-IT",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

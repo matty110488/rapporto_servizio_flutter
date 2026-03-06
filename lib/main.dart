@@ -20,7 +20,8 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  if (defaultTargetPlatform == TargetPlatform.android ||
+  if (kIsWeb ||
+      defaultTargetPlatform == TargetPlatform.android ||
       defaultTargetPlatform == TargetPlatform.iOS) {
     await initFirebaseMessaging();
   }
@@ -78,7 +79,8 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
     });
     globalLoggedUserId = user['id'];
 
-    if (defaultTargetPlatform == TargetPlatform.android ||
+    if (kIsWeb ||
+        defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS) {
       final token = await FirebaseMessaging.instance.getToken();
 

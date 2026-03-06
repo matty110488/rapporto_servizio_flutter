@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -50,6 +47,15 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyAWzGoDeQq2ggURZej6z8kEybDRI2z9z0M',
+    appId: '1:302480518812:web:b7a1d23d05d601eb70c759',
+    messagingSenderId: '302480518812',
+    projectId: 'appkronos-1d181',
+    authDomain: 'appkronos-1d181.firebaseapp.com',
+    storageBucket: 'appkronos-1d181.firebasestorage.app',
+  );
+
+  static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyAWzGoDeQq2ggURZej6z8kEybDRI2z9z0M',
     appId: '1:302480518812:web:b7a1d23d05d601eb70c759',
     messagingSenderId: '302480518812',

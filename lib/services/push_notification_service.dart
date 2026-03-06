@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 
@@ -11,37 +12,53 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
 
 Future<void> initFirebaseMessaging() async {
   final messaging = FirebaseMessaging.instance;
+  const webVapidKey = String.fromEnvironment('FCM_VAPID_KEY');
 
   await messaging.requestPermission();
 
-  final token = await messaging.getToken();
+  final token = kIsWeb
+      ? await messaging.getToken(
+          vapidKey: webVapidKey.isNotEmpty ? webVapidKey : null,
+        )
+      : await messaging.getToken();
   print("FCM TOKEN: $token");
   final userId = globalLoggedUserId;
   if (token != null && userId != null) {
     await sendTokenToBackend(userId, token);
   }
 
-  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const initSettings = InitializationSettings(android: androidSettings);
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS)) {
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidSettings);
 
-  await flutterLocalNotificationsPlugin.initialize(initSettings);
+    await flutterLocalNotificationsPlugin.initialize(
+      settings: initSettings,
+    );
+  }
 
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
     final notif = message.notification;
     if (notif != null) {
-      flutterLocalNotificationsPlugin.show(
-        0,
-        notif.title,
-        notif.body,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'default_channel',
-            'Notifiche',
-            importance: Importance.max,
-            priority: Priority.high,
+      if (!kIsWeb) {
+        flutterLocalNotificationsPlugin.show(
+          id: 0,
+          title: notif.title,
+          body: notif.body,
+          notificationDetails: const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'default_channel',
+              'Notifiche',
+              importance: Importance.max,
+              priority: Priority.high,
+            ),
           ),
-        ),
-      );
+        );
+      } else {
+        print("Notifica in foreground (web): ${notif.title}");
+      }
     }
   });
 
