@@ -221,6 +221,55 @@ class NotionService {
     }
   }
 
+  Future<void> updateGaraStatus(String pageId, String statusName) async {
+    final statusPayload = {
+      'properties': {
+        'STATUS': {
+          'status': {'name': statusName}
+        }
+      }
+    };
+
+    final selectPayload = {
+      'properties': {
+        'STATUS': {
+          'select': {'name': statusName}
+        }
+      }
+    };
+
+    final primary = await _patchPage(pageId, statusPayload);
+    if (primary.statusCode == 200) return;
+
+    final fallback = await _patchPage(pageId, selectPayload);
+    if (fallback.statusCode != 200) {
+      throw Exception('Errore aggiornamento status gara: ${fallback.body}');
+    }
+  }
+
+  Future<http.Response> _patchPage(
+    String pageId,
+    Map<String, dynamic> payload,
+  ) async {
+    final body = jsonEncode(payload);
+    return kIsWeb
+        // Web-only: update pagina via proxy Vercel.
+        ? _postViaWebProxy({
+            'action': 'updatePage',
+            'pageId': pageId,
+            'payload': payload,
+          })
+        : http.patch(
+            Uri.parse('https://api.notion.com/v1/pages/$pageId'),
+            headers: {
+              'Authorization': 'Bearer $apiKey',
+              'Notion-Version': '2022-06-28',
+              'Content-Type': 'application/json',
+            },
+            body: body,
+          );
+  }
+
   Future<http.Response> _postViaWebProxy(Map<String, dynamic> payload) async {
     final body = jsonEncode(payload);
     // Web-only: endpoint proxy che applica auth verso Notion lato server.

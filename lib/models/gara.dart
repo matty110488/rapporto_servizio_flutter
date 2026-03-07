@@ -176,4 +176,12 @@ class Gara {
       status: pickStatus(p),
     );
   }
+
+  static String statusLabel(String rawStatus) {
+    final normalized = rawStatus.trim().toUpperCase();
+    if (normalized == 'RAPPORTINO RICEVUTO') {
+      return 'RAPPORTINO INVIATO';
+    }
+    return rawStatus;
+  }
 }

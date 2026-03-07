@@ -262,7 +262,8 @@ class _DettaglioGaraState extends State<DettaglioGara> {
 
   Widget _statusChip(String status) {
     final style = _statusStyle(status);
-    final text = status.trim().isEmpty ? 'Non specificato' : status;
+    final text =
+        status.trim().isEmpty ? 'Non specificato' : Gara.statusLabel(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(

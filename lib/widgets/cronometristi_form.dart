@@ -272,7 +272,7 @@ class CronometristiFormState extends State<CronometristiForm> {
             children: [
               Expanded(
                 child: _miniField(
-                  fieldKey: ValueKey('ore-$_revision-$index-$g'),
+                  fieldKey: ValueKey('ore-$_revision-$index'),
                   hint: 'Ore',
                   initialValue: (giorno['ore'] ?? '').toString(),
                   prefix: 'Ore',
@@ -283,7 +283,7 @@ class CronometristiFormState extends State<CronometristiForm> {
               const SizedBox(width: 8),
               Expanded(
                 child: _miniField(
-                  fieldKey: ValueKey('km-$_revision-$index-$g'),
+                  fieldKey: ValueKey('km-$_revision-$index'),
                   hint: 'Km',
                   initialValue: (giorno['km'] ?? '').toString(),
                   prefix: 'Km',
@@ -294,7 +294,7 @@ class CronometristiFormState extends State<CronometristiForm> {
               const SizedBox(width: 8),
               Expanded(
                 child: _miniField(
-                  fieldKey: ValueKey('spese-$_revision-$index-$g'),
+                  fieldKey: ValueKey('spese-$_revision-$index'),
                   hint: 'EUR',
                   initialValue: (giorno['spese'] ?? '').toString(),
                   prefix: 'EUR',

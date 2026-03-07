@@ -117,7 +117,7 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
       );
       final all = results.map((e) => Gara.fromNotion(e)).toList();
 
-      const statiCompletati = {'COMPLETATA', 'GARA COMPLETATA'};
+      const statiCompletati = {'RAPPORTINO RICEVUTO', 'RAPPORTINO INVIATO'};
       final userId = _loggedUserId;
 
       final filtered = all.where((g) {

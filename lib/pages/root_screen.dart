@@ -142,6 +142,7 @@ class _RootScreenState extends State<RootScreen> {
     const allowed = {
       'DESIGNAZIONE INVIATA',
       'GARA COMPLETATA',
+      'RAPPORTINO RICEVUTO',
     };
     final status = gara.status.trim().toUpperCase();
     return allowed.contains(status);
@@ -681,6 +682,11 @@ class _RootScreenState extends State<RootScreen> {
                     ),
                   );
                 }
+                await notion.updateGaraStatus(
+                  garaSelezionata.id,
+                  'RAPPORTINO RICEVUTO',
+                );
+                await _loadGareDsc();
               } catch (e) {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(

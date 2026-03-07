@@ -283,6 +283,7 @@ pw.Widget _sezioneCronometristi(
   }
 
   final rows = <List<String>>[];
+  final noteRows = <List<String>>[];
   double totOre = 0, totKm = 0, totSpese = 0;
   for (final c in elenco) {
     final giorni = (c['giorni'] as List?) ?? [];
@@ -290,6 +291,7 @@ pw.Widget _sezioneCronometristi(
     final km = sum(giorni, 'km');
     final spese = sum(giorni, 'spese');
     final segreteria = _txt(c['segreteria']).toUpperCase();
+    final note = _txt(c['note']);
     totOre += ore;
     totKm += km;
     totSpese += spese;
@@ -299,8 +301,11 @@ pw.Widget _sezioneCronometristi(
       km.toStringAsFixed(1),
       spese.toStringAsFixed(2),
       segreteria,
-      _txt(c['note']),
+      note,
     ]);
+    if (note.trim().isNotEmpty) {
+      noteRows.add([_txt(c['nome']), note]);
+    }
   }
 
   final children = <pw.Widget>[
@@ -334,10 +339,72 @@ pw.Widget _sezioneCronometristi(
       //        pw.TextStyle(font: base, fontSize: 9, color: PdfColors.grey700)),
     ]);
   }
+  if (!mostraRiepilogo && noteRows.isNotEmpty) {
+    children.addAll([
+      pw.SizedBox(height: 10),
+      pw.Text(
+        'Note cronometristi',
+        style: pw.TextStyle(font: bold, fontSize: 13),
+      ),
+      pw.SizedBox(height: 5),
+      _tabellaNoteCronometristi(noteRows, base, bold),
+    ]);
+  }
 
   return pw.Column(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: children,
+  );
+}
+
+pw.Widget _tabellaNoteCronometristi(
+  List<List<String>> rows,
+  pw.Font base,
+  pw.Font bold,
+) {
+  pw.Widget cell(
+    String text, {
+    bool header = false,
+    PdfColor? background,
+  }) =>
+      pw.Container(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        color: header ? _tableHeaderColor : background,
+        child: pw.Text(
+          _txt(text),
+          style: pw.TextStyle(
+            font: header ? bold : base,
+            color: header ? _tableHeaderTextColor : PdfColors.black,
+            fontSize: 10,
+          ),
+        ),
+      );
+
+  return pw.Table(
+    border: pw.TableBorder.all(color: _tableBorderColor),
+    columnWidths: const {
+      0: pw.FlexColumnWidth(2.2),
+      1: pw.FlexColumnWidth(5),
+    },
+    children: [
+      pw.TableRow(
+        children: [
+          cell('Cronometrista', header: true),
+          cell('Note', header: true),
+        ],
+      ),
+      ...rows.asMap().entries.map((entry) {
+        final idx = entry.key;
+        final row = entry.value;
+        final rowBg = idx.isOdd ? _tableAltRowColor : null;
+        return pw.TableRow(
+          children: [
+            cell(row[0], background: rowBg),
+            cell(row[1], background: rowBg),
+          ],
+        );
+      }),
+    ],
   );
 }
 

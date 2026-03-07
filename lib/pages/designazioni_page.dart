@@ -361,7 +361,7 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
 
   Widget _statusChip(String status) {
     final style = _statusStyle(status);
-    final text = status.trim().isEmpty ? 'N/D' : status;
+    final text = status.trim().isEmpty ? 'N/D' : Gara.statusLabel(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
