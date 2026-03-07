@@ -238,6 +238,45 @@ class GaraFormState extends State<GaraForm> {
     widget.onOrariChanged?.call(getOrariGiornata());
   }
 
+  void applySavedData({
+    required Map<String, dynamic> garaData,
+    Map<String, dynamic>? savedOrari,
+  }) {
+    final start = _parseDate((garaData['dataDa'] ?? '').toString());
+    final end = _parseDate((garaData['dataA'] ?? '').toString());
+
+    final normalizedOrari = <String, Map<String, String>>{};
+    if (savedOrari != null) {
+      savedOrari.forEach((key, value) {
+        if (value is Map) {
+          normalizedOrari[key.toString()] = {
+            'oraDa': (value['oraDa'] ?? '').toString(),
+            'oraA': (value['oraA'] ?? '').toString(),
+          };
+        }
+      });
+    }
+
+    setState(() {
+      nomeController.text = (garaData['nome'] ?? '').toString();
+      organizzatoreController.text = (garaData['organizzatore'] ?? '').toString();
+      luogoController.text = (garaData['luogo'] ?? '').toString();
+      dscController.text = (garaData['dsc'] ?? '').toString();
+      sport = (garaData['sport'] ?? '').toString();
+      dataDa = start;
+      dataA = end ?? start;
+      _syncOrariWithRange();
+      if (normalizedOrari.isNotEmpty) {
+        orariPerData = Map<String, Map<String, String>>.from(normalizedOrari);
+      }
+      _pruneTimeControllers();
+    });
+
+    widget.onSportChanged?.call(sport);
+    widget.onDateRangeChanged?.call(dataDa, dataA);
+    widget.onOrariChanged?.call(getOrariGiornata());
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(

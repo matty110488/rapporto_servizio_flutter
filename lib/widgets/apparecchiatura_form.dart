@@ -15,6 +15,7 @@ class ApparecchiaturaForm extends StatefulWidget {
 }
 
 class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
+  int _revision = 0;
   final List<String> dispositiviDisponibili = [
     '*** CRONOMETRI ***',
     'Rei Pro',
@@ -108,6 +109,37 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
     );
   }
 
+  void applySavedData(List<dynamic> savedRows) {
+    setState(() {
+      if (widget.isFisSport) {
+        final first = savedRows.isNotEmpty ? savedRows.first : null;
+        if (first is Map) {
+          tabelloneFis = (first['quantita'] ?? 'NO').toString();
+          giornateSegreteria = (first['giornateSegreteria'] ?? '').toString();
+        } else {
+          tabelloneFis = 'NO';
+          giornateSegreteria = '';
+        }
+      } else {
+        righe = savedRows
+            .whereType<Map>()
+            .map<Map<String, dynamic>>(
+              (row) => {
+                'dispositivo': row['dispositivo'],
+                'quantita': (row['quantita'] ?? '').toString(),
+              },
+            )
+            .toList();
+        if (righe.isEmpty) {
+          righe = [
+            {'dispositivo': null, 'quantita': ''}
+          ];
+        }
+      }
+      _revision++;
+    });
+  }
+
   Widget _sectionHeader({
     required String title,
     required String subtitle,
@@ -187,6 +219,7 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextFormField(
+                  key: ValueKey('segreteria-$_revision'),
                   initialValue: giornateSegreteria,
                   keyboardType: TextInputType.number,
                   onChanged: (val) => setState(() => giornateSegreteria = val),
@@ -325,6 +358,7 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
                   ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
+                    key: ValueKey('disp-$_revision-$index'),
                     initialValue: riga['dispositivo'],
                     items: opzioni
                         .where((d) =>
@@ -349,6 +383,7 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
                   SizedBox(
                     width: 170,
                     child: TextFormField(
+                      key: ValueKey('qty-$_revision-$index'),
                       initialValue: riga['quantita'],
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(

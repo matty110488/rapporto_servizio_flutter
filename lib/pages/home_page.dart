@@ -74,9 +74,12 @@ class HomePage extends StatelessWidget {
       ),
       _HomeNavData(
         icon: Icons.folder,
-        label: 'Archivio rapportini',
-        subtitle: 'Riapri i PDF gia generati',
-        onTap: () => _openPage(context, ArchivioScreen()),
+        label: 'Rapportini completati',
+        subtitle: 'Apri e modifica rapportini gia inviati',
+        onTap: () => _openPage(
+          context,
+          ArchivioScreen(loggedUser: loggedUser),
+        ),
       ),
       _HomeNavData(
         icon: Icons.flag,

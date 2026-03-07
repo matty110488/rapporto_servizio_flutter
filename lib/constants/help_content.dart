@@ -24,7 +24,8 @@ class HelpContent {
   ];
 
   static const archivio = [
-    "Consulta i rapportini gia' inviati e scarica i PDF generati in precedenza.",
+    "Mostra le gare con rapportino completato.",
+    "Da questa sezione puoi riaprire una gara e modificare il rapportino gia' inviato.",
   ];
 
   static const noteUtili = [

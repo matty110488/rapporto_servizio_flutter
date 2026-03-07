@@ -9,6 +9,7 @@ class CronometristiForm extends StatefulWidget {
 }
 
 class CronometristiFormState extends State<CronometristiForm> {
+  int _revision = 0;
   DateTime? _rangeDa;
   DateTime? _rangeA;
   final List<String> cronometristiDisponibili =
@@ -149,6 +150,64 @@ class CronometristiFormState extends State<CronometristiForm> {
     });
   }
 
+  void applySavedData(List<dynamic> savedRows) {
+    Map<String, dynamic> normalizeDay(dynamic raw) {
+      if (raw is! Map) {
+        return {
+          'data': '',
+          'ore': '',
+          'km': '',
+          'spese': '',
+          'oraDa': '',
+          'oraA': '',
+        };
+      }
+      return {
+        'data': (raw['data'] ?? '').toString(),
+        'ore': (raw['ore'] ?? '').toString(),
+        'km': (raw['km'] ?? '').toString(),
+        'spese': (raw['spese'] ?? '').toString(),
+        'oraDa': (raw['oraDa'] ?? '').toString(),
+        'oraA': (raw['oraA'] ?? '').toString(),
+      };
+    }
+
+    Map<String, dynamic> normalizeRow(dynamic raw) {
+      if (raw is! Map) {
+        return {
+          'nome': null,
+          'giorni': _giorniPerRange(),
+          'segreteria': null,
+          'note': '',
+        };
+      }
+      final giorni = (raw['giorni'] as List? ?? const [])
+          .map<Map<String, dynamic>>(normalizeDay)
+          .toList();
+      return {
+        'nome': raw['nome'],
+        'giorni': giorni,
+        'segreteria': raw['segreteria'],
+        'note': (raw['note'] ?? '').toString(),
+      };
+    }
+
+    setState(() {
+      final rows = savedRows.map<Map<String, dynamic>>(normalizeRow).toList();
+      righe = rows.isEmpty
+          ? [
+              {
+                'nome': null,
+                'giorni': _giorniPerRange(),
+                'segreteria': null,
+                'note': '',
+              }
+            ]
+          : rows;
+      _revision++;
+    });
+  }
+
   void rimuoviRiga(int index) {
     setState(() {
       righe.removeAt(index);
@@ -213,6 +272,7 @@ class CronometristiFormState extends State<CronometristiForm> {
             children: [
               Expanded(
                 child: _miniField(
+                  fieldKey: ValueKey('ore-$_revision-$index-$g'),
                   hint: 'Ore',
                   initialValue: (giorno['ore'] ?? '').toString(),
                   prefix: 'Ore',
@@ -223,6 +283,7 @@ class CronometristiFormState extends State<CronometristiForm> {
               const SizedBox(width: 8),
               Expanded(
                 child: _miniField(
+                  fieldKey: ValueKey('km-$_revision-$index-$g'),
                   hint: 'Km',
                   initialValue: (giorno['km'] ?? '').toString(),
                   prefix: 'Km',
@@ -233,6 +294,7 @@ class CronometristiFormState extends State<CronometristiForm> {
               const SizedBox(width: 8),
               Expanded(
                 child: _miniField(
+                  fieldKey: ValueKey('spese-$_revision-$index-$g'),
                   hint: 'EUR',
                   initialValue: (giorno['spese'] ?? '').toString(),
                   prefix: 'EUR',
@@ -248,6 +310,7 @@ class CronometristiFormState extends State<CronometristiForm> {
   }
 
   Widget _miniField({
+    required Key fieldKey,
     required String hint,
     required String initialValue,
     required String prefix,
@@ -261,6 +324,7 @@ class CronometristiFormState extends State<CronometristiForm> {
     final outline = colorScheme.outline.withOpacity(0.6);
 
     return TextFormField(
+      key: fieldKey,
       initialValue: initialValue,
       keyboardType: TextInputType.number,
       style: TextStyle(
@@ -393,6 +457,7 @@ class CronometristiFormState extends State<CronometristiForm> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
+                          key: ValueKey('cronometrista-$_revision-$index'),
                           initialValue: nomeCorrente,
                           items: voci
                               .map((nome) => DropdownMenuItem(
@@ -504,6 +569,7 @@ class CronometristiFormState extends State<CronometristiForm> {
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
+                    key: ValueKey('note-$_revision-$index'),
                     initialValue: riga['note'],
                     onChanged: (val) => riga['note'] = val,
                     maxLines: 2,

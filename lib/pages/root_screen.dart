@@ -8,6 +8,7 @@ import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../pdf/generatore_pdf2.dart';
 import '../services/notion_service.dart';
+import '../services/rapportino_draft_service.dart';
 import '../widgets/allegati_form.dart';
 import '../widgets/apparecchiatura_form.dart';
 import '../widgets/cronometristi_form.dart';
@@ -18,8 +19,13 @@ import '../widgets/help_dialog.dart';
 
 class RootScreen extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
+  final String? initialGaraId;
 
-  const RootScreen({super.key, required this.loggedUser});
+  const RootScreen({
+    super.key,
+    required this.loggedUser,
+    this.initialGaraId,
+  });
 
   @override
   State<RootScreen> createState() => _RootScreenState();
@@ -35,6 +41,7 @@ class _RootScreenState extends State<RootScreen> {
   static const _db2026 = "2b1de089ef9580729622ff9543046cbc";
 
   late NotionService notion;
+  final RapportinoDraftService _draftService = RapportinoDraftService();
   List<Gara> gareDisponibili = [];
   bool loadingGareList = true;
   String? gareError;
@@ -179,6 +186,14 @@ class _RootScreenState extends State<RootScreen> {
           }
         }
       }
+      if (nextSelection == null && widget.initialGaraId != null) {
+        for (final gara in gareValide) {
+          if (gara.id == widget.initialGaraId) {
+            nextSelection = gara;
+            break;
+          }
+        }
+      }
       nextSelection ??= gareValide.length == 1 ? gareValide.first : null;
       final selectionChanged = (previousId ?? '') != (nextSelection?.id ?? '');
 
@@ -264,6 +279,7 @@ class _RootScreenState extends State<RootScreen> {
       setState(() {
         selectedSport = gara.sport;
       });
+      await _applySavedDraftIfAny(gara.id);
     } catch (e) {
       if (!mounted || ticket != _prefillTicket) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -276,6 +292,74 @@ class _RootScreenState extends State<RootScreen> {
         });
       }
     }
+  }
+
+  Map<String, dynamic> _buildRapportinoPayload({
+    required Gara garaSelezionata,
+    required Map<String, dynamic> gara,
+    required List<dynamic> cronos,
+    required Map<String, dynamic> orariGiornata,
+    required List<dynamic> app,
+    required String danni,
+    required List<dynamic> immagini,
+  }) {
+    return {
+      'gara': gara,
+      'cronometristi': cronos,
+      'orariGiornata': orariGiornata,
+      'apparecchiature': app,
+      'danni': danni,
+      'allegati': immagini,
+      'garaSelezionata': {
+        'id': garaSelezionata.id,
+        'titolo': garaSelezionata.titolo,
+        'data': garaSelezionata.dataGara,
+        'dataFine': garaSelezionata.dataGaraFine,
+        'luogo': garaSelezionata.localita,
+      },
+    };
+  }
+
+  Future<void> _saveDraft({
+    required String garaId,
+    required Map<String, dynamic> payload,
+  }) async {
+    final draft = {
+      'gara': payload['gara'],
+      'cronometristi': payload['cronometristi'],
+      'orariGiornata': payload['orariGiornata'],
+      'apparecchiature': payload['apparecchiature'],
+      'danni': payload['danni'],
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
+    await _draftService.saveDraft(garaId, draft);
+  }
+
+  Future<void> _applySavedDraftIfAny(String garaId) async {
+    final saved = await _draftService.loadDraft(garaId);
+    if (saved == null) return;
+
+    final garaDataRaw = saved['gara'];
+    final cronosRaw = saved['cronometristi'];
+    final orariRaw = saved['orariGiornata'];
+    final appRaw = saved['apparecchiature'];
+    final danniRaw = saved['danni'];
+
+    final garaData = garaDataRaw is Map
+        ? Map<String, dynamic>.from(garaDataRaw)
+        : <String, dynamic>{};
+    final cronos = cronosRaw is List ? List<dynamic>.from(cronosRaw) : <dynamic>[];
+    final app = appRaw is List ? List<dynamic>.from(appRaw) : <dynamic>[];
+    final orari = orariRaw is Map ? Map<String, dynamic>.from(orariRaw) : <String, dynamic>{};
+    final danni = (danniRaw ?? '').toString();
+
+    garaKey.currentState?.applySavedData(
+      garaData: garaData,
+      savedOrari: orari,
+    );
+    cronometristiKey.currentState?.applySavedData(cronos);
+    apparecchiaturaKey.currentState?.applySavedData(app);
+    danniKey.currentState?.setData(danni);
   }
 
   String _formatDateLabel(String value) {
@@ -564,23 +648,21 @@ class _RootScreenState extends State<RootScreen> {
               final app = apparecchiaturaKey.currentState?.getData() ?? [];
               final danni = danniKey.currentState?.getData() ?? '';
               final immagini = allegatiKey.currentState?.getImages() ?? [];
-              final payload = {
-                'gara': gara,
-                'cronometristi': cronos,
-                'orariGiornata': orariGiornata,
-                'apparecchiature': app,
-                'danni': danni,
-                'allegati': immagini,
-                'garaSelezionata': {
-                  'id': garaSelezionata.id,
-                  'titolo': garaSelezionata.titolo,
-                  'data': garaSelezionata.dataGara,
-                  'dataFine': garaSelezionata.dataGaraFine,
-                  'luogo': garaSelezionata.localita,
-                },
-              };
+              final payload = _buildRapportinoPayload(
+                garaSelezionata: garaSelezionata,
+                gara: gara,
+                cronos: cronos,
+                orariGiornata: orariGiornata,
+                app: app,
+                danni: danni,
+                immagini: immagini,
+              );
 
               try {
+                await _saveDraft(
+                  garaId: garaSelezionata.id,
+                  payload: payload,
+                );
                 if (kIsWeb) {
                   final pdfBytes = await generaPdfBytesConDati(payload);
                   await Printing.sharePdf(

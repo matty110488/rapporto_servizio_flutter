@@ -8,9 +8,20 @@ class DanniForm extends StatefulWidget {
 }
 
 class DanniFormState extends State<DanniForm> {
-  String note = '';
+  final TextEditingController _noteController = TextEditingController();
 
-  String getData() => note;
+  String getData() => _noteController.text;
+
+  void setData(String value) {
+    _noteController.text = value;
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,9 +48,8 @@ class DanniFormState extends State<DanniForm> {
             border: Border.all(color: colorScheme.outline.withOpacity(0.25)),
           ),
           child: TextFormField(
+            controller: _noteController,
             maxLines: 5,
-            initialValue: note,
-            onChanged: (val) => setState(() => note = val),
             decoration: InputDecoration(
               labelText: "Scrivi qui eventuali problemi o osservazioni",
               alignLabelWithHint: true,
