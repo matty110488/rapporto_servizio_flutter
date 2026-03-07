@@ -26,6 +26,7 @@ class _GarePageState extends State<GarePage> {
   Set<String> expandedMonths = {};
   bool showPastEvents = false;
   _AssignmentFilter assignmentFilter = _AssignmentFilter.all;
+  String sportFilter = '';
 
   @override
   void initState() {
@@ -90,6 +91,9 @@ class _GarePageState extends State<GarePage> {
 
   List<Gara> _applyFilters(List<Gara> source) {
     var filtered = List<Gara>.from(source);
+    filtered = filtered
+        .where((g) => g.status.trim().toUpperCase() != 'VENDUTA')
+        .toList();
     if (!showPastEvents) {
       filtered = filtered.where((g) {
         final d = _parseDate(g.dataGara);
@@ -102,7 +106,21 @@ class _GarePageState extends State<GarePage> {
     } else if (assignmentFilter == _AssignmentFilter.designato) {
       filtered = filtered.where(_isDesignato).toList();
     }
+    if (sportFilter.isNotEmpty) {
+      filtered = filtered.where((g) => g.sport.trim() == sportFilter).toList();
+    }
     return filtered;
+  }
+
+  List<String> _sportsOptions() {
+    final sports = gare
+        .where((g) => g.status.trim().toUpperCase() != 'VENDUTA')
+        .map((g) => g.sport.trim())
+        .where((s) => s.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return sports;
   }
 
   Map<String, List<Gara>> _garePerMese(List<Gara> source) {
@@ -299,6 +317,7 @@ class _GarePageState extends State<GarePage> {
   }
 
   Widget _buildFiltersCard() {
+    final sports = _sportsOptions();
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -335,6 +354,31 @@ class _GarePageState extends State<GarePage> {
             selected: assignmentFilter == _AssignmentFilter.designato,
             onSelected: (_) =>
                 setState(() => assignmentFilter = _AssignmentFilter.designato),
+          ),
+          SizedBox(
+            width: 260,
+            child: DropdownButtonFormField<String>(
+              initialValue: sportFilter.isEmpty ? null : sportFilter,
+              items: [
+                const DropdownMenuItem<String>(
+                  value: '',
+                  child: Text('Tutti gli sport'),
+                ),
+                ...sports.map(
+                  (s) => DropdownMenuItem<String>(
+                    value: s,
+                    child: Text(s, overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              ],
+              onChanged: (value) => setState(() => sportFilter = value ?? ''),
+              decoration: const InputDecoration(
+                labelText: 'Filtro sport',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              isExpanded: true,
+            ),
           ),
         ],
       ),
