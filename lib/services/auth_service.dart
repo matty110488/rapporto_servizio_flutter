@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class AuthService {
+  static const _webProxyUrl =
+      'https://rapporto-servizio-flutter.vercel.app/api/notion-query';
   final String apiKey;
   final String cronometristiDbId;
 
@@ -18,10 +20,12 @@ class AuthService {
     const passwordProperty = "Password";
 
     final url = kIsWeb
-        ? "https://rapporto-servizio-flutter.vercel.app/api/notion-query"
+        ? _webProxyUrl
         : "https://api.notion.com/v1/databases/$cronometristiDbId/query";
 
     final body = {
+      if (kIsWeb) "action": "queryDatabase",
+      if (kIsWeb) "databaseId": cronometristiDbId,
       "filter": {
         "and": [
           {
@@ -37,6 +41,12 @@ class AuthService {
     };
 
     try {
+      final encodedBody = jsonEncode(body);
+      if (kIsWeb) {
+        print("[WEB][AuthService] Request URL: $url");
+        print("[WEB][AuthService] Request body: $encodedBody");
+      }
+
       final res = await http.post(
         Uri.parse(url),
         headers: kIsWeb
@@ -48,8 +58,12 @@ class AuthService {
                 "Notion-Version": "2022-06-28",
                 "Content-Type": "application/json",
               },
-        body: jsonEncode(body),
+        body: encodedBody,
       );
+
+      if (kIsWeb) {
+        print("[WEB][AuthService] Response body: ${res.body}");
+      }
 
       if (res.statusCode != 200) {
         print("Login Notion error (${res.statusCode}): ${res.body}");
