@@ -5,10 +5,10 @@ class ApparecchiaturaForm extends StatefulWidget {
   final String tipoGara;
 
   const ApparecchiaturaForm({
-    Key? key,
+    super.key,
     this.isFisSport = false,
     this.tipoGara = '',
-  }) : super(key: key);
+  });
 
   @override
   ApparecchiaturaFormState createState() => ApparecchiaturaFormState();
@@ -284,7 +284,7 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceVariant.withOpacity(0.35),
+                color: colorScheme.surfaceContainerHighest.withOpacity(0.35),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: colorScheme.outline.withOpacity(0.3),
@@ -325,7 +325,7 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
                   ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
-                    value: riga['dispositivo'],
+                    initialValue: riga['dispositivo'],
                     items: opzioni
                         .where((d) =>
                             !righe.any((r) => r['dispositivo'] == d) ||

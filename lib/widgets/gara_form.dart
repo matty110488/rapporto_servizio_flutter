@@ -6,11 +6,11 @@ class GaraForm extends StatefulWidget {
   final void Function(DateTime?, DateTime?)? onDateRangeChanged;
   final ValueChanged<Map<String, Map<String, String>>>? onOrariChanged;
   const GaraForm({
-    Key? key,
+    super.key,
     this.onSportChanged,
     this.onDateRangeChanged,
     this.onOrariChanged,
-  }) : super(key: key);
+  });
 
   @override
   GaraFormState createState() => GaraFormState();
@@ -322,7 +322,7 @@ class GaraFormState extends State<GaraForm> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<String>(
-        value: dropdownValue,
+        initialValue: dropdownValue,
         items: items,
         onChanged: (val) {
           setState(() => sport = val ?? '');
@@ -355,7 +355,7 @@ class GaraFormState extends State<GaraForm> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<String>(
-        value: dropdownValue,
+        initialValue: dropdownValue,
         items: items,
         onChanged: (val) => setState(() => dscController.text = val ?? ''),
         decoration: const InputDecoration(
@@ -400,7 +400,7 @@ class GaraFormState extends State<GaraForm> {
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceVariant.withOpacity(0.35),
+                  color: colorScheme.surfaceContainerHighest.withOpacity(0.35),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: colorScheme.outline.withOpacity(0.4),

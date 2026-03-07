@@ -29,6 +29,8 @@ Future<void> main() async {
 }
 
 class CronoValtellinesiApp extends StatefulWidget {
+  const CronoValtellinesiApp({super.key});
+
   @override
   State<CronoValtellinesiApp> createState() => _CronoValtellinesiAppState();
 }
@@ -115,7 +117,6 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
       colorScheme: base.colorScheme.copyWith(
         primary: primary,
         secondary: primary,
-        background: Colors.white,
         surface: Colors.white,
       ),
       appBarTheme: const AppBarTheme(

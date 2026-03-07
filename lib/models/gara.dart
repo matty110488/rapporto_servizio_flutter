@@ -1,5 +1,3 @@
-import '../services/notion_service.dart';
-
 class Gara {
   final String id;
   final String titolo;

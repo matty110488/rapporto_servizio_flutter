@@ -1033,12 +1033,12 @@ pw.Widget _footer(pw.Font base, int page, int pages) {
     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
     children: [
       pw.Text(
-        'Generato: ' + now,
+        'Generato: $now',
         style:
             pw.TextStyle(font: base, fontSize: 8.5, color: PdfColors.grey700),
       ),
       pw.Text(
-        'Pagina ' + page.toString() + ' di ' + pages.toString(),
+        'Pagina $page di $pages',
         style:
             pw.TextStyle(font: base, fontSize: 8.5, color: PdfColors.grey700),
       ),

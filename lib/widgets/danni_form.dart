@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class DanniForm extends StatefulWidget {
-  const DanniForm({Key? key}) : super(key: key);
+  const DanniForm({super.key});
 
   @override
   DanniFormState createState() => DanniFormState();
@@ -32,7 +32,7 @@ class DanniFormState extends State<DanniForm> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: colorScheme.surfaceVariant.withOpacity(0.35),
+            color: colorScheme.surfaceContainerHighest.withOpacity(0.35),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: colorScheme.outline.withOpacity(0.25)),
           ),

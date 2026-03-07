@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/cronometristi.dart';
 
 class CronometristiForm extends StatefulWidget {
-  const CronometristiForm({Key? key}) : super(key: key);
+  const CronometristiForm({super.key});
 
   @override
   CronometristiFormState createState() => CronometristiFormState();
@@ -180,7 +180,7 @@ class CronometristiFormState extends State<CronometristiForm> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceVariant.withOpacity(0.35),
+        color: colorScheme.surfaceContainerHighest.withOpacity(0.35),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
       ),
@@ -382,7 +382,7 @@ class CronometristiFormState extends State<CronometristiForm> {
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceVariant.withOpacity(0.3),
+                color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
               ),
@@ -393,7 +393,7 @@ class CronometristiFormState extends State<CronometristiForm> {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: nomeCorrente,
+                          initialValue: nomeCorrente,
                           items: voci
                               .map((nome) => DropdownMenuItem(
                                   value: nome,
@@ -428,7 +428,7 @@ class CronometristiFormState extends State<CronometristiForm> {
                         giorno: giorni[g] as Map<String, dynamic>,
                         index: g,
                         onUpdate: (campo, val) =>
-                            setState(() => (giorni[g] as Map)[campo] = val),
+                            setState(() => (giorni[g])[campo] = val),
                         onRemove: () => rimuoviGiorno(riga, g),
                         colorScheme: colorScheme,
                       );

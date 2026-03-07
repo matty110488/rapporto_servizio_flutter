@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 class AllegatiForm extends StatefulWidget {
-  const AllegatiForm({Key? key}) : super(key: key);
+  const AllegatiForm({super.key});
 
   @override
   AllegatiFormState createState() => AllegatiFormState();
@@ -73,7 +73,7 @@ class AllegatiFormState extends State<AllegatiForm> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: colorScheme.surfaceVariant.withOpacity(0.3),
+            color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: colorScheme.outline.withOpacity(0.25)),
           ),

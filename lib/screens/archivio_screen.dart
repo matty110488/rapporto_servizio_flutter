@@ -7,6 +7,8 @@ import '../constants/help_content.dart';
 import '../widgets/help_dialog.dart';
 
 class ArchivioScreen extends StatefulWidget {
+  const ArchivioScreen({super.key});
+
   @override
   State<ArchivioScreen> createState() => _ArchivioScreenState();
 }
