@@ -19,11 +19,13 @@ class AuthService {
     const usernameProperty = "Username";
     const passwordProperty = "Password";
 
+    // Web-only: usa il proxy Vercel invece della Notion API diretta.
     final url = kIsWeb
         ? _webProxyUrl
         : "https://api.notion.com/v1/databases/$cronometristiDbId/query";
 
     final body = {
+      // Web-only: metadati per instradare la chiamata nel proxy.
       if (kIsWeb) "action": "queryDatabase",
       if (kIsWeb) "databaseId": cronometristiDbId,
       "filter": {
@@ -51,6 +53,7 @@ class AuthService {
         Uri.parse(url),
         headers: kIsWeb
             ? {
+                // Web-only: niente header Authorization/Notion-Version verso il proxy.
                 "Content-Type": "application/json",
               }
             : {

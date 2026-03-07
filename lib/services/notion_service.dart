@@ -42,6 +42,7 @@ class NotionService {
       }
 
       final res = kIsWeb
+          // Web-only: query database via proxy Vercel.
           ? await _postViaWebProxy({
               'action': 'queryDatabase',
               'databaseId': dbId,
@@ -123,6 +124,7 @@ class NotionService {
     print('====== DETTAGLIO PERSONA ($pageId) ======');
 
     final res = kIsWeb
+        // Web-only: lettura pagina via proxy Vercel.
         ? await _postViaWebProxy({
             'action': 'retrievePage',
             'pageId': pageId,
@@ -148,6 +150,7 @@ class NotionService {
   /// name instead of the Notion relation ID.
   Future<String> fetchNameFromPage(String pageId) async {
     final res = kIsWeb
+        // Web-only: lettura pagina via proxy Vercel.
         ? await _postViaWebProxy({
             'action': 'retrievePage',
             'pageId': pageId,
@@ -197,6 +200,7 @@ class NotionService {
     });
 
     final res = kIsWeb
+        // Web-only: update pagina via proxy Vercel.
         ? await _postViaWebProxy({
             'action': 'updatePage',
             'pageId': pageId,
@@ -219,12 +223,14 @@ class NotionService {
 
   Future<http.Response> _postViaWebProxy(Map<String, dynamic> payload) async {
     final body = jsonEncode(payload);
+    // Web-only: endpoint proxy che applica auth verso Notion lato server.
     print('[WEB][NotionService] Request URL: $_webProxyUrl');
     print('[WEB][NotionService] Request body: $body');
 
     final res = await http.post(
       Uri.parse(_webProxyUrl),
       headers: {
+        // Web-only: niente Authorization/Notion-Version dal client.
         'Content-Type': 'application/json',
       },
       body: body,
