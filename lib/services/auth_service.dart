@@ -16,8 +16,8 @@ class AuthService {
 
   // LOGIN: restituisce la pagina dell'utente se username + password sono corretti
   Future<Map<String, dynamic>?> login(String username, String password) async {
-    const usernameProperty = "Username";
-    const passwordProperty = "Password";
+    const usernameProperty = "USERNAME";
+    const passwordProperty = "PASSWORD";
 
     // Web-only: usa il proxy Vercel invece della Notion API diretta.
     final url = kIsWeb
