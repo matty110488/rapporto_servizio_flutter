@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../constants/help_content.dart';
@@ -562,8 +564,7 @@ class _RootScreenState extends State<RootScreen> {
               final app = apparecchiaturaKey.currentState?.getData() ?? [];
               final danni = danniKey.currentState?.getData() ?? '';
               final immagini = allegatiKey.currentState?.getImages() ?? [];
-
-              final file = await generaPdfConDati({
+              final payload = {
                 'gara': gara,
                 'cronometristi': cronos,
                 'orariGiornata': orariGiornata,
@@ -577,13 +578,33 @@ class _RootScreenState extends State<RootScreen> {
                   'dataFine': garaSelezionata.dataGaraFine,
                   'luogo': garaSelezionata.localita,
                 },
-              }, salvaLocalmente: true);
-              await SharePlus.instance.share(
-                ShareParams(
-                  text: 'Rapporto PDF',
-                  files: [XFile(file.path)],
-                ),
-              );
+              };
+
+              try {
+                if (kIsWeb) {
+                  final pdfBytes = await generaPdfBytesConDati(payload);
+                  await Printing.sharePdf(
+                    bytes: pdfBytes,
+                    filename: 'rapporto_servizio.pdf',
+                  );
+                } else {
+                  final file = await generaPdfConDati(
+                    payload,
+                    salvaLocalmente: true,
+                  );
+                  await SharePlus.instance.share(
+                    ShareParams(
+                      text: 'Rapporto PDF',
+                      files: [XFile(file.path)],
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Errore generazione PDF: $e')),
+                );
+              }
             },
             icon: const Icon(Icons.picture_as_pdf),
             label: const Text("Genera e invia PDF"),

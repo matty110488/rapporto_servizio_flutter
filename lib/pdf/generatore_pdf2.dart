@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'package:cross_file/cross_file.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -73,6 +75,27 @@ Future<File> generaPdfConDati(
   Map<String, dynamic> dati, {
   bool salvaLocalmente = false,
 }) async {
+  final pdf = await _buildPdfDocument(dati);
+
+  final dir = await getApplicationDocumentsDirectory();
+  final String nomeGara =
+      _safeFileName(_txt(((dati['gara'] ?? {})['nome'] ?? 'Rapporto')));
+  final String dataFile = ((dati['gara'] ?? {})['dataDa'] ?? '00000000')
+      .toString()
+      .replaceAll('-', '');
+
+  final String nomeFile = '${dataFile}_$nomeGara.pdf';
+  final file = File('${dir.path}/$nomeFile');
+  await file.writeAsBytes(await pdf.save());
+  return file;
+}
+
+Future<Uint8List> generaPdfBytesConDati(Map<String, dynamic> dati) async {
+  final pdf = await _buildPdfDocument(dati);
+  return pdf.save();
+}
+
+Future<pw.Document> _buildPdfDocument(Map<String, dynamic> dati) async {
   final pdf = pw.Document();
 
   final base = pw.Font.helvetica();
@@ -88,6 +111,7 @@ Future<File> generaPdfConDati(
   final apparecchiature = (dati['apparecchiature'] ?? []) as List;
   final danni = _txt(dati['danni']);
   final allegati = (dati['allegati'] ?? []) as List;
+  final allegatiBytes = await _loadAllegatiBytes(allegati);
   final direttore = _txt(gara['dsc']).trim();
   final Map<String, dynamic> orariGiornata = {};
   final rawOrari = dati['orariGiornata'];
@@ -121,8 +145,8 @@ Future<File> generaPdfConDati(
     _sezioneDanni(danni, base, bold),
   ];
 
-  if (allegati.isNotEmpty) {
-    contenuto.addAll([pw.SizedBox(height: 12), _sezioneAllegati(allegati)]);
+  if (allegatiBytes.isNotEmpty) {
+    contenuto.addAll([pw.SizedBox(height: 12), _sezioneAllegati(allegatiBytes)]);
   }
 
   if (direttore.isNotEmpty) {
@@ -144,17 +168,7 @@ Future<File> generaPdfConDati(
     ),
   );
 
-  final dir = await getApplicationDocumentsDirectory();
-  final String nomeGara =
-      _safeFileName(_txt(((dati['gara'] ?? {})['nome'] ?? 'Rapporto')));
-  final String dataFile = ((dati['gara'] ?? {})['dataDa'] ?? '00000000')
-      .toString()
-      .replaceAll('-', '');
-
-  final String nomeFile = '${dataFile}_$nomeGara.pdf';
-  final file = File('${dir.path}/$nomeFile');
-  await file.writeAsBytes(await pdf.save());
-  return file;
+  return pdf;
 }
 
 // ===== Sezioni =====
@@ -685,7 +699,7 @@ pw.Widget _sezioneDirettore(String direttore, pw.Font base, pw.Font bold) {
   );
 }
 
-pw.Widget _sezioneAllegati(List allegati) {
+pw.Widget _sezioneAllegati(List<Uint8List> allegati) {
   return pw.Column(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
@@ -697,8 +711,8 @@ pw.Widget _sezioneAllegati(List allegati) {
       pw.Wrap(
         spacing: 8,
         runSpacing: 8,
-        children: allegati.map<pw.Widget>((xfile) {
-          final image = pw.MemoryImage(File(xfile.path).readAsBytesSync());
+        children: allegati.map<pw.Widget>((bytes) {
+          final image = pw.MemoryImage(bytes);
           return pw.Container(
             width: 240,
             height: 160,
@@ -712,6 +726,42 @@ pw.Widget _sezioneAllegati(List allegati) {
       ),
     ],
   );
+}
+
+Future<List<Uint8List>> _loadAllegatiBytes(List allegati) async {
+  final out = <Uint8List>[];
+  for (final item in allegati) {
+    if (item is XFile) {
+      try {
+        final bytes = await item.readAsBytes();
+        if (bytes.isNotEmpty) out.add(bytes);
+      } catch (_) {}
+      continue;
+    }
+
+    if (!kIsWeb && item is File) {
+      try {
+        final bytes = item.readAsBytesSync();
+        if (bytes.isNotEmpty) out.add(bytes);
+      } catch (_) {}
+      continue;
+    }
+
+    if (!kIsWeb) {
+      final dynamic dynamicItem = item;
+      try {
+        final path = dynamicItem.path;
+        if (path is String && path.isNotEmpty) {
+          final file = File(path);
+          if (file.existsSync()) {
+            final bytes = file.readAsBytesSync();
+            if (bytes.isNotEmpty) out.add(bytes);
+          }
+        }
+      } catch (_) {}
+    }
+  }
+  return out;
 }
 
 pw.Widget _tabellaRiepilogo(
