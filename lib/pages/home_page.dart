@@ -167,10 +167,10 @@ class _HomePageState extends State<HomePage> {
     final userName = _extractUserName();
     final navItems = [
       _HomeNavData(
-        icon: Icons.assignment,
-        label: 'Rapporti di Servizio',
-        subtitle: 'Compila e invia il rapportino gara',
-        onTap: () => _openPage(context, RootScreen(loggedUser: widget.loggedUser)),
+        icon: Icons.flag,
+        label: 'Calendario gare',
+        subtitle: 'Consulta eventi e disponibilita',
+        onTap: () => _openPage(context, GarePage(loggedUser: widget.loggedUser)),
       ),
       _HomeNavData(
         icon: Icons.assignment_turned_in,
@@ -182,6 +182,12 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
       _HomeNavData(
+        icon: Icons.assignment,
+        label: 'Rapporti di Servizio',
+        subtitle: 'Compila e invia il rapportino gara',
+        onTap: () => _openPage(context, RootScreen(loggedUser: widget.loggedUser)),
+      ),
+      _HomeNavData(
         icon: Icons.folder,
         label: 'Rapportini completati',
         subtitle: 'Apri e modifica rapportini gia inviati',
@@ -189,12 +195,6 @@ class _HomePageState extends State<HomePage> {
           context,
           ArchivioScreen(loggedUser: widget.loggedUser),
         ),
-      ),
-      _HomeNavData(
-        icon: Icons.flag,
-        label: 'Calendario gare',
-        subtitle: 'Consulta eventi e disponibilita',
-        onTap: () => _openPage(context, GarePage(loggedUser: widget.loggedUser)),
       ),
     ];
 

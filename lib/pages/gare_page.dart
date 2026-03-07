@@ -299,7 +299,7 @@ class _GarePageState extends State<GarePage> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Quando verranno aggiunte nuove gare in Notion, le vedrai qui.\nPuoi anche verificare i filtri attivi.',
+                ' ',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.blueGrey.shade600),
               ),
@@ -318,6 +318,7 @@ class _GarePageState extends State<GarePage> {
 
   Widget _buildFiltersCard() {
     final sports = _sportsOptions();
+    final textTheme = Theme.of(context).textTheme;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -325,40 +326,71 @@ class _GarePageState extends State<GarePage> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFDCE8F6)),
       ),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          OutlinedButton.icon(
-            onPressed: () => setState(() => showPastEvents = !showPastEvents),
-            icon: Icon(showPastEvents ? Icons.history_toggle_off : Icons.history),
-            label: Text(
-              showPastEvents ? 'Nascondi gare passate' : 'Mostra gare passate',
-            ),
+          Text(
+            'Periodo',
+            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
-          ChoiceChip(
-            label: const Text('Tutte'),
-            selected: assignmentFilter == _AssignmentFilter.all,
-            onSelected: (_) =>
-                setState(() => assignmentFilter = _AssignmentFilter.all),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildFilterChip(
+                label: 'Mese corrente e futuri',
+                selected: !showPastEvents,
+                onSelected: (_) => setState(() => showPastEvents = false),
+              ),
+              _buildFilterChip(
+                label: 'Includi gare passate',
+                selected: showPastEvents,
+                onSelected: (_) => setState(() => showPastEvents = true),
+              ),
+            ],
           ),
-          ChoiceChip(
-            label: const Text('Ho dato disponibilita'),
-            selected: assignmentFilter == _AssignmentFilter.disponibilita,
-            onSelected: (_) => setState(
-              () => assignmentFilter = _AssignmentFilter.disponibilita,
-            ),
+          const SizedBox(height: 12),
+          Text(
+            'Filtra per',
+            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
-          ChoiceChip(
-            label: const Text('Sono designato'),
-            selected: assignmentFilter == _AssignmentFilter.designato,
-            onSelected: (_) =>
-                setState(() => assignmentFilter = _AssignmentFilter.designato),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildFilterChip(
+                label: 'Tutte le gare',
+                selected: assignmentFilter == _AssignmentFilter.all,
+                onSelected: (_) =>
+                    setState(() => assignmentFilter = _AssignmentFilter.all),
+              ),
+              _buildFilterChip(
+                label: 'Gare dove ho dato disponibilità',
+                selected: assignmentFilter == _AssignmentFilter.disponibilita,
+                onSelected: (_) => setState(
+                  () => assignmentFilter = _AssignmentFilter.disponibilita,
+                ),
+              ),
+              _buildFilterChip(
+                label: 'Gare dove sono designato',
+                selected: assignmentFilter == _AssignmentFilter.designato,
+                onSelected: (_) => setState(
+                    () => assignmentFilter = _AssignmentFilter.designato),
+              ),
+            ],
           ),
+          const SizedBox(height: 12),
+          Text(
+            'Sport',
+            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
           SizedBox(
-            width: 260,
+            width: 320,
             child: DropdownButtonFormField<String>(
-              initialValue: sportFilter.isEmpty ? null : sportFilter,
+              initialValue: sportFilter.isEmpty ? '' : sportFilter,
               items: [
                 const DropdownMenuItem<String>(
                   value: '',
@@ -373,7 +405,7 @@ class _GarePageState extends State<GarePage> {
               ],
               onChanged: (value) => setState(() => sportFilter = value ?? ''),
               decoration: const InputDecoration(
-                labelText: 'Filtro sport',
+                labelText: 'Seleziona sport',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
@@ -381,6 +413,30 @@ class _GarePageState extends State<GarePage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool selected,
+    required ValueChanged<bool> onSelected,
+  }) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: onSelected,
+      selectedColor: const Color(0xFF0A66C2).withOpacity(0.18),
+      backgroundColor: const Color(0xFFF4F8FF),
+      side: BorderSide(
+        color: selected ? const Color(0xFF0A66C2) : const Color(0xFFDCE8F6),
+      ),
+      labelStyle: TextStyle(
+        color: selected ? const Color(0xFF0A66C2) : const Color(0xFF27415F),
+        fontWeight: FontWeight.w600,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(999),
       ),
     );
   }
