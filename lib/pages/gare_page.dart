@@ -24,6 +24,8 @@ class _GarePageState extends State<GarePage> {
   bool loading = true;
   Set<String> updatingGare = {};
   Set<String> expandedMonths = {};
+  bool showPastEvents = false;
+  _AssignmentFilter assignmentFilter = _AssignmentFilter.all;
 
   @override
   void initState() {
@@ -71,8 +73,40 @@ class _GarePageState extends State<GarePage> {
     return upper == 'DA GESTIRE' || upper == 'IN PROGRESS';
   }
 
-  Map<String, List<Gara>> _garePerMese() {
-    final sorted = List<Gara>.from(gare)
+  bool _isDisponibilitaData(Gara gara) {
+    return _isUserAssigned(gara) && _puoCandidarsi(gara);
+  }
+
+  bool _isDesignato(Gara gara) {
+    return _isUserAssigned(gara) && !_puoCandidarsi(gara);
+  }
+
+  bool _isCurrentOrFutureMonth(DateTime date) {
+    final now = DateTime.now();
+    if (date.year > now.year) return true;
+    if (date.year < now.year) return false;
+    return date.month >= now.month;
+  }
+
+  List<Gara> _applyFilters(List<Gara> source) {
+    var filtered = List<Gara>.from(source);
+    if (!showPastEvents) {
+      filtered = filtered.where((g) {
+        final d = _parseDate(g.dataGara);
+        if (d == null) return true;
+        return _isCurrentOrFutureMonth(d);
+      }).toList();
+    }
+    if (assignmentFilter == _AssignmentFilter.disponibilita) {
+      filtered = filtered.where(_isDisponibilitaData).toList();
+    } else if (assignmentFilter == _AssignmentFilter.designato) {
+      filtered = filtered.where(_isDesignato).toList();
+    }
+    return filtered;
+  }
+
+  Map<String, List<Gara>> _garePerMese(List<Gara> source) {
+    final sorted = List<Gara>.from(source)
       ..sort((a, b) {
         final da = _parseDate(a.dataGara);
         final db = _parseDate(b.dataGara);
@@ -144,7 +178,8 @@ class _GarePageState extends State<GarePage> {
 
   @override
   Widget build(BuildContext context) {
-    final grouped = _garePerMese();
+    final filtered = _applyFilters(gare);
+    final grouped = _garePerMese(filtered);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Calendario gare'),
@@ -183,10 +218,12 @@ class _GarePageState extends State<GarePage> {
             : RefreshIndicator(
                 onRefresh: () => load(showSpinner: false),
                 child: grouped.isEmpty
-                    ? _buildEmptyState()
+                    ? _buildEmptyState(filtersEnabled: true)
                     : ListView(
                         padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
                         children: [
+                          _buildFiltersCard(),
+                          const SizedBox(height: 10),
                           ...grouped.entries.map(_buildMonthSection),
                         ],
                       ),
@@ -212,11 +249,15 @@ class _GarePageState extends State<GarePage> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState({bool filtersEnabled = false}) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(20),
       children: [
+        if (filtersEnabled) ...[
+          _buildFiltersCard(),
+          const SizedBox(height: 10),
+        ],
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -240,7 +281,7 @@ class _GarePageState extends State<GarePage> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Quando verranno aggiunte nuove gare in Notion, le vedrai qui.',
+                'Quando verranno aggiunte nuove gare in Notion, le vedrai qui.\nPuoi anche verificare i filtri attivi.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.blueGrey.shade600),
               ),
@@ -254,6 +295,49 @@ class _GarePageState extends State<GarePage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildFiltersCard() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFDCE8F6)),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          OutlinedButton.icon(
+            onPressed: () => setState(() => showPastEvents = !showPastEvents),
+            icon: Icon(showPastEvents ? Icons.history_toggle_off : Icons.history),
+            label: Text(
+              showPastEvents ? 'Nascondi gare passate' : 'Mostra gare passate',
+            ),
+          ),
+          ChoiceChip(
+            label: const Text('Tutte'),
+            selected: assignmentFilter == _AssignmentFilter.all,
+            onSelected: (_) =>
+                setState(() => assignmentFilter = _AssignmentFilter.all),
+          ),
+          ChoiceChip(
+            label: const Text('Ho dato disponibilita'),
+            selected: assignmentFilter == _AssignmentFilter.disponibilita,
+            onSelected: (_) => setState(
+              () => assignmentFilter = _AssignmentFilter.disponibilita,
+            ),
+          ),
+          ChoiceChip(
+            label: const Text('Sono designato'),
+            selected: assignmentFilter == _AssignmentFilter.designato,
+            onSelected: (_) =>
+                setState(() => assignmentFilter = _AssignmentFilter.designato),
+          ),
+        ],
+      ),
     );
   }
 
@@ -539,4 +623,10 @@ class _StatusStyle {
     required this.strong,
     required this.accent,
   });
+}
+
+enum _AssignmentFilter {
+  all,
+  disponibilita,
+  designato,
 }
