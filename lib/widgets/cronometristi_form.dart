@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../constants/cronometristi.dart';
 
 class CronometristiForm extends StatefulWidget {
-  const CronometristiForm({super.key});
+  final VoidCallback? onDataChanged;
+
+  const CronometristiForm({super.key, this.onDataChanged});
 
   @override
   CronometristiFormState createState() => CronometristiFormState();
@@ -30,6 +32,10 @@ class CronometristiFormState extends State<CronometristiForm> {
   List<Map<String, dynamic>> getData() => righe;
   Map<String, Map<String, String>> getOrariGiornata() =>
       Map<String, Map<String, String>>.from(orariPerData);
+
+  void _notifyDataChanged() {
+    widget.onDataChanged?.call();
+  }
 
   // Sincronizza i giorni con l'intervallo [da, a] impostato nella sezione gara.
   // Crea un elemento per ciascun giorno calendario e preserva i valori esistenti per indice.
@@ -73,6 +79,7 @@ class CronometristiFormState extends State<CronometristiForm> {
         riga['giorni'] = nuovo;
       }
     });
+    _notifyDataChanged();
   }
 
   void aggiungiRiga() {
@@ -85,6 +92,7 @@ class CronometristiFormState extends State<CronometristiForm> {
         'note': '',
       });
     });
+    _notifyDataChanged();
   }
 
   List<Map<String, dynamic>> _giorniPerRange() {
@@ -133,6 +141,7 @@ class CronometristiFormState extends State<CronometristiForm> {
             .toList();
       }
     });
+    _notifyDataChanged();
   }
 
   void setOrari(Map<String, Map<String, String>> orari) {
@@ -148,6 +157,7 @@ class CronometristiFormState extends State<CronometristiForm> {
         }
       }
     });
+    _notifyDataChanged();
   }
 
   void applySavedData(List<dynamic> savedRows) {
@@ -206,12 +216,14 @@ class CronometristiFormState extends State<CronometristiForm> {
           : rows;
       _revision++;
     });
+    _notifyDataChanged();
   }
 
   void rimuoviRiga(int index) {
     setState(() {
       righe.removeAt(index);
     });
+    _notifyDataChanged();
   }
 
   void aggiungiGiorno(Map<String, dynamic> riga) {
@@ -220,12 +232,14 @@ class CronometristiFormState extends State<CronometristiForm> {
       (riga['giorni'] as List)
           .add({'ore': '', 'km': '', 'spese': '', 'oraDa': '', 'oraA': ''});
     });
+    _notifyDataChanged();
   }
 
   void rimuoviGiorno(Map<String, dynamic> riga, int giornoIndex) {
     setState(() {
       (riga['giorni'] as List).removeAt(giornoIndex);
     });
+    _notifyDataChanged();
   }
 
   Widget _giornoTile({
@@ -466,8 +480,10 @@ class CronometristiFormState extends State<CronometristiForm> {
                                       overflow: TextOverflow.ellipsis)))
                               .toList(),
                           isExpanded: true,
-                          onChanged: (val) =>
-                              setState(() => riga['nome'] = val),
+                          onChanged: (val) => setState(() {
+                            riga['nome'] = val;
+                            _notifyDataChanged();
+                          }),
                           decoration: InputDecoration(
                             labelText: 'Cronometrista',
                             filled: true,
@@ -492,8 +508,10 @@ class CronometristiFormState extends State<CronometristiForm> {
                       return _giornoTile(
                         giorno: giorni[g] as Map<String, dynamic>,
                         index: g,
-                        onUpdate: (campo, val) =>
-                            setState(() => (giorni[g])[campo] = val),
+                        onUpdate: (campo, val) => setState(() {
+                          (giorni[g])[campo] = val;
+                          _notifyDataChanged();
+                        }),
                         onRemove: () => rimuoviGiorno(riga, g),
                         colorScheme: colorScheme,
                       );
@@ -547,6 +565,7 @@ class CronometristiFormState extends State<CronometristiForm> {
                                 groupValue: riga['segreteria'],
                                 onChanged: (val) => setState(() {
                                   riga['segreteria'] = val;
+                                  _notifyDataChanged();
                                 }),
                                 dense: true,
                               ),
@@ -557,8 +576,10 @@ class CronometristiFormState extends State<CronometristiForm> {
                                 title: const Text('NO'),
                                 value: 'NO',
                                 groupValue: riga['segreteria'],
-                                onChanged: (val) =>
-                                    setState(() => riga['segreteria'] = val),
+                                onChanged: (val) => setState(() {
+                                  riga['segreteria'] = val;
+                                  _notifyDataChanged();
+                                }),
                                 dense: true,
                               ),
                             ),
@@ -571,7 +592,10 @@ class CronometristiFormState extends State<CronometristiForm> {
                   TextFormField(
                     key: ValueKey('note-$_revision-$index'),
                     initialValue: riga['note'],
-                    onChanged: (val) => riga['note'] = val,
+                    onChanged: (val) {
+                      riga['note'] = val;
+                      _notifyDataChanged();
+                    },
                     maxLines: 2,
                     decoration: InputDecoration(
                       labelText: 'Varie / Note',

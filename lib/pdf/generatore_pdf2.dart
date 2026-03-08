@@ -63,6 +63,27 @@ String _sanitizeText(String value) {
 
 String _txt(Object? value) => _sanitizeText((value ?? '').toString());
 
+String _numeroGiornateSegreteriaValue(List apparecchiature) {
+  const candidateKeys = [
+    'giornateSegreteria',
+    'gionrateSegreteria',
+    'numeroGiornateSegreteria',
+    'numeroGionrateSegreteria',
+    'NUMERO GIORNATE SEGRETERIA',
+    'NUMERO GIONRATE SEGRETERIA',
+    'NUMERO GIORNATE DI SEGRETERIA',
+    'NUMERO GIONRATE DI SEGRETERIA',
+  ];
+  for (final voce in apparecchiature) {
+    if (voce is! Map) continue;
+    for (final key in candidateKeys) {
+      final value = _txt(voce[key]).trim();
+      if (value.isNotEmpty) return value;
+    }
+  }
+  return '';
+}
+
 String _safeFileName(String raw) {
   // Remove path separators and other invalid filename characters, and trim spaces.
   final cleaned = raw.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
@@ -126,6 +147,7 @@ Future<pw.Document> _buildPdfDocument(Map<String, dynamic> dati) async {
     });
   }
   final mostraRiepilogo = _isMultiDay(gara);
+  final numeroGiornateSegreteria = _numeroGiornateSegreteriaValue(apparecchiature);
 
   final contenuto = <pw.Widget>[
     _sezioneGara(gara, base, bold),
@@ -138,8 +160,10 @@ Future<pw.Document> _buildPdfDocument(Map<String, dynamic> dati) async {
       orariGiornata: orariGiornata,
     ),
     pw.SizedBox(height: 12),
-    _sezioneNumeroGiornateSegreteria(apparecchiature, base, bold),
-    pw.SizedBox(height: 12),
+    if (numeroGiornateSegreteria.isNotEmpty) ...[
+      _sezioneNumeroGiornateSegreteria(numeroGiornateSegreteria, base, bold),
+      pw.SizedBox(height: 12),
+    ],
     _sezioneApparecchiatura(apparecchiature, base, bold),
     pw.SizedBox(height: 12),
     _sezioneDanni(danni, base, bold),
@@ -929,20 +953,10 @@ pw.Widget _tabellaRiepilogo(
 }
 
 pw.Widget _sezioneNumeroGiornateSegreteria(
-  List apparecchiature,
+  String giornateSegreteria,
   pw.Font base,
   pw.Font bold,
 ) {
-  String giornateSegreteria = '';
-  for (final voce in apparecchiature) {
-    if (voce is! Map) continue;
-    final raw = _txt(voce['giornateSegreteria']).trim();
-    if (raw.isEmpty) continue;
-    giornateSegreteria = raw;
-    break;
-  }
-  final valoreFinale = giornateSegreteria.isEmpty ? '-' : giornateSegreteria;
-
   return pw.Column(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
@@ -961,7 +975,7 @@ pw.Widget _sezioneNumeroGiornateSegreteria(
               ),
             ),
             pw.Text(
-              valoreFinale,
+              giornateSegreteria,
               style: pw.TextStyle(font: base, fontSize: 11),
             ),
           ],

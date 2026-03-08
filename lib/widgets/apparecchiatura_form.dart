@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 class ApparecchiaturaForm extends StatefulWidget {
   final bool isFisSport;
   final String tipoGara;
+  final bool showSegreteriaField;
 
   const ApparecchiaturaForm({
     super.key,
     this.isFisSport = false,
     this.tipoGara = '',
+    this.showSegreteriaField = false,
   });
 
   @override
@@ -47,6 +49,24 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
   String tabelloneFis = 'NO';
   String giornateSegreteria = '';
 
+  String _readGiornateSegreteria(Map first) {
+    const candidateKeys = [
+      'giornateSegreteria',
+      'gionrateSegreteria',
+      'numeroGiornateSegreteria',
+      'numeroGionrateSegreteria',
+      'NUMERO GIORNATE SEGRETERIA',
+      'NUMERO GIONRATE SEGRETERIA',
+      'NUMERO GIORNATE DI SEGRETERIA',
+      'NUMERO GIONRATE DI SEGRETERIA',
+    ];
+    for (final key in candidateKeys) {
+      final value = (first[key] ?? '').toString().trim();
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
   @override
   void didUpdateWidget(covariant ApparecchiaturaForm oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -59,6 +79,11 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
         giornateSegreteria = '';
       });
     }
+    if (!widget.showSegreteriaField && giornateSegreteria.isNotEmpty) {
+      setState(() {
+        giornateSegreteria = '';
+      });
+    }
   }
 
   List<Map<String, dynamic>> getData() {
@@ -67,7 +92,8 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
         {
           'dispositivo': 'TABELLONE',
           'quantita': tabelloneFis,
-          'giornateSegreteria': giornateSegreteria,
+          'giornateSegreteria':
+              widget.showSegreteriaField ? giornateSegreteria.trim() : '',
           'fisMode': true,
           'tipoGara': widget.tipoGara,
         }
@@ -115,7 +141,7 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
         final first = savedRows.isNotEmpty ? savedRows.first : null;
         if (first is Map) {
           tabelloneFis = (first['quantita'] ?? 'NO').toString();
-          giornateSegreteria = (first['giornateSegreteria'] ?? '').toString();
+          giornateSegreteria = _readGiornateSegreteria(first);
         } else {
           tabelloneFis = 'NO';
           giornateSegreteria = '';
@@ -218,28 +244,31 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextFormField(
-                  key: ValueKey('segreteria-$_revision'),
-                  initialValue: giornateSegreteria,
-                  keyboardType: TextInputType.number,
-                  onChanged: (val) => setState(() => giornateSegreteria = val),
-                  validator: (value) {
-                    if ((value ?? '').trim().isEmpty) {
-                      return 'Campo obbligatorio';
-                    }
-                    return null;
-                  },
-                  decoration: InputDecoration(
-                    labelText: 'Numero giornate segreteria',
-                    border: OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      tooltip: 'Informazioni',
-                      icon: const Icon(Icons.help_outline_rounded),
-                      onPressed: _showSegreteriaInfoDialog,
+                if (widget.showSegreteriaField) ...[
+                  TextFormField(
+                    key: ValueKey('segreteria-$_revision'),
+                    initialValue: giornateSegreteria,
+                    keyboardType: TextInputType.number,
+                    onChanged: (val) =>
+                        setState(() => giornateSegreteria = val),
+                    validator: (value) {
+                      if ((value ?? '').trim().isEmpty) {
+                        return 'Campo obbligatorio';
+                      }
+                      return null;
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Numero giornate segreteria',
+                      border: OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        tooltip: 'Informazioni',
+                        icon: const Icon(Icons.help_outline_rounded),
+                        onPressed: _showSegreteriaInfoDialog,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                ],
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(

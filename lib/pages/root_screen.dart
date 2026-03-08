@@ -61,6 +61,16 @@ class _RootScreenState extends State<RootScreen> {
     return _containsFisKeyword(selectedSport);
   }
 
+  bool get _hasCronometristaSegreteriaSi {
+    final rows = cronometristiKey.currentState?.getData() ?? const [];
+    for (final row in rows) {
+      if (row is! Map) continue;
+      final value = (row['segreteria'] ?? '').toString().trim().toUpperCase();
+      if (value == 'SI') return true;
+    }
+    return false;
+  }
+
   String get _tipoGaraLabel {
     final sport = selectedSport.trim();
     if (sport.isNotEmpty) return sport;
@@ -598,7 +608,13 @@ class _RootScreenState extends State<RootScreen> {
         _sectionCard(
           title: 'Cronometristi',
           icon: Icons.groups,
-          child: CronometristiForm(key: cronometristiKey),
+          child: CronometristiForm(
+            key: cronometristiKey,
+            onDataChanged: () {
+              if (!mounted) return;
+              setState(() {});
+            },
+          ),
         ),
         const SizedBox(height: 12),
         _sectionCard(
@@ -608,6 +624,7 @@ class _RootScreenState extends State<RootScreen> {
             key: apparecchiaturaKey,
             isFisSport: _isFisSport,
             tipoGara: _tipoGaraLabel,
+            showSegreteriaField: _hasCronometristaSegreteriaSi,
           ),
         ),
         const SizedBox(height: 12),
