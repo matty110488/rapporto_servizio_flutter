@@ -16,6 +16,7 @@ import '../widgets/danni_form.dart';
 import '../widgets/gara_form.dart';
 import '../widgets/header.dart';
 import '../widgets/help_dialog.dart';
+import '../widgets/stopwatch_loading.dart';
 
 class RootScreen extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
@@ -359,9 +360,12 @@ class _RootScreenState extends State<RootScreen> {
     final garaData = garaDataRaw is Map
         ? Map<String, dynamic>.from(garaDataRaw)
         : <String, dynamic>{};
-    final cronos = cronosRaw is List ? List<dynamic>.from(cronosRaw) : <dynamic>[];
+    final cronos =
+        cronosRaw is List ? List<dynamic>.from(cronosRaw) : <dynamic>[];
     final app = appRaw is List ? List<dynamic>.from(appRaw) : <dynamic>[];
-    final orari = orariRaw is Map ? Map<String, dynamic>.from(orariRaw) : <String, dynamic>{};
+    final orari = orariRaw is Map
+        ? Map<String, dynamic>.from(orariRaw)
+        : <String, dynamic>{};
     final danni = (danniRaw ?? '').toString();
 
     garaKey.currentState?.applySavedData(
@@ -403,12 +407,8 @@ class _RootScreenState extends State<RootScreen> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: _panelDecoration(),
-        child: const Row(
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 12),
-            Expanded(child: Text("Carico le gare disponibili...")),
-          ],
+        child: const Center(
+          child: StopwatchLoading(label: 'Carico le gare disponibili...'),
         ),
       );
     }
@@ -712,7 +712,7 @@ class _RootScreenState extends State<RootScreen> {
               }
             },
             icon: const Icon(Icons.picture_as_pdf),
-            label: const Text("Genera e invia PDF"),
+            label: const Text("Genera rapportino"),
           ),
         ),
       ],

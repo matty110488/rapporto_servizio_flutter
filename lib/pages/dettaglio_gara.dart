@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../models/gara.dart';
 import '../services/notion_service.dart';
+import '../widgets/stopwatch_loading.dart';
 
 class DettaglioGara extends StatefulWidget {
   final Gara gara;
@@ -77,7 +78,9 @@ class _DettaglioGaraState extends State<DettaglioGara> {
           ),
         ),
         child: loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(
+                child: StopwatchLoading(label: 'Caricamento dettagli gara...'),
+              )
             : ListView(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
                 children: [

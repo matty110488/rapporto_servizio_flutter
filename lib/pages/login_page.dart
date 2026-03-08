@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../widgets/stopwatch_loading.dart';
 
 class LoginPage extends StatefulWidget {
   final Function(Map<String, dynamic>) onLogin;
@@ -79,7 +80,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               SizedBox(height: 24),
               if (loading)
-                Center(child: CircularProgressIndicator())
+                const Center(child: StopwatchLoading(label: 'Accesso in corso...'))
               else
                 ElevatedButton(
                   onPressed: doLogin,

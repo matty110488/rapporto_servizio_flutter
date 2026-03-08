@@ -5,6 +5,7 @@ import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../widgets/help_dialog.dart';
+import '../widgets/stopwatch_loading.dart';
 import 'dettaglio_gara.dart';
 
 class GarePage extends StatefulWidget {
@@ -261,7 +262,9 @@ class _GarePageState extends State<GarePage> {
             borderRadius: BorderRadius.circular(20),
             color: Colors.white,
           ),
-          child: const Center(child: CircularProgressIndicator()),
+          child: const Center(
+            child: StopwatchLoading(label: 'Caricamento calendario gare...'),
+          ),
         ),
       ],
     );

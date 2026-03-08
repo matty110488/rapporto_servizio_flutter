@@ -5,6 +5,7 @@ import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../widgets/help_dialog.dart';
+import '../widgets/stopwatch_loading.dart';
 import 'dettaglio_gara.dart';
 
 class DesignazioniPage extends StatefulWidget {
@@ -187,7 +188,9 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(18),
           ),
-          child: const Center(child: CircularProgressIndicator()),
+          child: const Center(
+            child: StopwatchLoading(label: 'Caricamento designazioni...'),
+          ),
         ),
       ],
     );
