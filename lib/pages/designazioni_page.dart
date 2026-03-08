@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
+import '../services/prank_popup_service.dart';
 import '../widgets/help_dialog.dart';
 import '../widgets/stopwatch_loading.dart';
 import 'dettaglio_gara.dart';
@@ -39,6 +40,10 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
       apiKey: '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',
       databaseId: _db2025,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      PrankPopupService.maybeShow(context, widget.loggedUser);
+    });
     _caricaGare();
   }
 

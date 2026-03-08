@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/gara.dart';
 import '../services/notion_service.dart';
+import '../services/prank_popup_service.dart';
 import '../screens/archivio_screen.dart';
 import 'designazioni_page.dart';
 import 'gare_page.dart';
@@ -37,6 +38,10 @@ class _HomePageState extends State<HomePage> {
       apiKey: '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',
       databaseId: _db2025,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      PrankPopupService.maybeShow(context, widget.loggedUser);
+    });
     _loadDashboard();
   }
 

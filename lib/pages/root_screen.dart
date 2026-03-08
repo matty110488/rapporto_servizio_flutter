@@ -8,6 +8,7 @@ import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../pdf/generatore_pdf2.dart';
 import '../services/notion_service.dart';
+import '../services/prank_popup_service.dart';
 import '../services/rapportino_draft_service.dart';
 import '../widgets/allegati_form.dart';
 import '../widgets/apparecchiatura_form.dart';
@@ -166,6 +167,10 @@ class _RootScreenState extends State<RootScreen> {
       apiKey: "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",
       databaseId: _db2025,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      PrankPopupService.maybeShow(context, widget.loggedUser);
+    });
     _loadGareDsc();
   }
 
