@@ -1,12 +1,14 @@
 import 'dart:convert';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
+import 'services/push_notification_service.dart';
 import 'state/session_state.dart';
 
 import 'firebase_options.dart';
@@ -18,12 +20,9 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Push notifications temporarily disabled.
-  // if (kIsWeb ||
-  //     defaultTargetPlatform == TargetPlatform.android ||
-  //     defaultTargetPlatform == TargetPlatform.iOS) {
-  //   await initFirebaseMessaging();
-  // }
+  if (kIsWeb || defaultTargetPlatform == TargetPlatform.android) {
+    await initFirebaseMessaging();
+  }
 
   runApp(CronoValtellinesiApp());
 }
@@ -38,6 +37,32 @@ class CronoValtellinesiApp extends StatefulWidget {
 class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
   Map<String, dynamic>? loggedUser;
   bool restoringSession = true;
+
+  bool get _supportsPush {
+    return kIsWeb || defaultTargetPlatform == TargetPlatform.android;
+  }
+
+  Future<void> _registerPushTokenForUser(Map<String, dynamic> user) async {
+    if (!_supportsPush) return;
+
+    final userId = user['id'];
+    if (userId is! String || userId.isEmpty) return;
+
+    try {
+      final token = await getCurrentPushToken();
+      if (token != null && token.isNotEmpty) {
+        await sendTokenToBackend(userId, token);
+      }
+
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+        if (newToken.isNotEmpty) {
+          await sendTokenToBackend(userId, newToken);
+        }
+      });
+    } catch (e) {
+      print('Push token registration failed: $e');
+    }
+  }
 
   @override
   void initState() {
@@ -67,6 +92,9 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
       restoringSession = false;
     });
     globalLoggedUserId = user?['id'];
+    if (user != null) {
+      await _registerPushTokenForUser(user);
+    }
   }
 
   Future<void> _handleLogin(Map<String, dynamic> user) async {
@@ -79,17 +107,7 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
       loggedUser = user;
     });
     globalLoggedUserId = user['id'];
-
-    // Push notifications temporarily disabled.
-    // if (kIsWeb ||
-    //     defaultTargetPlatform == TargetPlatform.android ||
-    //     defaultTargetPlatform == TargetPlatform.iOS) {
-    //   final token = await FirebaseMessaging.instance.getToken();
-    //
-    //   if (token != null && globalLoggedUserId != null) {
-    //     sendTokenToBackend(globalLoggedUserId!, token);
-    //   }
-    // }
+    await _registerPushTokenForUser(user);
   }
 
   Future<void> _handleLogout() async {

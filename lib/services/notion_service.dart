@@ -310,6 +310,33 @@ class NotionService {
     }
   }
 
+  Future<void> notifyAdminsAvailability({
+    required String garaId,
+    required String garaTitolo,
+    required String userId,
+    required String userName,
+  }) async {
+    final payload = jsonEncode({
+      'action': 'notifyAdminsAvailability',
+      'garaId': garaId,
+      'garaTitolo': garaTitolo,
+      'userId': userId,
+      'userName': userName,
+    });
+
+    final res = await http.post(
+      Uri.parse(_webProxyUrl),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: payload,
+    );
+
+    if (res.statusCode != 200) {
+      throw Exception('Errore notifica admin: ${res.body}');
+    }
+  }
+
   Future<void> updateGaraStatus(String pageId, String statusName) async {
     final statusPayload = {
       'properties': {

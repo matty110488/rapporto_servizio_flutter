@@ -305,6 +305,19 @@ class _GarePageState extends State<GarePage> {
         ids,
         disponibilitaViaApp: disponibilitaViaApp,
       );
+      if (join) {
+        try {
+          await notion.notifyAdminsAvailability(
+            garaId: gara.id,
+            garaTitolo: gara.titolo,
+            userId: userId,
+            userName: _loggedUserName(),
+          );
+        } catch (e) {
+          // Non blocchiamo il flusso disponibilita se la push fallisce.
+          print('Notifica admin fallita: $e');
+        }
+      }
       await load();
       if (!mounted) return;
 
