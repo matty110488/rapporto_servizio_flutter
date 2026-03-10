@@ -29,6 +29,7 @@ jobs:
           FIREBASE_WEB_VAPID_KEY: ${{ secrets.FIREBASE_WEB_VAPID_KEY }}
         run: |
           flutter build web --release \
+            --base-href /rapporto_servizio_flutter/ \
             --dart-define=FIREBASE_WEB_VAPID_KEY=$FIREBASE_WEB_VAPID_KEY
 
       - name: Deploy to GitHub Pages
