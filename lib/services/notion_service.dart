@@ -189,13 +189,102 @@ class NotionService {
     return '';
   }
 
+  Future<List<String>> fetchKronosDesignatiIds(String pageId) async {
+    final res = kIsWeb
+        ? await _postViaWebProxy({
+            'action': 'retrievePage',
+            'pageId': pageId,
+          })
+        : await http.get(
+            Uri.parse('https://api.notion.com/v1/pages/$pageId'),
+            headers: {
+              'Authorization': 'Bearer $apiKey',
+              'Notion-Version': '2022-06-28',
+            },
+          );
+
+    if (res.statusCode != 200) {
+      throw Exception('Errore fetchKronosDesignatiIds: ${res.body}');
+    }
+
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final props = data['properties'] as Map<String, dynamic>? ?? {};
+    final kronos = props['KRONOS DESIGNATI'];
+    if (kronos is! Map<String, dynamic>) return const [];
+
+    final relation = kronos['relation'];
+    if (relation is! List) return const [];
+
+    final ids = <String>[];
+    for (final entry in relation) {
+      if (entry is Map<String, dynamic>) {
+        final id = entry['id'];
+        if (id is String && id.isNotEmpty) {
+          ids.add(id);
+        }
+      }
+    }
+    return ids;
+  }
+
+  Future<String> fetchDisponibilitaViaAppText(String pageId) async {
+    final res = kIsWeb
+        ? await _postViaWebProxy({
+            'action': 'retrievePage',
+            'pageId': pageId,
+          })
+        : await http.get(
+            Uri.parse('https://api.notion.com/v1/pages/$pageId'),
+            headers: {
+              'Authorization': 'Bearer $apiKey',
+              'Notion-Version': '2022-06-28',
+            },
+          );
+
+    if (res.statusCode != 200) {
+      throw Exception('Errore fetchDisponibilitaViaAppText: ${res.body}');
+    }
+
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final props = data['properties'] as Map<String, dynamic>? ?? {};
+    final raw = props['DISPONIBILITA_VIA_APP'];
+    if (raw is! Map<String, dynamic>) return '';
+
+    final rich = raw['rich_text'];
+    if (rich is! List || rich.isEmpty) return '';
+
+    final buffer = StringBuffer();
+    for (final entry in rich) {
+      if (entry is Map<String, dynamic>) {
+        final plain = entry['plain_text'];
+        if (plain is String && plain.isNotEmpty) {
+          buffer.write(plain);
+        }
+      }
+    }
+    return buffer.toString().trim();
+  }
+
   Future<void> updateKronosDesignati(
-      String pageId, List<String> kronosIds) async {
+    String pageId,
+    List<String> kronosIds, {
+    String disponibilitaViaApp = '',
+  }) async {
     final body = jsonEncode({
       'properties': {
         'KRONOS DESIGNATI': {
           'relation': kronosIds.map((id) => {'id': id}).toList(),
-        }
+        },
+        'DISPONIBILITA_VIA_APP': {
+          'rich_text': disponibilitaViaApp.trim().isEmpty
+              ? <Map<String, dynamic>>[]
+              : [
+                  {
+                    'type': 'text',
+                    'text': {'content': disponibilitaViaApp.trim()},
+                  }
+                ],
+        },
       }
     });
 

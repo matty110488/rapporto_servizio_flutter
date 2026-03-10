@@ -95,6 +95,114 @@ class _GarePageState extends State<GarePage> {
     return date.month >= now.month;
   }
 
+  String _loggedUserName() {
+    final props = widget.loggedUser['properties'];
+    if (props is Map<String, dynamic>) {
+      String propertyText(List<String> keys) {
+        for (final key in keys) {
+          final value = props[key];
+          if (value is! Map<String, dynamic>) continue;
+
+          final title = value['title'];
+          if (title is List && title.isNotEmpty) {
+            final first = title.first;
+            if (first is Map<String, dynamic>) {
+              final plain = first['plain_text'];
+              if (plain is String && plain.trim().isNotEmpty) {
+                return plain.trim();
+              }
+            }
+          }
+
+          final richText = value['rich_text'];
+          if (richText is List && richText.isNotEmpty) {
+            final first = richText.first;
+            if (first is Map<String, dynamic>) {
+              final plain = first['plain_text'];
+              if (plain is String && plain.trim().isNotEmpty) {
+                return plain.trim();
+              }
+            }
+          }
+        }
+        return '';
+      }
+
+      final nome = propertyText(const ['NOME', 'Nome', 'nome', 'FIRST_NAME']);
+      final cognome = propertyText(
+        const ['COGNOME', 'Cognome', 'cognome', 'LAST_NAME'],
+      );
+      if (nome.isNotEmpty && cognome.isNotEmpty) {
+        return '$nome $cognome';
+      }
+      if (cognome.isNotEmpty) return cognome;
+      if (nome.isNotEmpty) return nome;
+
+      for (final value in props.values) {
+        if (value is! Map<String, dynamic>) continue;
+        if (value['type'] == 'title') {
+          final titles = value['title'] as List<dynamic>? ?? const [];
+          if (titles.isNotEmpty) {
+            final first = titles.first;
+            if (first is Map<String, dynamic>) {
+              final plain = first['plain_text'];
+              if (plain is String && plain.trim().isNotEmpty) {
+                return plain.trim();
+              }
+            }
+          }
+        }
+        if (value['type'] == 'rich_text') {
+          final texts = value['rich_text'] as List<dynamic>? ?? const [];
+          if (texts.isNotEmpty) {
+            final first = texts.first;
+            if (first is Map<String, dynamic>) {
+              final plain = first['plain_text'];
+              if (plain is String && plain.trim().isNotEmpty) {
+                return plain.trim();
+              }
+            }
+          }
+        }
+      }
+    }
+
+    final id = _loggedUserId;
+    if (id != null && id.isNotEmpty) return id;
+    return 'Utente';
+  }
+
+  List<String> _parseDisponibilitaNames(String raw) {
+    if (raw.trim().isEmpty) return [];
+    return raw
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  String _mergeDisponibilitaViaApp({
+    required String currentValue,
+    required String currentUserName,
+    required bool join,
+  }) {
+    final names = _parseDisponibilitaNames(currentValue);
+    bool containsName(String target) => names.any(
+          (n) => n.toLowerCase() == target.toLowerCase(),
+        );
+
+    if (join) {
+      if (!containsName(currentUserName)) {
+        names.add(currentUserName);
+      }
+    } else {
+      names.removeWhere(
+        (n) => n.toLowerCase() == currentUserName.toLowerCase(),
+      );
+    }
+    return names.join(', ');
+  }
+
   List<Gara> _applyFilters(List<Gara> source) {
     var filtered = List<Gara>.from(source);
     filtered = filtered
@@ -165,7 +273,13 @@ class _GarePageState extends State<GarePage> {
       updatingGare.add(gara.id);
     });
 
-    final ids = List<String>.from(gara.kronosIds);
+    List<String> ids;
+    try {
+      ids = await notion.fetchKronosDesignatiIds(gara.id);
+    } catch (_) {
+      ids = List<String>.from(gara.kronosIds);
+    }
+
     if (join) {
       if (!ids.contains(userId)) ids.add(userId);
     } else {
@@ -173,7 +287,24 @@ class _GarePageState extends State<GarePage> {
     }
 
     try {
-      await notion.updateKronosDesignati(gara.id, ids);
+      String currentDisponibilitaViaApp = '';
+      try {
+        currentDisponibilitaViaApp =
+            await notion.fetchDisponibilitaViaAppText(gara.id);
+      } catch (_) {
+        currentDisponibilitaViaApp = '';
+      }
+
+      final disponibilitaViaApp = _mergeDisponibilitaViaApp(
+        currentValue: currentDisponibilitaViaApp,
+        currentUserName: _loggedUserName(),
+        join: join,
+      );
+      await notion.updateKronosDesignati(
+        gara.id,
+        ids,
+        disponibilitaViaApp: disponibilitaViaApp,
+      );
       await load();
       if (!mounted) return;
 
