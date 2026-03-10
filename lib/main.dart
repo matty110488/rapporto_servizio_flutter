@@ -52,11 +52,15 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
       final token = await getCurrentPushToken();
       if (token != null && token.isNotEmpty) {
         await sendTokenToBackend(userId, token);
+        print('[PUSH] Token saved to backend for user $userId');
+      } else {
+        print('[PUSH] Token unavailable for user $userId');
       }
 
       FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
         if (newToken.isNotEmpty) {
           await sendTokenToBackend(userId, newToken);
+          print('[PUSH] Refreshed token saved for user $userId');
         }
       });
     } catch (e) {

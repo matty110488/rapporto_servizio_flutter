@@ -10,7 +10,7 @@ const _webVapidKey = String.fromEnvironment('FIREBASE_WEB_VAPID_KEY');
 
 Future<void> initFirebaseMessaging() async {
   final messaging = FirebaseMessaging.instance;
-  await messaging.requestPermission(
+  final settings = await messaging.requestPermission(
     alert: true,
     badge: true,
     sound: true,
@@ -19,6 +19,12 @@ Future<void> initFirebaseMessaging() async {
     provisional: false,
     carPlay: false,
   );
+  print('[PUSH] Permission status: ${settings.authorizationStatus}');
+  if (kIsWeb && _webVapidKey.isEmpty) {
+    print(
+      '[PUSH] FIREBASE_WEB_VAPID_KEY is empty. Web token generation will fail.',
+    );
+  }
 
   FirebaseMessaging.onMessage.listen((message) {
     // Foreground handling can be expanded later with local notifications.
@@ -27,10 +33,23 @@ Future<void> initFirebaseMessaging() async {
 }
 
 Future<String?> getCurrentPushToken() async {
-  if (kIsWeb && _webVapidKey.isNotEmpty) {
-    return FirebaseMessaging.instance.getToken(vapidKey: _webVapidKey);
+  Future<String?> readToken() {
+    if (kIsWeb && _webVapidKey.isNotEmpty) {
+      return FirebaseMessaging.instance.getToken(vapidKey: _webVapidKey);
+    }
+    return FirebaseMessaging.instance.getToken();
   }
-  return FirebaseMessaging.instance.getToken();
+
+  for (var attempt = 1; attempt <= 5; attempt++) {
+    final token = await readToken();
+    if (token != null && token.isNotEmpty) {
+      print('[PUSH] Token acquired at attempt $attempt');
+      return token;
+    }
+    print('[PUSH] Token is null at attempt $attempt');
+    await Future<void>.delayed(Duration(milliseconds: 600 * attempt));
+  }
+  return null;
 }
 
 Future<void> sendTokenToBackend(String userId, String token) async {
