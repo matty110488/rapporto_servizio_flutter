@@ -35,7 +35,6 @@ class _GarePageState extends State<GarePage> {
     super.initState();
 
     notion = NotionService(
-      apiKey: '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',
       databaseId: _db2025,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {

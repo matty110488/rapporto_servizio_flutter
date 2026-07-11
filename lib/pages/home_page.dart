@@ -35,7 +35,6 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _notion = NotionService(
-      apiKey: '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',
       databaseId: _db2025,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -106,16 +105,19 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
-      final rows = await _notion.fetchGare(additionalDatabaseIds: const [_db2026]);
+      final rows =
+          await _notion.fetchGare(additionalDatabaseIds: const [_db2026]);
       final gare = rows.map((e) => Gara.fromNotion(e)).toList();
 
       const prossimiServiziStatuses = {
         'DESIGNAZIONE INVIATA',
       };
 
-      final conUtente = gare.where((g) => g.kronosIds.contains(userId)).toList();
+      final conUtente =
+          gare.where((g) => g.kronosIds.contains(userId)).toList();
       final prossimiServizi = conUtente
-          .where((g) => prossimiServiziStatuses.contains(g.status.trim().toUpperCase()))
+          .where((g) =>
+              prossimiServiziStatuses.contains(g.status.trim().toUpperCase()))
           .toList();
 
       final prossimiDue = _pickNextServices(prossimiServizi, limit: 2);
@@ -175,7 +177,8 @@ class _HomePageState extends State<HomePage> {
         icon: Icons.flag,
         label: 'Calendario gare',
         subtitle: 'Consulta eventi e disponibilita',
-        onTap: () => _openPage(context, GarePage(loggedUser: widget.loggedUser)),
+        onTap: () =>
+            _openPage(context, GarePage(loggedUser: widget.loggedUser)),
       ),
       _HomeNavData(
         icon: Icons.assignment_turned_in,
@@ -190,7 +193,8 @@ class _HomePageState extends State<HomePage> {
         icon: Icons.assignment,
         label: 'Rapporti di Servizio',
         subtitle: 'Compila e invia il rapportino gara',
-        onTap: () => _openPage(context, RootScreen(loggedUser: widget.loggedUser)),
+        onTap: () =>
+            _openPage(context, RootScreen(loggedUser: widget.loggedUser)),
       ),
       _HomeNavData(
         icon: Icons.folder,
@@ -448,7 +452,6 @@ class _HomeNavData {
     required this.onTap,
   });
 }
-
 
 class _HomeCard extends StatelessWidget {
   final IconData icon;

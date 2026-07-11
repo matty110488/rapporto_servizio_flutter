@@ -1,17 +1,12 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class NotionService {
   static const _webProxyUrl =
       'https://rapporto-servizio-flutter.vercel.app/api/notion-query';
-  final String apiKey;
   final String databaseId;
 
-  NotionService({
-    required this.apiKey,
-    required this.databaseId,
-  });
+  NotionService({required this.databaseId});
 
   // ---------------------------
   // QUERY DATABASE
@@ -33,34 +28,19 @@ class NotionService {
   Future<List<Map<String, dynamic>>> _fetchGareFromDatabase(String dbId) async {
     final all = <Map<String, dynamic>>[];
     String? cursor;
-    var firstPage = true;
-
     while (true) {
       final payload = <String, dynamic>{'page_size': 100};
       if (cursor != null && cursor.isNotEmpty) {
         payload['start_cursor'] = cursor;
       }
 
-      final res = kIsWeb
-          // Web-only: query database via proxy Vercel.
-          ? await _postViaWebProxy({
-              'action': 'queryDatabase',
-              'databaseId': dbId,
-              ...payload,
-            })
-          : await http.post(
-              Uri.parse('https://api.notion.com/v1/databases/$dbId/query'),
-              headers: {
-                'Authorization': 'Bearer $apiKey',
-                'Content-Type': 'application/json',
-                'Notion-Version': '2022-06-28',
-              },
-              body: jsonEncode(payload),
-            );
+      final res = await _postViaWebProxy({
+        'action': 'queryDatabase',
+        'databaseId': dbId,
+        ...payload,
+      });
 
       if (res.statusCode != 200) {
-        print('STATUS CODE: ${res.statusCode}');
-        print('BODY: ${res.body}');
         // Se il database non e condiviso con l'integrazione o l'ID e errato,
         // evitiamo di bloccare l'app e proseguiamo con gli altri database.
         if (res.statusCode == 404) {
@@ -74,16 +54,6 @@ class NotionService {
         (data['results'] as List<dynamic>? ?? const []),
       );
       all.addAll(pageResults);
-
-      // Debug solo sulla prima pagina per evitare log eccessivo.
-      if (firstPage && pageResults.isNotEmpty) {
-        print('\n=== DEBUG PROPERTIES ($dbId) ===');
-        final props = pageResults.first['properties'];
-        if (props is Map<String, dynamic>) {
-          _debugProperties(props);
-        }
-      }
-      firstPage = false;
 
       final hasMore = data['has_more'] == true;
       if (!hasMore) break;
@@ -99,69 +69,13 @@ class NotionService {
     return all;
   }
 
-  // ---------------------------
-  // DEBUG GENERALE
-  // ---------------------------
-  void _debugProperties(Map<String, dynamic> props) {
-    props.forEach((key, value) {
-      print('=== $key ===');
-      print('type: ${value["type"]}');
-
-      final snippet = jsonEncode(value);
-      final safe = snippet.length > 400
-          ? '${snippet.substring(0, 400)} ...TRONCATO...'
-          : snippet;
-
-      print(safe);
-      print('');
-    });
-  }
-
-  // ---------------------------
-  // DEBUG DI UNA PAGINA RELATION
-  // ---------------------------
-  Future<void> debugOneRelation(String pageId) async {
-    print('====== DETTAGLIO PERSONA ($pageId) ======');
-
-    final res = kIsWeb
-        // Web-only: lettura pagina via proxy Vercel.
-        ? await _postViaWebProxy({
-            'action': 'retrievePage',
-            'pageId': pageId,
-          })
-        : await http.get(
-            Uri.parse('https://api.notion.com/v1/pages/$pageId'),
-            headers: {
-              'Authorization': 'Bearer $apiKey',
-              'Notion-Version': '2022-06-28',
-            },
-          );
-
-    if (res.statusCode != 200) {
-      print('Errore debugOneRelation: ${res.body}');
-      return;
-    }
-
-    final data = jsonDecode(res.body);
-    print(jsonEncode(data));
-  }
-
   /// Fetches the title of an arbitrary related page so we can show a readable
   /// name instead of the Notion relation ID.
   Future<String> fetchNameFromPage(String pageId) async {
-    final res = kIsWeb
-        // Web-only: lettura pagina via proxy Vercel.
-        ? await _postViaWebProxy({
-            'action': 'retrievePage',
-            'pageId': pageId,
-          })
-        : await http.get(
-            Uri.parse('https://api.notion.com/v1/pages/$pageId'),
-            headers: {
-              'Authorization': 'Bearer $apiKey',
-              'Notion-Version': '2022-06-28',
-            },
-          );
+    final res = await _postViaWebProxy({
+      'action': 'retrievePage',
+      'pageId': pageId,
+    });
 
     if (res.statusCode != 200) {
       throw Exception('Errore fetchNameFromPage: ${res.body}');
@@ -190,18 +104,10 @@ class NotionService {
   }
 
   Future<List<String>> fetchKronosDesignatiIds(String pageId) async {
-    final res = kIsWeb
-        ? await _postViaWebProxy({
-            'action': 'retrievePage',
-            'pageId': pageId,
-          })
-        : await http.get(
-            Uri.parse('https://api.notion.com/v1/pages/$pageId'),
-            headers: {
-              'Authorization': 'Bearer $apiKey',
-              'Notion-Version': '2022-06-28',
-            },
-          );
+    final res = await _postViaWebProxy({
+      'action': 'retrievePage',
+      'pageId': pageId,
+    });
 
     if (res.statusCode != 200) {
       throw Exception('Errore fetchKronosDesignatiIds: ${res.body}');
@@ -228,18 +134,10 @@ class NotionService {
   }
 
   Future<String> fetchDisponibilitaViaAppText(String pageId) async {
-    final res = kIsWeb
-        ? await _postViaWebProxy({
-            'action': 'retrievePage',
-            'pageId': pageId,
-          })
-        : await http.get(
-            Uri.parse('https://api.notion.com/v1/pages/$pageId'),
-            headers: {
-              'Authorization': 'Bearer $apiKey',
-              'Notion-Version': '2022-06-28',
-            },
-          );
+    final res = await _postViaWebProxy({
+      'action': 'retrievePage',
+      'pageId': pageId,
+    });
 
     if (res.statusCode != 200) {
       throw Exception('Errore fetchDisponibilitaViaAppText: ${res.body}');
@@ -288,22 +186,11 @@ class NotionService {
       }
     });
 
-    final res = kIsWeb
-        // Web-only: update pagina via proxy Vercel.
-        ? await _postViaWebProxy({
-            'action': 'updatePage',
-            'pageId': pageId,
-            'payload': jsonDecode(body),
-          })
-        : await http.patch(
-            Uri.parse('https://api.notion.com/v1/pages/$pageId'),
-            headers: {
-              'Authorization': 'Bearer $apiKey',
-              'Notion-Version': '2022-06-28',
-              'Content-Type': 'application/json',
-            },
-            body: body,
-          );
+    final res = await _postViaWebProxy({
+      'action': 'updatePage',
+      'pageId': pageId,
+      'payload': jsonDecode(body),
+    });
 
     if (res.statusCode != 200) {
       throw Exception('Errore aggiornamento gara: ${res.body}');
@@ -367,41 +254,23 @@ class NotionService {
     String pageId,
     Map<String, dynamic> payload,
   ) async {
-    final body = jsonEncode(payload);
-    return kIsWeb
-        // Web-only: update pagina via proxy Vercel.
-        ? _postViaWebProxy({
-            'action': 'updatePage',
-            'pageId': pageId,
-            'payload': payload,
-          })
-        : http.patch(
-            Uri.parse('https://api.notion.com/v1/pages/$pageId'),
-            headers: {
-              'Authorization': 'Bearer $apiKey',
-              'Notion-Version': '2022-06-28',
-              'Content-Type': 'application/json',
-            },
-            body: body,
-          );
+    return _postViaWebProxy({
+      'action': 'updatePage',
+      'pageId': pageId,
+      'payload': payload,
+    });
   }
 
   Future<http.Response> _postViaWebProxy(Map<String, dynamic> payload) async {
     final body = jsonEncode(payload);
-    // Web-only: endpoint proxy che applica auth verso Notion lato server.
-    print('[WEB][NotionService] Request URL: $_webProxyUrl');
-    print('[WEB][NotionService] Request body: $body');
-
     final res = await http.post(
       Uri.parse(_webProxyUrl),
       headers: {
-        // Web-only: niente Authorization/Notion-Version dal client.
         'Content-Type': 'application/json',
       },
       body: body,
     );
 
-    print('[WEB][NotionService] Response body: ${res.body}');
     return res;
   }
 }

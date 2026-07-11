@@ -28,7 +28,6 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
   void initState() {
     super.initState();
     notion = NotionService(
-      apiKey: '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',
       databaseId: _db2025,
     );
     _caricaArchivio();
@@ -121,7 +120,8 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
       final userId = _loggedUserId;
 
       final filtered = all.where((g) {
-        final isCompleted = statiCompletati.contains(g.status.trim().toUpperCase());
+        final isCompleted =
+            statiCompletati.contains(g.status.trim().toUpperCase());
         if (!isCompleted) return false;
         if (_isAdmin) return true;
         if (userId == null) return false;

@@ -27,7 +27,6 @@ class _DettaglioGaraState extends State<DettaglioGara> {
   void initState() {
     super.initState();
     notion = NotionService(
-      apiKey: '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',
       databaseId: '2afde089ef9580e2b0e7d19d44f3a3f6',
     );
     loadPeople();

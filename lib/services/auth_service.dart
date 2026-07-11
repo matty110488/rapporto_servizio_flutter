@@ -1,33 +1,22 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class AuthService {
   static const _webProxyUrl =
       'https://rapporto-servizio-flutter.vercel.app/api/notion-query';
-  final String apiKey;
   final String cronometristiDbId;
 
-  AuthService({
-    required this.apiKey,
-    required this.cronometristiDbId,
-  });
+  AuthService({required this.cronometristiDbId});
 
   // LOGIN: restituisce la pagina dell'utente se username + password sono corretti
   Future<Map<String, dynamic>?> login(String username, String password) async {
     const usernameProperty = "USERNAME";
     const passwordProperty = "PASSWORD";
 
-    // Web-only: usa il proxy Vercel invece della Notion API diretta.
-    final url = kIsWeb
-        ? _webProxyUrl
-        : "https://api.notion.com/v1/databases/$cronometristiDbId/query";
-
     final body = {
-      // Web-only: metadati per instradare la chiamata nel proxy.
-      if (kIsWeb) "action": "queryDatabase",
-      if (kIsWeb) "databaseId": cronometristiDbId,
+      "action": "queryDatabase",
+      "databaseId": cronometristiDbId,
       "filter": {
         "and": [
           {
@@ -43,33 +32,13 @@ class AuthService {
     };
 
     try {
-      final encodedBody = jsonEncode(body);
-      if (kIsWeb) {
-        print("[WEB][AuthService] Request URL: $url");
-        print("[WEB][AuthService] Request body: $encodedBody");
-      }
-
       final res = await http.post(
-        Uri.parse(url),
-        headers: kIsWeb
-            ? {
-                // Web-only: niente header Authorization/Notion-Version verso il proxy.
-                "Content-Type": "application/json",
-              }
-            : {
-                "Authorization": "Bearer $apiKey",
-                "Notion-Version": "2022-06-28",
-                "Content-Type": "application/json",
-              },
-        body: encodedBody,
+        Uri.parse(_webProxyUrl),
+        headers: const {"Content-Type": "application/json"},
+        body: jsonEncode(body),
       );
 
-      if (kIsWeb) {
-        print("[WEB][AuthService] Response body: ${res.body}");
-      }
-
       if (res.statusCode != 200) {
-        print("Login Notion error (${res.statusCode}): ${res.body}");
         return null;
       }
 
@@ -84,8 +53,7 @@ class AuthService {
       final first = results.first;
       if (first is! Map<String, dynamic>) return null;
       return first; // pagina utente
-    } catch (e) {
-      print("Login parsing/network error: $e");
+    } catch (_) {
       return null;
     }
   }

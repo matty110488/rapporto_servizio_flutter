@@ -23,7 +23,6 @@ class _LoginPageState extends State<LoginPage> {
   void initState() {
     super.initState();
     auth = AuthService(
-      apiKey: "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",
       cronometristiDbId: "2afde089ef9580a0ad6dd2b6155384ed",
     );
   }
