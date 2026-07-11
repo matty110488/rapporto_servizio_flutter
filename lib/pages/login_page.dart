@@ -22,9 +22,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-    auth = AuthService(
-      cronometristiDbId: "2afde089ef9580a0ad6dd2b6155384ed",
-    );
+    auth = AuthService();
   }
 
   Future<void> doLogin() async {

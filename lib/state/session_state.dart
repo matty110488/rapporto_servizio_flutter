@@ -1,1 +1,2 @@
 String? globalLoggedUserId;
+String? globalSessionToken;

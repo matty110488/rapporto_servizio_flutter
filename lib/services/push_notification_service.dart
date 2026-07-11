@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 
+import '../state/session_state.dart';
+
 const _webProxyUrl =
     'https://rapporto-servizio-flutter.vercel.app/api/notion-query';
 const _webVapidKey = String.fromEnvironment('FIREBASE_WEB_VAPID_KEY');
@@ -53,6 +55,8 @@ Future<String?> getCurrentPushToken() async {
 }
 
 Future<void> sendTokenToBackend(String userId, String token) async {
+  final sessionToken = globalSessionToken;
+  if (sessionToken == null || sessionToken.isEmpty) return;
   final payload = jsonEncode({
     'action': 'registerPushToken',
     'userId': userId,
@@ -61,7 +65,10 @@ Future<void> sendTokenToBackend(String userId, String token) async {
 
   final res = await http.post(
     Uri.parse(_webProxyUrl),
-    headers: {'Content-Type': 'application/json'},
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $sessionToken',
+    },
     body: payload,
   );
 

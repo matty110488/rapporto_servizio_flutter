@@ -93,6 +93,12 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
       }
     }
 
+    final restoredToken = user?['_sessionToken'];
+    if (restoredToken is! String || restoredToken.isEmpty) {
+      user = null;
+      await prefs.remove('logged_user');
+    }
+
     if (!mounted) return;
 
     setState(() {
@@ -100,6 +106,7 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
       restoringSession = false;
     });
     globalLoggedUserId = user?['id'];
+    globalSessionToken = user?['_sessionToken'];
     if (user != null) {
       await _registerPushTokenForUser(user);
     }
@@ -115,6 +122,7 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
       loggedUser = user;
     });
     globalLoggedUserId = user['id'];
+    globalSessionToken = user['_sessionToken'];
     await _registerPushTokenForUser(user);
   }
 
@@ -130,6 +138,7 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
       loggedUser = null;
     });
     globalLoggedUserId = null;
+    globalSessionToken = null;
   }
 
   @override

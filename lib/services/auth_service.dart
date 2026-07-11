@@ -5,30 +5,14 @@ import 'package:http/http.dart' as http;
 class AuthService {
   static const _webProxyUrl =
       'https://rapporto-servizio-flutter.vercel.app/api/notion-query';
-  final String cronometristiDbId;
-
-  AuthService({required this.cronometristiDbId});
+  AuthService();
 
   // LOGIN: restituisce la pagina dell'utente se username + password sono corretti
   Future<Map<String, dynamic>?> login(String username, String password) async {
-    const usernameProperty = "USERNAME";
-    const passwordProperty = "PASSWORD";
-
     final body = {
-      "action": "queryDatabase",
-      "databaseId": cronometristiDbId,
-      "filter": {
-        "and": [
-          {
-            "property": usernameProperty,
-            "rich_text": {"equals": username}
-          },
-          {
-            "property": passwordProperty,
-            "rich_text": {"equals": password}
-          }
-        ]
-      }
+      "action": "login",
+      "username": username,
+      "password": password,
     };
 
     try {
@@ -45,14 +29,13 @@ class AuthService {
       final decoded = jsonDecode(res.body);
       if (decoded is! Map<String, dynamic>) return null;
 
-      final results = decoded["results"];
-      if (results is! List || results.isEmpty) {
-        return null; // username o password errati
+      final rawUser = decoded["user"];
+      final sessionToken = decoded["sessionToken"];
+      if (rawUser is! Map || sessionToken is! String || sessionToken.isEmpty) {
+        return null;
       }
-
-      final first = results.first;
-      if (first is! Map<String, dynamic>) return null;
-      return first; // pagina utente
+      return Map<String, dynamic>.from(rawUser)
+        ..['_sessionToken'] = sessionToken;
     } catch (_) {
       return null;
     }

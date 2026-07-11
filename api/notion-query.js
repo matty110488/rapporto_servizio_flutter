@@ -1,4 +1,4 @@
-import { createSign } from 'node:crypto';
+import { createHmac, createSign, timingSafeEqual } from 'node:crypto';
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://matty110488.github.io',
@@ -37,7 +37,7 @@ function setCorsHeaders(req, res) {
   }
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
 export default async function handler(req, res) {
@@ -200,6 +200,64 @@ export default async function handler(req, res) {
       return false;
     };
 
+    const sessionSecret = process.env.SESSION_SECRET || NOTION_TOKEN;
+    const signSession = (userId, isAdmin) => {
+      const payload = toBase64Url(
+        JSON.stringify({
+          sub: userId,
+          admin: isAdmin === true,
+          exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
+        }),
+      );
+      const signature = createHmac('sha256', sessionSecret)
+        .update(payload)
+        .digest('base64url');
+      return `${payload}.${signature}`;
+    };
+
+    const verifySession = (authorization) => {
+      if (typeof authorization !== 'string' || !authorization.startsWith('Bearer ')) return null;
+      const token = authorization.slice('Bearer '.length).trim();
+      const [payload, signature, extra] = token.split('.');
+      if (!payload || !signature || extra) return null;
+      const expected = createHmac('sha256', sessionSecret)
+        .update(payload)
+        .digest('base64url');
+      const actualBuffer = Buffer.from(signature);
+      const expectedBuffer = Buffer.from(expected);
+      if (
+        actualBuffer.length !== expectedBuffer.length ||
+        !timingSafeEqual(actualBuffer, expectedBuffer)
+      ) {
+        return null;
+      }
+      try {
+        const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+        if (
+          !decoded ||
+          typeof decoded.sub !== 'string' ||
+          decoded.sub.length === 0 ||
+          typeof decoded.exp !== 'number' ||
+          decoded.exp <= Math.floor(Date.now() / 1000)
+        ) {
+          return null;
+        }
+        return decoded;
+      } catch {
+        return null;
+      }
+    };
+
+    const sanitizeUserPage = (page) => {
+      if (!page || typeof page !== 'object') return null;
+      const properties =
+        page.properties && typeof page.properties === 'object' ? page.properties : {};
+      const safeProperties = Object.fromEntries(
+        Object.entries(properties).filter(([key]) => key.trim().toUpperCase() !== 'PASSWORD'),
+      );
+      return { ...page, properties: safeProperties };
+    };
+
     const queryAllDatabasePages = async (databaseId, filter) => {
       const all = [];
       let cursor = '';
@@ -224,11 +282,70 @@ export default async function handler(req, res) {
       return all;
     };
 
+    if (action === 'login') {
+      const username = typeof safeBody.username === 'string' ? safeBody.username.trim() : '';
+      const password = typeof safeBody.password === 'string' ? safeBody.password : '';
+      if (!username || !password) {
+        return res.status(400).json({ error: 'Missing credentials' });
+      }
+      const users = await queryAllDatabasePages(DATABASE_ID, {
+        and: [
+          { property: 'USERNAME', rich_text: { equals: username } },
+          { property: 'PASSWORD', rich_text: { equals: password } },
+        ],
+      });
+      const user = users[0];
+      if (!user || typeof user.id !== 'string') {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      const isAdmin = isAdminFromProperties(user.properties);
+      return res.status(200).json({
+        user: sanitizeUserPage(user),
+        sessionToken: signSession(user.id, isAdmin),
+      });
+    }
+
+    const session = verifySession(req.headers.authorization);
+    if (!session) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const allowedDataDatabaseIds = new Set([
+      '2afde089ef9580e2b0e7d19d44f3a3f6',
+      '2b1de089ef9580729622ff9543046cbc',
+      ...(process.env.ALLOWED_DATABASE_IDS || '')
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ]);
+    const isAllowedPage = (page) => {
+      const parent = page && typeof page === 'object' ? page.parent : null;
+      const databaseId =
+        parent && typeof parent === 'object' && typeof parent.database_id === 'string'
+          ? parent.database_id.replace(/-/g, '')
+          : '';
+      const normalizedUserDatabaseId = DATABASE_ID.replace(/-/g, '');
+      const normalizedDataIds = new Set(
+        [...allowedDataDatabaseIds].map((id) => id.replace(/-/g, '')),
+      );
+      return databaseId === normalizedUserDatabaseId || normalizedDataIds.has(databaseId);
+    };
+    const isUserDatabasePage = (page) => {
+      const databaseId = page?.parent?.database_id;
+      return (
+        typeof databaseId === 'string' &&
+        databaseId.replace(/-/g, '') === DATABASE_ID.replace(/-/g, '')
+      );
+    };
+
     if (action === 'queryDatabase') {
       const requestedDatabaseId =
         typeof safeBody.databaseId === 'string' ? safeBody.databaseId.trim() : '';
       const { action: _action, databaseId, ...queryPayload } = safeBody;
       const targetDatabaseId = requestedDatabaseId || DATABASE_ID;
+      if (!allowedDataDatabaseIds.has(targetDatabaseId)) {
+        return res.status(403).json({ error: 'Database not allowed' });
+      }
       const response = await notionRequest(
         `https://api.notion.com/v1/databases/${targetDatabaseId}/query`,
         'POST',
@@ -243,6 +360,12 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Missing pageId for retrievePage' });
       }
       const response = await notionRequest(`https://api.notion.com/v1/pages/${pageId}`, 'GET');
+      if (response.status === 200 && !isAllowedPage(response.data)) {
+        return res.status(403).json({ error: 'Page not allowed' });
+      }
+      if (response.status === 200 && isUserDatabasePage(response.data)) {
+        response.data = sanitizeUserPage(response.data);
+      }
       return res.status(response.status).json(response.data);
     }
 
@@ -254,6 +377,25 @@ export default async function handler(req, res) {
           : null;
       if (!pageId || payload == null) {
         return res.status(400).json({ error: 'Missing pageId or payload for updatePage' });
+      }
+      const page = await notionRequest(`https://api.notion.com/v1/pages/${pageId}`, 'GET');
+      if (page.status !== 200) {
+        return res.status(page.status).json(page.data);
+      }
+      if (!isAllowedPage(page.data)) {
+        return res.status(403).json({ error: 'Page not allowed' });
+      }
+      const properties = payload.properties;
+      if (!properties || typeof properties !== 'object' || Array.isArray(properties)) {
+        return res.status(400).json({ error: 'Only property updates are supported' });
+      }
+      const allowedProperties = new Set([
+        'STATUS',
+        'KRONOS DESIGNATI',
+        'DISPONIBILITA_VIA_APP',
+      ]);
+      if (Object.keys(properties).some((key) => !allowedProperties.has(key))) {
+        return res.status(403).json({ error: 'Property update not allowed' });
       }
       const response = await notionRequest(
         `https://api.notion.com/v1/pages/${pageId}`,
@@ -268,6 +410,9 @@ export default async function handler(req, res) {
       const token = typeof safeBody.token === 'string' ? safeBody.token.trim() : '';
       if (!userId || !token) {
         return res.status(400).json({ error: 'Missing userId or token for registerPushToken' });
+      }
+      if (session.sub !== userId && session.admin !== true) {
+        return res.status(403).json({ error: 'Cannot register a token for another user' });
       }
 
       const page = await notionRequest(`https://api.notion.com/v1/pages/${userId}`, 'GET');

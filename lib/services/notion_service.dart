@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import '../state/session_state.dart';
+
 class NotionService {
   static const _webProxyUrl =
       'https://rapporto-servizio-flutter.vercel.app/api/notion-query';
@@ -203,21 +205,15 @@ class NotionService {
     required String userId,
     required String userName,
   }) async {
-    final payload = jsonEncode({
+    final payload = {
       'action': 'notifyAdminsAvailability',
       'garaId': garaId,
       'garaTitolo': garaTitolo,
       'userId': userId,
       'userName': userName,
-    });
+    };
 
-    final res = await http.post(
-      Uri.parse(_webProxyUrl),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: payload,
-    );
+    final res = await _postViaWebProxy(payload);
 
     if (res.statusCode != 200) {
       throw Exception('Errore notifica admin: ${res.body}');
@@ -263,10 +259,15 @@ class NotionService {
 
   Future<http.Response> _postViaWebProxy(Map<String, dynamic> payload) async {
     final body = jsonEncode(payload);
+    final sessionToken = globalSessionToken;
+    if (sessionToken == null || sessionToken.isEmpty) {
+      throw StateError('Sessione scaduta: effettua nuovamente il login.');
+    }
     final res = await http.post(
       Uri.parse(_webProxyUrl),
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': 'Bearer $sessionToken',
       },
       body: body,
     );
