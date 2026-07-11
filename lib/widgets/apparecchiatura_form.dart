@@ -1,169 +1,155 @@
 import 'package:flutter/material.dart';
 
 class ApparecchiaturaForm extends StatefulWidget {
-  final bool isFisSport;
-  final String tipoGara;
-  final bool showSegreteriaField;
-
-  const ApparecchiaturaForm({
-    super.key,
-    this.isFisSport = false,
-    this.tipoGara = '',
-    this.showSegreteriaField = false,
-  });
+  const ApparecchiaturaForm({super.key});
 
   @override
   ApparecchiaturaFormState createState() => ApparecchiaturaFormState();
 }
 
 class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
+  static const Set<String> _legacyTabelloniDevices = {
+    'alge',
+    'microtab',
+    'micrograph',
+    'semaforo',
+    'hiclock',
+    'startclock',
+  };
+
   int _revision = 0;
-  final List<String> dispositiviDisponibili = [
-    '*** CRONOMETRI ***',
-    'Rei Pro',
-    'Rei 2',
-    'Master 3',
-    'Master',
-    'Timy',
-    '*** TABELLONI ***',
-    'Alge',
-    'MicroTab',
-    'MicroGraph',
-    'Semaforo',
-    'Hiclock',
-    'StartClock',
-    '*** ALTRO ***',
-    'Cancelletto',
-    'Fotocellula',
-    'StartBeep',
-    'Cuffie',
-    'Chip Machsa',
-    'Pressostato',
-    'Smartphone',
-  ];
+  bool tabellone = false;
+  String tabelloneNumero = '';
+  bool segreteria = false;
+  String segreteriaGiorni = '';
+  bool intermedi = false;
+  String intermediNumero = '';
+  bool trasmissioneDati = false;
+  String trasmissioneDatiNumero = '';
+  bool telecamera = false;
+  String telecameraNumero = '';
+  String altreApparecchiature = '';
 
-  List<Map<String, dynamic>> righe = [
-    {'dispositivo': null, 'quantita': ''}
-  ];
-
-  String tabelloneFis = 'NO';
-  String giornateSegreteria = '';
-
-  String _readGiornateSegreteria(Map first) {
-    const candidateKeys = [
-      'giornateSegreteria',
-      'gionrateSegreteria',
-      'numeroGiornateSegreteria',
-      'numeroGionrateSegreteria',
-      'NUMERO GIORNATE SEGRETERIA',
-      'NUMERO GIONRATE SEGRETERIA',
-      'NUMERO GIORNATE DI SEGRETERIA',
-      'NUMERO GIONRATE DI SEGRETERIA',
+  List<Map<String, dynamic>> getData() {
+    return [
+      {
+        'guidedMode': true,
+        'tabellone': tabellone ? 'SI' : 'NO',
+        'tabelloneNumero': tabellone ? tabelloneNumero.trim() : '',
+        'segreteria': segreteria ? 'SI' : 'NO',
+        'segreteriaGiorni': segreteria ? segreteriaGiorni.trim() : '',
+        'intermedi': intermedi ? 'SI' : 'NO',
+        'intermediNumero': intermedi ? intermediNumero.trim() : '',
+        'trasmissioneDati': trasmissioneDati ? 'SI' : 'NO',
+        'trasmissioneDatiNumero':
+            trasmissioneDati ? trasmissioneDatiNumero.trim() : '',
+        'telecamera': telecamera ? 'SI' : 'NO',
+        'telecameraNumero': telecamera ? telecameraNumero.trim() : '',
+        'altreApparecchiature': altreApparecchiature.trim(),
+      }
     ];
-    for (final key in candidateKeys) {
-      final value = (first[key] ?? '').toString().trim();
+  }
+
+  void applySavedData(List<dynamic> savedRows) {
+    setState(() {
+      _resetState();
+      if (savedRows.isEmpty) {
+        _revision++;
+        return;
+      }
+
+      final first = savedRows.first;
+      if (first is Map) {
+        if (first['guidedMode'] == true) {
+          _applyGuidedData(first);
+        } else {
+          _applyLegacyData(savedRows);
+        }
+      }
+      _revision++;
+    });
+  }
+
+  void _applyGuidedData(Map data) {
+    tabellone = _readSiNo(data, ['tabellone']);
+    tabelloneNumero = _readValue(data, ['tabelloneNumero']);
+    segreteria = _readSiNo(data, ['segreteria']);
+    segreteriaGiorni = _readValue(data, ['segreteriaGiorni', 'giornateSegreteria']);
+    intermedi = _readSiNo(data, ['intermedi']);
+    intermediNumero = _readValue(data, ['intermediNumero']);
+    trasmissioneDati = _readSiNo(data, ['trasmissioneDati']);
+    trasmissioneDatiNumero = _readValue(data, ['trasmissioneDatiNumero']);
+    telecamera = _readSiNo(data, ['telecamera']);
+    telecameraNumero = _readValue(data, ['telecameraNumero']);
+    altreApparecchiature = _readValue(data, ['altreApparecchiature']);
+  }
+
+  void _applyLegacyData(List<dynamic> savedRows) {
+    final otherEntries = <String>[];
+
+    for (final row in savedRows.whereType<Map>()) {
+      final fisMode = row['fisMode'] == true;
+      if (fisMode) {
+        tabellone = _readValue(row, ['quantita']).toUpperCase() == 'SI';
+        segreteriaGiorni = _readValue(row, [
+          'giornateSegreteria',
+          'gionrateSegreteria',
+          'numeroGiornateSegreteria',
+          'numeroGionrateSegreteria',
+          'NUMERO GIORNATE SEGRETERIA',
+          'NUMERO GIONRATE SEGRETERIA',
+          'NUMERO GIORNATE DI SEGRETERIA',
+          'NUMERO GIONRATE DI SEGRETERIA',
+        ]);
+        segreteria = segreteriaGiorni.isNotEmpty;
+        continue;
+      }
+
+      final dispositivo = _readValue(row, ['dispositivo']);
+      if (dispositivo.isEmpty) continue;
+      final quantita = _readValue(row, ['quantita']);
+      final lower = dispositivo.toLowerCase();
+
+      if (_legacyTabelloniDevices.contains(lower)) {
+        tabellone = true;
+        if (tabelloneNumero.isEmpty) {
+          tabelloneNumero = quantita;
+        }
+      } else {
+        otherEntries.add(
+          quantita.isEmpty ? dispositivo : '$dispositivo ($quantita)',
+        );
+      }
+    }
+
+    altreApparecchiature = otherEntries.join(', ');
+  }
+
+  bool _readSiNo(Map data, List<String> keys) {
+    final value = _readValue(data, keys).toUpperCase();
+    return value == 'SI';
+  }
+
+  String _readValue(Map data, List<String> keys) {
+    for (final key in keys) {
+      final value = (data[key] ?? '').toString().trim();
       if (value.isNotEmpty) return value;
     }
     return '';
   }
 
-  @override
-  void didUpdateWidget(covariant ApparecchiaturaForm oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.isFisSport != widget.isFisSport) {
-      setState(() {
-        righe = [
-          {'dispositivo': null, 'quantita': ''}
-        ];
-        tabelloneFis = 'NO';
-        giornateSegreteria = '';
-      });
-    }
-    if (!widget.showSegreteriaField && giornateSegreteria.isNotEmpty) {
-      setState(() {
-        giornateSegreteria = '';
-      });
-    }
-  }
-
-  List<Map<String, dynamic>> getData() {
-    if (widget.isFisSport) {
-      return [
-        {
-          'dispositivo': 'TABELLONE',
-          'quantita': tabelloneFis,
-          'giornateSegreteria':
-              widget.showSegreteriaField ? giornateSegreteria.trim() : '',
-          'fisMode': true,
-          'tipoGara': widget.tipoGara,
-        }
-      ];
-    }
-    return righe;
-  }
-
-  void aggiungiRiga() {
-    setState(() {
-      righe.add({'dispositivo': null, 'quantita': ''});
-    });
-  }
-
-  void rimuoviRiga(int index) {
-    setState(() {
-      if (righe.length > 1) {
-        righe.removeAt(index);
-      } else {
-        righe[0]['dispositivo'] = null;
-        righe[0]['quantita'] = '';
-      }
-    });
-  }
-
-  void _showSegreteriaInfoDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Numero giornate segreteria'),
-        content: const Text('Giornate di gara + giornate di preparazione gara'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void applySavedData(List<dynamic> savedRows) {
-    setState(() {
-      if (widget.isFisSport) {
-        final first = savedRows.isNotEmpty ? savedRows.first : null;
-        if (first is Map) {
-          tabelloneFis = (first['quantita'] ?? 'NO').toString();
-          giornateSegreteria = _readGiornateSegreteria(first);
-        } else {
-          tabelloneFis = 'NO';
-          giornateSegreteria = '';
-        }
-      } else {
-        righe = savedRows
-            .whereType<Map>()
-            .map<Map<String, dynamic>>(
-              (row) => {
-                'dispositivo': row['dispositivo'],
-                'quantita': (row['quantita'] ?? '').toString(),
-              },
-            )
-            .toList();
-        if (righe.isEmpty) {
-          righe = [
-            {'dispositivo': null, 'quantita': ''}
-          ];
-        }
-      }
-      _revision++;
-    });
+  void _resetState() {
+    tabellone = false;
+    tabelloneNumero = '';
+    segreteria = false;
+    segreteriaGiorni = '';
+    intermedi = false;
+    intermediNumero = '';
+    trasmissioneDati = false;
+    trasmissioneDatiNumero = '';
+    telecamera = false;
+    telecameraNumero = '';
+    altreApparecchiature = '';
   }
 
   Widget _sectionHeader({
@@ -219,232 +205,166 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
     );
   }
 
+  Widget _buildToggleRow({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+    required String fieldLabel,
+    required String fieldValue,
+    required ValueChanged<String> onFieldChanged,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withOpacity(0.35),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment<bool>(value: true, label: Text('SI')),
+                  ButtonSegment<bool>(value: false, label: Text('NO')),
+                ],
+                selected: {value},
+                onSelectionChanged: (selection) {
+                  final next = selection.first;
+                  onChanged(next);
+                  if (!next) {
+                    onFieldChanged('');
+                  }
+                },
+              ),
+            ],
+          ),
+          if (value) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: 220,
+              child: TextFormField(
+                key: ValueKey('$title-$_revision'),
+                initialValue: fieldValue,
+                keyboardType: TextInputType.number,
+                onChanged: onFieldChanged,
+                decoration: InputDecoration(
+                  labelText: fieldLabel,
+                  hintText: 'Es. 1',
+                  filled: true,
+                  fillColor: colorScheme.surface.withOpacity(0.95),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    if (widget.isFisSport) {
-      final tipoGaraLabel =
-          widget.tipoGara.trim().isEmpty ? 'N/D' : widget.tipoGara.trim();
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHeader(
-            title: "Apparecchiatura per gara $tipoGaraLabel",
-            subtitle: "Compila i dati di segreteria e presenza tabellone.",
-            icon: Icons.precision_manufacturing_rounded,
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: colorScheme.surface.withOpacity(0.92),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: colorScheme.outline.withOpacity(0.24)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (widget.showSegreteriaField) ...[
-                  TextFormField(
-                    key: ValueKey('segreteria-$_revision'),
-                    initialValue: giornateSegreteria,
-                    keyboardType: TextInputType.number,
-                    onChanged: (val) =>
-                        setState(() => giornateSegreteria = val),
-                    validator: (value) {
-                      if ((value ?? '').trim().isEmpty) {
-                        return 'Campo obbligatorio';
-                      }
-                      return null;
-                    },
-                    decoration: InputDecoration(
-                      labelText: 'Numero giornate segreteria',
-                      border: OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        tooltip: 'Informazioni',
-                        icon: const Icon(Icons.help_outline_rounded),
-                        onPressed: _showSegreteriaInfoDialog,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surface.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: colorScheme.outline.withOpacity(0.25)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'TABELLONE',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: RadioListTile<String>(
-                              contentPadding: EdgeInsets.zero,
-                              title: const Text('SI'),
-                              value: 'SI',
-                              groupValue: tabelloneFis,
-                              onChanged: (val) {
-                                if (val == null) return;
-                                setState(() => tabelloneFis = val);
-                              },
-                              dense: true,
-                            ),
-                          ),
-                          Expanded(
-                            child: RadioListTile<String>(
-                              contentPadding: EdgeInsets.zero,
-                              title: const Text('NO'),
-                              value: 'NO',
-                              groupValue: tabelloneFis,
-                              onChanged: (val) {
-                                if (val == null) return;
-                                setState(() => tabelloneFis = val);
-                              },
-                              dense: true,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionHeader(
-          title: "Apparecchiatura",
-          subtitle: "Indica i dispositivi utilizzati in gara e la quantita.",
-          icon: Icons.handyman_rounded,
+          title: 'Apparecchiatura',
+          subtitle: 'Compila solo le voci effettivamente utilizzate.',
+          icon: Icons.precision_manufacturing_rounded,
         ),
         const SizedBox(height: 12),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: righe.length,
-          itemBuilder: (context, index) {
-            final riga = righe[index];
-            final opzioni = dispositiviDisponibili
-                .where((d) => !d.startsWith('***'))
-                .toList();
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest.withOpacity(0.35),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: colorScheme.outline.withOpacity(0.3),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          "Dispositivo ${index + 1}",
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      (((riga['dispositivo'] ?? '').toString().isNotEmpty) ||
-                              ((riga['quantita'] ?? '').toString().isNotEmpty))
-                          ? IconButton(
-                              icon: const Icon(Icons.close_rounded),
-                              color: colorScheme.onSurface.withOpacity(0.6),
-                              onPressed: () => rimuoviRiga(index),
-                              tooltip: 'Rimuovi questo dispositivo',
-                            )
-                          : const SizedBox(width: 8),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    key: ValueKey('disp-$_revision-$index'),
-                    initialValue: riga['dispositivo'],
-                    items: opzioni
-                        .where((d) =>
-                            !righe.any((r) => r['dispositivo'] == d) ||
-                            riga['dispositivo'] == d)
-                        .map((d) => DropdownMenuItem(
-                            value: d,
-                            child: Text(d, overflow: TextOverflow.ellipsis)))
-                        .toList(),
-                    isExpanded: true,
-                    onChanged: (val) =>
-                        setState(() => riga['dispositivo'] = val),
-                    decoration: InputDecoration(
-                      labelText: 'Dispositivo',
-                      filled: true,
-                      fillColor: colorScheme.surface.withOpacity(0.95),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: 170,
-                    child: TextFormField(
-                      key: ValueKey('qty-$_revision-$index'),
-                      initialValue: riga['quantita'],
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'Quantita',
-                        hintText: 'Es. 2',
-                        prefixIcon: Icon(Icons.numbers_rounded,
-                            size: 18,
-                            color: colorScheme.primary.withOpacity(0.8)),
-                        filled: true,
-                        fillColor: colorScheme.surface.withOpacity(0.95),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onChanged: (val) => riga['quantita'] = val,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+        _buildToggleRow(
+          title: 'Tabellone',
+          subtitle: 'Indica se e quanti tabelloni sono stati utilizzati.',
+          value: tabellone,
+          onChanged: (val) => setState(() => tabellone = val),
+          fieldLabel: 'Numero tabelloni',
+          fieldValue: tabelloneNumero,
+          onFieldChanged: (val) => tabelloneNumero = val,
         ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: aggiungiRiga,
-            icon: const Icon(Icons.add),
-            label: const Text('Aggiungi dispositivo'),
+        _buildToggleRow(
+          title: 'Segreteria',
+          subtitle: 'Indica se il servizio di segreteria era previsto.',
+          value: segreteria,
+          onChanged: (val) => setState(() => segreteria = val),
+          fieldLabel: 'Numero giorni',
+          fieldValue: segreteriaGiorni,
+          onFieldChanged: (val) => segreteriaGiorni = val,
+        ),
+        _buildToggleRow(
+          title: 'Intermedi',
+          subtitle: 'Indica se erano presenti punti intermedi.',
+          value: intermedi,
+          onChanged: (val) => setState(() => intermedi = val),
+          fieldLabel: 'Numero intermedi',
+          fieldValue: intermediNumero,
+          onFieldChanged: (val) => intermediNumero = val,
+        ),
+        _buildToggleRow(
+          title: 'Trasmissione dati',
+          subtitle: 'Indica se sono stati usati sistemi di trasmissione dati.',
+          value: trasmissioneDati,
+          onChanged: (val) => setState(() => trasmissioneDati = val),
+          fieldLabel: 'Numero apparati',
+          fieldValue: trasmissioneDatiNumero,
+          onFieldChanged: (val) => trasmissioneDatiNumero = val,
+        ),
+        _buildToggleRow(
+          title: 'Telecamera',
+          subtitle: 'Indica se sono state utilizzate telecamere.',
+          value: telecamera,
+          onChanged: (val) => setState(() => telecamera = val),
+          fieldLabel: 'Numero telecamere',
+          fieldValue: telecameraNumero,
+          onFieldChanged: (val) => telecameraNumero = val,
+        ),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withOpacity(0.35),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
+          ),
+          child: TextFormField(
+            key: ValueKey('altre-apparecchiature-$_revision'),
+            initialValue: altreApparecchiature,
+            maxLines: 3,
+            onChanged: (val) => altreApparecchiature = val,
+            decoration: InputDecoration(
+              labelText: 'Altre apparecchiature',
+              hintText: 'Indica eventuali altre apparecchiature utilizzate',
+              filled: true,
+              fillColor: colorScheme.surface.withOpacity(0.95),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
           ),
         ),
       ],

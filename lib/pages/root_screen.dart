@@ -48,36 +48,9 @@ class _RootScreenState extends State<RootScreen> {
   bool loadingGareList = true;
   String? gareError;
   Gara? selectedGara;
-  String selectedSport = '';
   int formVersion = 0;
   bool prefilling = false;
   int _prefillTicket = 0;
-
-  bool _containsFisKeyword(String value) {
-    final sport = value.trim();
-    if (sport.isEmpty) return false;
-    return RegExp(r'\b(FISI|FIS)\b', caseSensitive: false).hasMatch(sport);
-  }
-
-  bool get _isFisSport {
-    return _containsFisKeyword(selectedSport);
-  }
-
-  bool get _hasCronometristaSegreteriaSi {
-    final rows = cronometristiKey.currentState?.getData() ?? const [];
-    for (final row in rows) {
-      if (row is! Map) continue;
-      final value = (row['segreteria'] ?? '').toString().trim().toUpperCase();
-      if (value == 'SI') return true;
-    }
-    return false;
-  }
-
-  String get _tipoGaraLabel {
-    final sport = selectedSport.trim();
-    if (sport.isNotEmpty) return sport;
-    return 'N/D';
-  }
 
   String? get _loggedUserId {
     final id = widget.loggedUser['id'];
@@ -219,7 +192,6 @@ class _RootScreenState extends State<RootScreen> {
         gareDisponibili = gareValide;
         loadingGareList = false;
         selectedGara = nextSelection;
-        selectedSport = nextSelection?.sport ?? '';
         if (selectionChanged) {
           formVersion++;
         }
@@ -243,7 +215,6 @@ class _RootScreenState extends State<RootScreen> {
   void _selectGara(Gara gara) {
     setState(() {
       selectedGara = gara;
-      selectedSport = gara.sport;
       formVersion++;
     });
     _prefillFromSelectedGara();
@@ -293,9 +264,7 @@ class _RootScreenState extends State<RootScreen> {
       await Future<void>.microtask(() {});
       if (!mounted || ticket != _prefillTicket) return;
       cronometristiKey.currentState?.setCronometristi(kronosNames);
-      setState(() {
-        selectedSport = gara.sport;
-      });
+      setState(() {});
       await _applySavedDraftIfAny(gara.id);
     } catch (e) {
       if (!mounted || ticket != _prefillTicket) return;
@@ -596,11 +565,7 @@ class _RootScreenState extends State<RootScreen> {
           icon: Icons.sports_score,
           child: GaraForm(
             key: garaKey,
-            onSportChanged: (sport) {
-              setState(() {
-                selectedSport = sport;
-              });
-            },
+            onSportChanged: (_) {},
             onDateRangeChanged: (da, a) {
               cronometristiKey.currentState?.syncDaysWithRange(da, a);
             },
@@ -627,9 +592,6 @@ class _RootScreenState extends State<RootScreen> {
           icon: Icons.precision_manufacturing,
           child: ApparecchiaturaForm(
             key: apparecchiaturaKey,
-            isFisSport: _isFisSport,
-            tipoGara: _tipoGaraLabel,
-            showSegreteriaField: _hasCronometristaSegreteriaSi,
           ),
         ),
         const SizedBox(height: 12),

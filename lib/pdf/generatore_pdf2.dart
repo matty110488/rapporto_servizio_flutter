@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:cross_file/cross_file.dart';
 import 'package:flutter/foundation.dart';
@@ -9,14 +8,6 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 
-const Set<String> _cronometriDevices = {
-  'rei pro',
-  'rei 2',
-  'master 3',
-  'master',
-  'timy',
-};
-
 const Set<String> _tabelloniDevices = {
   'alge',
   'microtab',
@@ -24,16 +15,6 @@ const Set<String> _tabelloniDevices = {
   'semaforo',
   'hiclock',
   'startclock',
-};
-
-const Set<String> _varieDevices = {
-  'cancelletto',
-  'fotocellula',
-  'startbeep',
-  'cuffie',
-  'chip machsa',
-  'pressostato',
-  'smartphone',
 };
 
 const PdfColor _tableBorderColor = PdfColors.grey600;
@@ -62,27 +43,6 @@ String _sanitizeText(String value) {
 }
 
 String _txt(Object? value) => _sanitizeText((value ?? '').toString());
-
-String _numeroGiornateSegreteriaValue(List apparecchiature) {
-  const candidateKeys = [
-    'giornateSegreteria',
-    'gionrateSegreteria',
-    'numeroGiornateSegreteria',
-    'numeroGionrateSegreteria',
-    'NUMERO GIORNATE SEGRETERIA',
-    'NUMERO GIONRATE SEGRETERIA',
-    'NUMERO GIORNATE DI SEGRETERIA',
-    'NUMERO GIONRATE DI SEGRETERIA',
-  ];
-  for (final voce in apparecchiature) {
-    if (voce is! Map) continue;
-    for (final key in candidateKeys) {
-      final value = _txt(voce[key]).trim();
-      if (value.isNotEmpty) return value;
-    }
-  }
-  return '';
-}
 
 String _safeFileName(String raw) {
   // Remove path separators and other invalid filename characters, and trim spaces.
@@ -147,8 +107,6 @@ Future<pw.Document> _buildPdfDocument(Map<String, dynamic> dati) async {
     });
   }
   final mostraRiepilogo = _isMultiDay(gara);
-  final numeroGiornateSegreteria = _numeroGiornateSegreteriaValue(apparecchiature);
-
   final contenuto = <pw.Widget>[
     _sezioneGara(gara, base, bold),
     pw.SizedBox(height: 12),
@@ -160,10 +118,6 @@ Future<pw.Document> _buildPdfDocument(Map<String, dynamic> dati) async {
       orariGiornata: orariGiornata,
     ),
     pw.SizedBox(height: 12),
-    if (numeroGiornateSegreteria.isNotEmpty) ...[
-      _sezioneNumeroGiornateSegreteria(numeroGiornateSegreteria, base, bold),
-      pw.SizedBox(height: 12),
-    ],
     _sezioneApparecchiatura(apparecchiature, base, bold),
     pw.SizedBox(height: 12),
     _sezioneDanni(danni, base, bold),
@@ -589,92 +543,58 @@ pw.Widget _sezioneGiornate(
 }
 
 pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
-  final first = elenco.isNotEmpty ? elenco.first : null;
-  if (first is Map && first['fisMode'] == true) {
-    final tipoGara = _txt(first['tipoGara']).trim();
-    final tabellone = _txt(first['quantita']).trim().toUpperCase();
-    final tabelloneLabel =
-        (tabellone == 'SI' || tabellone == 'NO') ? tabellone : 'NO';
+  final summary = _parseApparecchiaturaSummary(elenco);
+  final rows = [
+    _equipmentRow(
+      'Tabellone',
+      summary['tabelloneSi'],
+      summary['tabelloneNumero'],
+      valueSuffix: 'unita',
+    ),
+    _equipmentRow(
+      'Segreteria',
+      summary['segreteriaSi'],
+      summary['segreteriaGiorni'],
+      valueSuffix: 'giorni',
+    ),
+    _equipmentRow(
+      'Intermedi',
+      summary['intermediSi'],
+      summary['intermediNumero'],
+      valueSuffix: 'unita',
+    ),
+    _equipmentRow(
+      'Trasmissione dati',
+      summary['trasmissioneDatiSi'],
+      summary['trasmissioneDatiNumero'],
+      valueSuffix: 'unita',
+    ),
+    _equipmentRow(
+      'Telecamera',
+      summary['telecameraSi'],
+      summary['telecameraNumero'],
+      valueSuffix: 'unita',
+    ),
+  ];
+  final altreApparecchiature = _txt(summary['altreApparecchiature']).trim();
 
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text(
-          tipoGara.isEmpty
-              ? 'Apparecchiatura per gara'
-              : 'Apparecchiatura per gara $tipoGara',
-          style: pw.TextStyle(font: bold, fontSize: 13),
-        ),
-        pw.SizedBox(height: 6),
-        pw.Container(
-          padding: const pw.EdgeInsets.all(8),
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: _tableBorderColor),
-            borderRadius: pw.BorderRadius.circular(6),
-          ),
-          child: pw.Row(
-            children: [
-              pw.Expanded(
-                child: pw.Text(
-                  'TABELLONE',
-                  style: pw.TextStyle(font: bold, fontSize: 11),
-                ),
-              ),
-              pw.Text(
-                tabelloneLabel,
-                style: pw.TextStyle(font: base, fontSize: 11),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  final categorizzate = _classificaApparecchiature(elenco);
-  final cronometri = categorizzate['cronometri'] as List<Map<String, String>>;
-  final tabelloni = categorizzate['tabelloni'] as List<Map<String, String>>;
-  final varie = categorizzate['varie'] as List<Map<String, String>>;
-  final altri = categorizzate['altro'] as List<String>;
-  final altText = altri.join(', ');
-
-  final maxRows = math.max(
-    1,
-    math.max(cronometri.length, math.max(tabelloni.length, varie.length)),
-  );
-
-  pw.Widget headerCell(String text) => pw.Container(
-        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-        color: _tableHeaderColor,
-        child: pw.Text(
-          text,
-          style: pw.TextStyle(
-            font: bold,
-            fontSize: 9,
-            color: _tableHeaderTextColor,
-          ),
-          textAlign: pw.TextAlign.center,
-          maxLines: 1,
-          softWrap: false,
-        ),
-      );
-
-  pw.Widget valueCell(String text) => pw.Container(
-        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: pw.Text(
-          text.isEmpty ? '-' : _txt(text),
-          style: pw.TextStyle(font: base, fontSize: 9.5),
-          textAlign: pw.TextAlign.left,
-        ),
-      );
-
-  pw.Widget qtyCell(String text) => pw.Container(
-        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        alignment: pw.Alignment.center,
+  pw.Widget cell(
+    String text, {
+    bool header = false,
+    bool center = false,
+    PdfColor? background,
+  }) =>
+      pw.Container(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+        color: header ? _tableHeaderColor : background,
+        alignment: center ? pw.Alignment.center : pw.Alignment.centerLeft,
         child: pw.Text(
           _txt(text),
-          style: pw.TextStyle(font: base, fontSize: 9.5),
-          textAlign: pw.TextAlign.center,
+          style: pw.TextStyle(
+            font: header ? bold : base,
+            color: header ? _tableHeaderTextColor : PdfColors.black,
+            fontSize: 10,
+          ),
         ),
       );
 
@@ -688,45 +608,24 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
       pw.SizedBox(height: 6),
       pw.Table(
         border: pw.TableBorder.all(color: _tableBorderColor),
-        columnWidths: const {
-          0: pw.FlexColumnWidth(2.2),
-          1: pw.FlexColumnWidth(0.8),
-          2: pw.FlexColumnWidth(2.2),
-          3: pw.FlexColumnWidth(0.8),
-          4: pw.FlexColumnWidth(2.2),
-          5: pw.FlexColumnWidth(0.8),
-        },
+        columnWidths: const {0: pw.FlexColumnWidth(2.4), 1: pw.FlexColumnWidth(4.6)},
         children: [
           pw.TableRow(
             children: [
-              headerCell('Cronometri'),
-              headerCell('N.'),
-              headerCell('Tabelloni / Display'),
-              headerCell('N.'),
-              headerCell('Varie'),
-              headerCell('N.'),
+              cell('Voce', header: true, center: true),
+              cell('Dettaglio', header: true, center: true),
             ],
           ),
-          for (int i = 0; i < maxRows; i++)
+          for (int i = 0; i < rows.length; i++)
             pw.TableRow(
               children: [
-                valueCell(
-                  i < cronometri.length ? cronometri[i]['label'] ?? '' : '',
-                ),
-                qtyCell(
-                  i < cronometri.length ? cronometri[i]['qty'] ?? '' : '',
-                ),
-                valueCell(
-                  i < tabelloni.length ? tabelloni[i]['label'] ?? '' : '',
-                ),
-                qtyCell(i < tabelloni.length ? tabelloni[i]['qty'] ?? '' : ''),
-                valueCell(i < varie.length ? varie[i]['label'] ?? '' : ''),
-                qtyCell(i < varie.length ? varie[i]['qty'] ?? '' : ''),
+                cell(rows[i][0], background: i.isOdd ? _tableAltRowColor : null),
+                cell(rows[i][1], background: i.isOdd ? _tableAltRowColor : null),
               ],
             ),
         ],
       ),
-      if (altText.isNotEmpty) ...[
+      if (altreApparecchiature.isNotEmpty) ...[
         pw.SizedBox(height: 6),
         pw.RichText(
           text: pw.TextSpan(
@@ -736,7 +635,7 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
                 style: pw.TextStyle(font: bold, fontSize: 10),
               ),
               pw.TextSpan(
-                text: _txt(altText),
+                text: altreApparecchiature,
                 style: pw.TextStyle(font: base, fontSize: 10),
               ),
             ],
@@ -745,6 +644,22 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
       ],
     ],
   );
+}
+
+List<String> _equipmentRow(
+  String label,
+  Object? enabledRaw,
+  Object? detailRaw, {
+  String valueSuffix = '',
+}) {
+  final enabled = enabledRaw == true;
+  final detail = _txt(detailRaw).trim();
+  if (!enabled) return [label, 'NO'];
+  if (detail.isEmpty) return [label, 'SI'];
+  return [
+    label,
+    valueSuffix.isEmpty ? 'SI ($detail)' : 'SI ($detail $valueSuffix)',
+  ];
 }
 
 pw.Widget _sezioneDanni(String testo, pw.Font base, pw.Font bold) {
@@ -952,79 +867,89 @@ pw.Widget _tabellaRiepilogo(
   );
 }
 
-pw.Widget _sezioneNumeroGiornateSegreteria(
-  String giornateSegreteria,
-  pw.Font base,
-  pw.Font bold,
-) {
-  return pw.Column(
-    crossAxisAlignment: pw.CrossAxisAlignment.start,
-    children: [
-      pw.Container(
-        padding: const pw.EdgeInsets.all(8),
-        decoration: pw.BoxDecoration(
-          border: pw.Border.all(color: _tableBorderColor),
-          borderRadius: pw.BorderRadius.circular(6),
-        ),
-        child: pw.Row(
-          children: [
-            pw.Expanded(
-              child: pw.Text(
-                'NUMERO GIORNATE DI SEGRETERIA',
-                style: pw.TextStyle(font: bold, fontSize: 11),
-              ),
-            ),
-            pw.Text(
-              giornateSegreteria,
-              style: pw.TextStyle(font: base, fontSize: 11),
-            ),
-          ],
-        ),
-      ),
-    ],
-  );
-}
+Map<String, dynamic> _parseApparecchiaturaSummary(List elenco) {
+  final out = <String, dynamic>{
+    'tabelloneSi': false,
+    'tabelloneNumero': '',
+    'segreteriaSi': false,
+    'segreteriaGiorni': '',
+    'intermediSi': false,
+    'intermediNumero': '',
+    'trasmissioneDatiSi': false,
+    'trasmissioneDatiNumero': '',
+    'telecameraSi': false,
+    'telecameraNumero': '',
+    'altreApparecchiature': '',
+  };
 
-Map<String, dynamic> _classificaApparecchiature(List elenco) {
-  final cronometri = <Map<String, String>>[];
-  final tabelloni = <Map<String, String>>[];
-  final varie = <Map<String, String>>[];
-  final altri = <String>[];
+  if (elenco.isEmpty) return out;
+  final first = elenco.first;
+  if (first is Map && first['guidedMode'] == true) {
+    out['tabelloneSi'] = _isSi(first['tabellone']);
+    out['tabelloneNumero'] = _txt(first['tabelloneNumero']).trim();
+    out['segreteriaSi'] = _isSi(first['segreteria']);
+    out['segreteriaGiorni'] = _txt(first['segreteriaGiorni']).trim();
+    out['intermediSi'] = _isSi(first['intermedi']);
+    out['intermediNumero'] = _txt(first['intermediNumero']).trim();
+    out['trasmissioneDatiSi'] = _isSi(first['trasmissioneDati']);
+    out['trasmissioneDatiNumero'] =
+        _txt(first['trasmissioneDatiNumero']).trim();
+    out['telecameraSi'] = _isSi(first['telecamera']);
+    out['telecameraNumero'] = _txt(first['telecameraNumero']).trim();
+    out['altreApparecchiature'] = _txt(first['altreApparecchiature']).trim();
+    return out;
+  }
 
+  final altre = <String>[];
   for (final voce in elenco) {
     if (voce is! Map) continue;
+    if (voce['fisMode'] == true) {
+      out['tabelloneSi'] = _isSi(voce['quantita']);
+      final segreteriaGiorni = _legacySegreteriaGiorni(voce);
+      out['segreteriaGiorni'] = segreteriaGiorni;
+      out['segreteriaSi'] = segreteriaGiorni.isNotEmpty;
+      continue;
+    }
+
     final nome = _txt(voce['dispositivo']).trim();
     if (nome.isEmpty) continue;
     final qty = _txt(voce['quantita']).trim();
     final key = nome.toLowerCase();
-
-    Map<String, String> entry() => {
-          'label': nome,
-          'qty': qty.isEmpty ? '-' : qty,
-        };
-
-    if (_cronometriDevices.contains(key)) {
-      cronometri.add(entry());
-    } else if (_tabelloniDevices.contains(key)) {
-      tabelloni.add(entry());
-    } else if (_varieDevices.contains(key)) {
-      varie.add(entry());
-    } else {
-      altri.add(qty.isEmpty ? nome : '$nome ($qty)');
+    if (_tabelloniDevices.contains(key)) {
+      out['tabelloneSi'] = true;
+      if (_txt(out['tabelloneNumero']).trim().isEmpty) {
+        out['tabelloneNumero'] = qty;
+      }
+      continue;
     }
+    altre.add(qty.isEmpty ? nome : '$nome ($qty)');
   }
 
-  cronometri.sort((a, b) => a['label']!.compareTo(b['label']!));
-  tabelloni.sort((a, b) => a['label']!.compareTo(b['label']!));
-  varie.sort((a, b) => a['label']!.compareTo(b['label']!));
-  altri.sort();
+  out['altreApparecchiature'] = altre.join(', ');
+  return out;
+}
 
-  return {
-    'cronometri': cronometri,
-    'tabelloni': tabelloni,
-    'varie': varie,
-    'altro': altri,
-  };
+String _legacySegreteriaGiorni(Map voce) {
+  const keys = [
+    'giornateSegreteria',
+    'gionrateSegreteria',
+    'numeroGiornateSegreteria',
+    'numeroGionrateSegreteria',
+    'NUMERO GIORNATE SEGRETERIA',
+    'NUMERO GIONRATE SEGRETERIA',
+    'NUMERO GIORNATE DI SEGRETERIA',
+    'NUMERO GIONRATE DI SEGRETERIA',
+  ];
+  for (final key in keys) {
+    final value = _txt(voce[key]).trim();
+    if (value.isNotEmpty) return value;
+  }
+  return '';
+}
+
+bool _isSi(Object? value) {
+  final upper = _txt(value).trim().toUpperCase();
+  return upper == 'SI';
 }
 
 pw.TableRow _giornoHeaderRow(pw.Font bold) => pw.TableRow(
