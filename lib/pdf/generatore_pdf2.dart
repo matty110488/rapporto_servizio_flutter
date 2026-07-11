@@ -124,7 +124,8 @@ Future<pw.Document> _buildPdfDocument(Map<String, dynamic> dati) async {
   ];
 
   if (allegatiBytes.isNotEmpty) {
-    contenuto.addAll([pw.SizedBox(height: 12), _sezioneAllegati(allegatiBytes)]);
+    contenuto
+        .addAll([pw.SizedBox(height: 12), _sezioneAllegati(allegatiBytes)]);
   }
 
   if (direttore.isNotEmpty) {
@@ -570,9 +571,9 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
       valueSuffix: 'unita',
     ),
     _equipmentRow(
-      'Telecamera',
-      summary['telecameraSi'],
-      summary['telecameraNumero'],
+      'IDcam',
+      summary['IDcamSi'],
+      summary['IDcamNumero'],
       valueSuffix: 'unita',
     ),
   ];
@@ -608,7 +609,10 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
       pw.SizedBox(height: 6),
       pw.Table(
         border: pw.TableBorder.all(color: _tableBorderColor),
-        columnWidths: const {0: pw.FlexColumnWidth(2.4), 1: pw.FlexColumnWidth(4.6)},
+        columnWidths: const {
+          0: pw.FlexColumnWidth(2.4),
+          1: pw.FlexColumnWidth(4.6)
+        },
         children: [
           pw.TableRow(
             children: [
@@ -619,8 +623,10 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
           for (int i = 0; i < rows.length; i++)
             pw.TableRow(
               children: [
-                cell(rows[i][0], background: i.isOdd ? _tableAltRowColor : null),
-                cell(rows[i][1], background: i.isOdd ? _tableAltRowColor : null),
+                cell(rows[i][0],
+                    background: i.isOdd ? _tableAltRowColor : null),
+                cell(rows[i][1],
+                    background: i.isOdd ? _tableAltRowColor : null),
               ],
             ),
         ],
@@ -877,8 +883,8 @@ Map<String, dynamic> _parseApparecchiaturaSummary(List elenco) {
     'intermediNumero': '',
     'trasmissioneDatiSi': false,
     'trasmissioneDatiNumero': '',
-    'telecameraSi': false,
-    'telecameraNumero': '',
+    'IDcamSi': false,
+    'IDcamNumero': '',
     'altreApparecchiature': '',
   };
 
@@ -894,8 +900,8 @@ Map<String, dynamic> _parseApparecchiaturaSummary(List elenco) {
     out['trasmissioneDatiSi'] = _isSi(first['trasmissioneDati']);
     out['trasmissioneDatiNumero'] =
         _txt(first['trasmissioneDatiNumero']).trim();
-    out['telecameraSi'] = _isSi(first['telecamera']);
-    out['telecameraNumero'] = _txt(first['telecameraNumero']).trim();
+    out['IDcamSi'] = _isSi(first['IDcam']);
+    out['IDcamNumero'] = _txt(first['IDcamNumero']).trim();
     out['altreApparecchiature'] = _txt(first['altreApparecchiature']).trim();
     return out;
   }

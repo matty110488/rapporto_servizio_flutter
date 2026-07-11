@@ -26,8 +26,8 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
   String intermediNumero = '';
   bool trasmissioneDati = false;
   String trasmissioneDatiNumero = '';
-  bool telecamera = false;
-  String telecameraNumero = '';
+  bool IDcam = false;
+  String IDcamNumero = '';
   String altreApparecchiature = '';
 
   List<Map<String, dynamic>> getData() {
@@ -43,8 +43,8 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
         'trasmissioneDati': trasmissioneDati ? 'SI' : 'NO',
         'trasmissioneDatiNumero':
             trasmissioneDati ? trasmissioneDatiNumero.trim() : '',
-        'telecamera': telecamera ? 'SI' : 'NO',
-        'telecameraNumero': telecamera ? telecameraNumero.trim() : '',
+        'IDcam': IDcam ? 'SI' : 'NO',
+        'IDcamNumero': IDcam ? IDcamNumero.trim() : '',
         'altreApparecchiature': altreApparecchiature.trim(),
       }
     ];
@@ -74,13 +74,14 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
     tabellone = _readSiNo(data, ['tabellone']);
     tabelloneNumero = _readValue(data, ['tabelloneNumero']);
     segreteria = _readSiNo(data, ['segreteria']);
-    segreteriaGiorni = _readValue(data, ['segreteriaGiorni', 'giornateSegreteria']);
+    segreteriaGiorni =
+        _readValue(data, ['segreteriaGiorni', 'giornateSegreteria']);
     intermedi = _readSiNo(data, ['intermedi']);
     intermediNumero = _readValue(data, ['intermediNumero']);
     trasmissioneDati = _readSiNo(data, ['trasmissioneDati']);
     trasmissioneDatiNumero = _readValue(data, ['trasmissioneDatiNumero']);
-    telecamera = _readSiNo(data, ['telecamera']);
-    telecameraNumero = _readValue(data, ['telecameraNumero']);
+    IDcam = _readSiNo(data, ['IDcam']);
+    IDcamNumero = _readValue(data, ['IDcamNumero']);
     altreApparecchiature = _readValue(data, ['altreApparecchiature']);
   }
 
@@ -147,8 +148,8 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
     intermediNumero = '';
     trasmissioneDati = false;
     trasmissioneDatiNumero = '';
-    telecamera = false;
-    telecameraNumero = '';
+    IDcam = false;
+    IDcamNumero = '';
     altreApparecchiature = '';
   }
 
@@ -336,13 +337,13 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
           onFieldChanged: (val) => trasmissioneDatiNumero = val,
         ),
         _buildToggleRow(
-          title: 'Telecamera',
+          title: 'IDcam',
           subtitle: 'Indica se sono state utilizzate telecamere.',
-          value: telecamera,
-          onChanged: (val) => setState(() => telecamera = val),
+          value: IDcam,
+          onChanged: (val) => setState(() => IDcam = val),
           fieldLabel: 'Numero telecamere',
-          fieldValue: telecameraNumero,
-          onFieldChanged: (val) => telecameraNumero = val,
+          fieldValue: IDcamNumero,
+          onFieldChanged: (val) => IDcamNumero = val,
         ),
         Container(
           padding: const EdgeInsets.all(12),
