@@ -33573,7 +33573,7 @@ a8=new A.mC(B.f5,1,B.hV)
 a9=A.b([new A.hm(A.b([A.oA("Cronometrista",b5,b0,!1,!0),A.oA("Ore",b5,b0,!0,!0),A.oA("Km",b5,b0,!0,!0),A.oA("Spese",b5,b0,!0,!0),A.oA("Segreteria",b5,b0,!0,!0)],b1))],r)
 B.m.P(a9,h.a2S(m).gfO().ea(0,new A.aNw(b4),q))
 a0.push(A.ko(b0,new A.xl(B.fv,B.mK,B.h9,B.cR,B.hG,new A.p6(),A.b([a7,new A.J7(a9,new A.Yc(a8,a8,a8,a8,a8,a8),A.b([],n),A.b([],n),new A.J8(),B.aNU)],b1)),b0,new A.Dc(b0,new A.rB(a5,a5,a5,a5),new A.Qk(a6,a6,a6,a6)),b0,B.Vl,b0,b0))}return A.oU(a0,B.pe)},
-bho(a,b,c){var s,r,q,p,o,n,m,l="unita",k=null,j=A.bh5(a),i=[A.a8m("Tabellone",j.h(0,"tabelloneSi"),j.h(0,"tabelloneNumero"),l),A.a8m("Segreteria",j.h(0,"segreteriaSi"),j.h(0,"segreteriaGiorni"),"giorni"),A.a8m("Intermedi",j.h(0,"intermediSi"),j.h(0,"intermediNumero"),l),A.a8m("Trasmissione dati",j.h(0,"trasmissioneDatiSi"),j.h(0,"trasmissioneDatiNumero"),l),A.a8m("Telecamera",j.h(0,"telecameraSi"),j.h(0,"telecameraNumero"),l)],h=j.h(0,"altreApparecchiature"),g=B.p.b1(A.bV(J.aA(h==null?"":h))),f=new A.aNm(c,b)
+bho(a,b,c){var s,r,q,p,o,n,m,l="unita",k=null,j=A.bh5(a),i=[A.a8m("Tabellone",j.h(0,"tabelloneSi"),j.h(0,"tabelloneNumero"),l),A.a8m("Segreteria",j.h(0,"segreteriaSi"),j.h(0,"segreteriaGiorni"),"giorni"),A.a8m("Intermedi",j.h(0,"intermediSi"),j.h(0,"intermediNumero"),l),A.a8m("Trasmissione dati",j.h(0,"trasmissioneDatiSi"),j.h(0,"trasmissioneDatiNumero"),l),A.a8m("IDcam",j.h(0,"IDcamSi"),j.h(0,"IDcamNumero"),l)],h=j.h(0,"altreApparecchiature"),g=B.p.b1(A.bV(J.aA(h==null?"":h))),f=new A.aNm(c,b)
 h=A.eo("Apparecchiature impiegate",k,k,A.dr(k,k,k,k,k,k,c,k,k,B.aV,k,k,13,k,k,k,!0,k,k,k,k))
 s=A.aRI(B.f5)
 r=t.l
@@ -33635,7 +33635,7 @@ bhz(a,b,c,d,e,f){var s=new A.aNz(f,e),r=A.aRI(B.f5),q=t.l,p=A.b([new A.hm(A.b([s
 B.m.P(p,new A.kH(a,A.Z(a).i("kH<1>")).gfO().ea(0,new A.aNA(s),t.jH))
 p.push(new A.hm(A.b([s.$3$background$boldText("Totali",B.db,!0),s.$4$background$boldText$center(B.n.al(b,1),B.db,!0,!0),s.$4$background$boldText$center(B.n.al(c,1),B.db,!0,!0),s.$4$background$boldText$center(B.n.al(d,2),B.db,!0,!0),s.$3$background$boldText("",B.db,!0),s.$3$background$boldText("",B.db,!0)],q)))
 return A.aRH(r,p,B.aNY)},
-bh5(a2){var s,r,q,p,o,n,m,l,k,j,i="tabelloneSi",h="tabelloneNumero",g="segreteriaSi",f="segreteriaGiorni",e="intermediNumero",d="trasmissioneDatiSi",c="trasmissioneDatiNumero",b="telecameraNumero",a="altreApparecchiature",a0="quantita",a1=A.a_(["tabelloneSi",!1,"tabelloneNumero","","segreteriaSi",!1,f,"","intermediSi",!1,"intermediNumero","",d,!1,c,"","telecameraSi",!1,b,"",a,""],t.N,t.z)
+bh5(a2){var s,r,q,p,o,n,m,l,k,j,i="tabelloneSi",h="tabelloneNumero",g="segreteriaSi",f="segreteriaGiorni",e="intermediNumero",d="trasmissioneDatiSi",c="trasmissioneDatiNumero",b="IDcamNumero",a="altreApparecchiature",a0="quantita",a1=A.a_(["tabelloneSi",!1,"tabelloneNumero","","segreteriaSi",!1,f,"","intermediSi",!1,"intermediNumero","",d,!1,c,"","IDcamSi",!1,"IDcamNumero","",a,""],t.N,t.z)
 if(a2.length===0)return a1
 s=B.m.gab(a2)
 r=t.f
@@ -33655,8 +33655,8 @@ r=s.h(0,"trasmissioneDati")
 a1.l(0,d,B.p.b1(A.bV(J.aA(r==null?"":r))).toUpperCase()==="SI")
 r=s.h(0,c)
 a1.l(0,c,B.p.b1(A.bV(J.aA(r==null?"":r))))
-r=s.h(0,"telecamera")
-a1.l(0,"telecameraSi",B.p.b1(A.bV(J.aA(r==null?"":r))).toUpperCase()==="SI")
+r=s.h(0,"IDcam")
+a1.l(0,"IDcamSi",B.p.b1(A.bV(J.aA(r==null?"":r))).toUpperCase()==="SI")
 r=s.h(0,b)
 a1.l(0,b,B.p.b1(A.bV(J.aA(r==null?"":r))))
 r=s.h(0,a)
@@ -118734,7 +118734,7 @@ b=b?B.p.b1(j.Q):""
 a3=j.as
 a4=a3?"SI":"NO"
 a3=a3?B.p.b1(j.at):""
-j=A.b([A.a_(["guidedMode",!0,"tabellone",g,"tabelloneNumero",i,"segreteria",e,"segreteriaGiorni",f,"intermedi",c,"intermediNumero",d,"trasmissioneDati",a2,"trasmissioneDatiNumero",b,"telecamera",a4,"telecameraNumero",a3,"altreApparecchiature",B.p.b1(j.ax)],t.N,t.z)],t.H7)
+j=A.b([A.a_(["guidedMode",!0,"tabellone",g,"tabelloneNumero",i,"segreteria",e,"segreteriaGiorni",f,"intermedi",c,"intermediNumero",d,"trasmissioneDati",a2,"trasmissioneDatiNumero",b,"IDcam",a4,"IDcamNumero",a3,"altreApparecchiature",B.p.b1(j.ax)],t.N,t.z)],t.H7)
 a1=j}if(a1==null)a1=A.b([],t.H7)
 j=a9.r.gU()
 a5=j==null?null:j.d.a.a
@@ -119561,7 +119561,7 @@ o=f.xd("Numero intermedi",f.y,new A.a9L(f),new A.a9M(f),"Indica se erano present
 c=f.z
 c=f.xd("Numero apparati",f.Q,new A.a9N(f),new A.a9O(f),"Indica se sono stati usati sistemi di trasmissione dati.","Trasmissione dati",c)
 n=f.as
-n=f.xd("Numero telecamere",f.at,new A.a9P(f),new A.a9Q(f),"Indica se sono state utilizzate telecamere.","Telecamera",n)
+n=f.xd("Numero IDcam",f.at,new A.a9P(f),new A.a9Q(f),"Indica se sono state utilizzate IDcam.","IDcam",n)
 l=d.RG
 if(l==null)l=d.k2
 l=A.a7(89,l.p()>>>16&255,l.p()>>>8&255,l.p()&255)
@@ -119598,8 +119598,8 @@ q.x=q.y9(r,A.b(["intermedi"],s))
 q.y=q.lS(r,A.b(["intermediNumero"],s))
 q.z=q.y9(r,A.b(["trasmissioneDati"],s))
 q.Q=q.lS(r,A.b(["trasmissioneDatiNumero"],s))
-q.as=q.y9(r,A.b(["telecamera"],s))
-q.at=q.lS(r,A.b(["telecameraNumero"],s))
+q.as=q.y9(r,A.b(["IDcam"],s))
+q.at=q.lS(r,A.b(["IDcamNumero"],s))
 q.ax=q.lS(r,A.b(["altreApparecchiature"],s))}else q.agT(s);++q.d},
 $S:0}
 A.a9A.prototype={
