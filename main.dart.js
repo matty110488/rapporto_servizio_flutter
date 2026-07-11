@@ -119445,20 +119445,20 @@ if(g){o=this.d
 m=s.k2
 m=A.a9(242,m.p()>>>16&255,m.p()>>>8&255,m.p()&255)
 B.m.P(p,A.b([B.bp,A.d9(A.vg(!1,l,A.kA(l,new A.ey(4,A.bF(10),B.e8),l,l,l,l,l,l,!0,l,l,l,l,l,l,m,!0,l,l,l,l,l,l,l,l,l,l,l,l,l,l,"Es. 1",l,l,l,l,l,l,l,l,a,!0,!0,!1,l,l,l,l,l,l,l,l,l,l,l,l,l,l),l,b,new A.cz(f+"-"+o,t.kK),B.NZ,1,d,l,l,l,l,l,l),l,220)],n))}return A.c1(l,A.bX(p,B.af,B.P,B.W),B.O,l,new A.bz(k,l,q,r,l,l,B.ad),l,l,B.iy,B.bM,l,l,l)},
-L(a){var s,r,q,p,o,n,m,l,k,j,i,h,g,f=this,e=null,d=A.O(a).ax,c=f.c
-c.toString
-s=A.O(c).ax
-c=s.b
-r=c.aR(0.08)
+L(a){var s,r,q,p,o,n,m,l,k,j,i,h,g,f=this,e=null,d="Quantit\xe0",c=A.O(a).ax,b=f.c
+b.toString
+s=A.O(b).ax
+b=s.b
+r=b.aR(0.08)
 q=A.bF(14)
-p=A.eU(c.aR(0.22))
-o=c.aR(0.16)
+p=A.eU(b.aR(0.22))
+o=b.aR(0.16)
 n=A.bF(10)
-n=A.c1(e,A.eX(B.Xp,c,e,18),B.O,e,new A.bz(o,e,e,n,e,e,B.ad),e,34,e,e,e,e,34)
+n=A.c1(e,A.eX(B.Xp,b,e,18),B.O,e,new A.bz(o,e,e,n,e,e,B.ad),e,34,e,e,e,e,34)
 o=f.c
 o.toString
 o=A.O(o).ok.w
-c=A.ay("Apparecchiatura",e,e,e,o==null?e:o.rz(B.bl),e,e,e)
+b=A.ay("Apparecchiatura",e,e,e,o==null?e:o.rz(B.bl),e,e,e)
 o=f.c
 o.toString
 o=A.O(o).ok.Q
@@ -119466,29 +119466,29 @@ if(o==null)o=e
 else{m=s.k3
 m=o.bM(A.a9(184,m.p()>>>16&255,m.p()>>>8&255,m.p()&255))
 o=m}m=t.p
-q=A.c1(e,A.cK(A.b([n,B.ny,A.dv(A.bX(A.b([c,B.nz,A.ay("Compila solo le voci effettivamente utilizzate.",e,e,e,o,e,e,e)],m),B.af,B.P,B.W),1)],m),B.af,B.P,B.W,0),B.O,e,new A.bz(r,e,p,q,e,e,B.ad),e,e,e,B.iz,e,e,1/0)
+q=A.c1(e,A.cK(A.b([n,B.ny,A.dv(A.bX(A.b([b,B.nz,A.ay("Compila solo le voci effettivamente utilizzate.",e,e,e,o,e,e,e)],m),B.af,B.P,B.W),1)],m),B.af,B.P,B.W,0),B.O,e,new A.bz(r,e,p,q,e,e,B.ad),e,e,e,B.iz,e,e,1/0)
 p=f.e
 p=f.xm("Numero tabelloni",f.f,new A.a9C(f),new A.a9D(f),"Indica se e quanti tabelloni sono stati utilizzati.","Tabellone",p)
 r=f.r
 r=f.xm("Numero giorni",f.w,new A.a9E(f),new A.a9F(f),"Indica se il servizio di segreteria era previsto.","Segreteria",r)
 o=f.x
 o=f.xm("Numero intermedi",f.y,new A.a9G(f),new A.a9H(f),"Indica se erano presenti punti intermedi.","Intermedi",o)
-c=f.z
-c=f.xm("Numero apparati",f.Q,new A.a9I(f),new A.a9J(f),"Indica se sono stati usati sistemi di trasmissione dati.","Trasmissione dati",c)
+b=f.z
+b=f.xm(d,f.Q,new A.a9I(f),new A.a9J(f),"Indica se sono stati usati sistemi di trasmissione dati.","Trasmissione dati",b)
 n=f.as
-n=f.xm("Numero IDcam",f.at,new A.a9K(f),new A.a9L(f),"Indica se sono state utilizzate IDcam.","IDcam",n)
-l=d.RG
-if(l==null)l=d.k2
+n=f.xm(d,f.at,new A.a9K(f),new A.a9L(f),"Indica se sono state utilizzate IDcam.","IDcam",n)
+l=c.RG
+if(l==null)l=c.k2
 l=A.a9(89,l.p()>>>16&255,l.p()>>>8&255,l.p()&255)
 k=A.bF(14)
-j=d.ry
-if(j==null){j=d.v
-if(j==null)j=d.k3}j=A.eU(j.aR(0.3))
+j=c.ry
+if(j==null){j=c.v
+if(j==null)j=c.k3}j=A.eU(j.aR(0.3))
 i=f.d
 h=f.ax
-g=d.k2
+g=c.k2
 g=A.a9(242,g.p()>>>16&255,g.p()>>>8&255,g.p()&255)
-return A.bX(A.b([q,B.by,p,r,o,c,n,A.c1(e,A.vg(!1,e,A.kA(e,new A.ey(4,A.bF(10),B.e8),e,e,e,e,e,e,!0,e,e,e,e,e,e,g,!0,e,e,e,e,e,e,e,e,e,e,e,e,e,e,"Indica eventuali altre apparecchiature utilizzate",e,e,e,e,e,e,e,e,"Altre apparecchiature",!0,!0,!1,e,e,e,e,e,e,e,e,e,e,e,e,e,e),e,h,new A.cz("altre-apparecchiature-"+i,t.kK),e,3,new A.a9M(f),e,e,e,e,e,e),B.O,e,new A.bz(l,e,j,k,e,e,B.ad),e,e,e,B.bM,e,e,e)],m),B.af,B.P,B.W)}}
+return A.bX(A.b([q,B.by,p,r,o,b,n,A.c1(e,A.vg(!1,e,A.kA(e,new A.ey(4,A.bF(10),B.e8),e,e,e,e,e,e,!0,e,e,e,e,e,e,g,!0,e,e,e,e,e,e,e,e,e,e,e,e,e,e,"Indica eventuali altre apparecchiature utilizzate",e,e,e,e,e,e,e,e,"Altre apparecchiature",!0,!0,!1,e,e,e,e,e,e,e,e,e,e,e,e,e,e),e,h,new A.cz("altre-apparecchiature-"+i,t.kK),e,3,new A.a9M(f),e,e,e,e,e,e),B.O,e,new A.bz(l,e,j,k,e,e,B.ad),e,e,e,B.bM,e,e,e)],m),B.af,B.P,B.W)}}
 A.a9w.prototype={
 $0(){var s,r,q=this.a
 q.e=!1
