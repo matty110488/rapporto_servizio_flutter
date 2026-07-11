@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -37,6 +38,7 @@ class CronoValtellinesiApp extends StatefulWidget {
 class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
   Map<String, dynamic>? loggedUser;
   bool restoringSession = true;
+  StreamSubscription<String>? _tokenRefreshSubscription;
 
   bool get _supportsPush {
     return kIsWeb || defaultTargetPlatform == TargetPlatform.android;
@@ -57,7 +59,9 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
         print('[PUSH] Token unavailable for user $userId');
       }
 
-      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+      await _tokenRefreshSubscription?.cancel();
+      _tokenRefreshSubscription =
+          FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
         if (newToken.isNotEmpty) {
           await sendTokenToBackend(userId, newToken);
           print('[PUSH] Refreshed token saved for user $userId');
@@ -115,6 +119,8 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
   }
 
   Future<void> _handleLogout() async {
+    await _tokenRefreshSubscription?.cancel();
+    _tokenRefreshSubscription = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('logged_user');
 
@@ -124,6 +130,12 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
       loggedUser = null;
     });
     globalLoggedUserId = null;
+  }
+
+  @override
+  void dispose() {
+    _tokenRefreshSubscription?.cancel();
+    super.dispose();
   }
 
   ThemeData _buildPremiumTheme() {

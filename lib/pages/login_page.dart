@@ -52,6 +52,13 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   @override
+  void dispose() {
+    userCtrl.dispose();
+    passCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Login Cronometristi")),
@@ -80,7 +87,8 @@ class _LoginPageState extends State<LoginPage> {
               ),
               SizedBox(height: 24),
               if (loading)
-                const Center(child: StopwatchLoading(label: 'Accesso in corso...'))
+                const Center(
+                    child: StopwatchLoading(label: 'Accesso in corso...'))
               else
                 ElevatedButton(
                   onPressed: doLogin,

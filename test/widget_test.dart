@@ -1,20 +1,19 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:rapporto_servizio/main.dart';
 
 void main() {
-  testWidgets('App loads and shows navigation', (WidgetTester tester) async {
-    await tester.pumpWidget(RapportoServizioApp());
+  testWidgets('App without a saved session shows the login page',
+      (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
 
-    // Bottom navigation has label 'Rapporto'
-    expect(find.text('Rapporto'), findsOneWidget);
+    await tester.pumpWidget(const CronoValtellinesiApp());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Login Cronometristi'), findsOneWidget);
+    expect(find.text('Username'), findsOneWidget);
+    expect(find.text('Password'), findsOneWidget);
+    expect(find.text('Accedi'), findsOneWidget);
   });
 }

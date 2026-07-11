@@ -10,7 +10,6 @@ generated_plugin_registrant.dart
 # Flutter specific
 **/doc/api/
 flutter_export_environment.sh
-pubspec.lock
 
 # Android
 **/android/**/gradle-wrapper.jar
@@ -54,7 +53,6 @@ pubspec.lock
 *.iml
 
 # Other
-*.lock
 *.log
 *.tmp
 *.swp
