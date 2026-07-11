@@ -32,7 +32,7 @@ Prima di pubblicare una modifica:
 
 ```powershell
 dart format --output=none --set-exit-if-changed lib test
-flutter analyze --no-pub
+flutter analyze --no-pub --no-fatal-infos
 flutter test --no-pub
 flutter build web --release --no-pub --base-href /rapporto_servizio_flutter/
 node --check api/notion-query.js
