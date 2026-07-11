@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/gara.dart';
-import '../services/auth_service.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../screens/archivio_screen.dart';
@@ -31,7 +30,6 @@ class _HomePageState extends State<HomePage> {
   bool _loadingDashboard = true;
   String? _dashboardError;
   _DashboardData _dashboard = const _DashboardData();
-  bool _registeringPasskey = false;
 
   @override
   void initState() {
@@ -51,55 +49,6 @@ class _HomePageState extends State<HomePage> {
       context,
       MaterialPageRoute(builder: (_) => page),
     );
-  }
-
-  Future<void> _enablePasskey() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Attiva accesso biometrico'),
-        content: const Text(
-          'Il telefono creerà una passkey protetta da Face ID, impronta '
-          'digitale o codice del dispositivo. Username e password resteranno '
-          'disponibili come metodo di recupero.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annulla'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Attiva'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _registeringPasskey = true);
-    try {
-      await AuthService().registerPasskey();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Accesso biometrico attivato. Dal prossimo login potrai usare Face ID o impronta.',
-          ),
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Non è stato possibile attivare l’accesso biometrico su questo dispositivo.',
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _registeringPasskey = false);
-    }
   }
 
   String _extractUserName() {
@@ -271,19 +220,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-        actions: [
-          IconButton(
-            onPressed: _registeringPasskey ? null : _enablePasskey,
-            tooltip: 'Attiva Face ID o impronta',
-            icon: _registeringPasskey
-                ? const SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.fingerprint),
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: DecoratedBox(
         decoration: const BoxDecoration(

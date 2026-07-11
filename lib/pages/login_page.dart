@@ -48,25 +48,6 @@ class _LoginPageState extends State<LoginPage> {
     widget.onLogin(user); // restituisco l'utente alla app
   }
 
-  Future<void> doPasskeyLogin() async {
-    setState(() {
-      loading = true;
-      errorMsg = null;
-    });
-    try {
-      final user = await auth.loginWithPasskey();
-      if (!mounted) return;
-      widget.onLogin(user);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        loading = false;
-        errorMsg =
-            'Accesso biometrico non riuscito. Puoi usare username e password.';
-      });
-    }
-  }
-
   @override
   void dispose() {
     userCtrl.dispose();
@@ -106,20 +87,9 @@ class _LoginPageState extends State<LoginPage> {
                 const Center(
                     child: StopwatchLoading(label: 'Accesso in corso...'))
               else
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    FilledButton(
-                      onPressed: doLogin,
-                      child: const Text('Accedi'),
-                    ),
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: doPasskeyLogin,
-                      icon: const Icon(Icons.fingerprint),
-                      label: const Text('Accedi con Face ID o impronta'),
-                    ),
-                  ],
+                ElevatedButton(
+                  onPressed: doLogin,
+                  child: Text("Accedi"),
                 ),
               if (errorMsg != null)
                 Padding(

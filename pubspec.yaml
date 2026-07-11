@@ -24,7 +24,6 @@ dependencies:
   flutter_local_notifications: ^22.0.1
   url_launcher: ^6.3.2
   web: ^1.1.1
-  passkeys: ^2.21.1
 
 dev_dependencies:
   flutter_test:

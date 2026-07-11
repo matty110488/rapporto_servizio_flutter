@@ -1,10 +1,4 @@
 import { createHmac, createSign, timingSafeEqual } from 'node:crypto';
-import {
-  generateAuthenticationOptions,
-  generateRegistrationOptions,
-  verifyAuthenticationResponse,
-  verifyRegistrationResponse,
-} from '@simplewebauthn/server';
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://matty110488.github.io',
@@ -207,15 +201,23 @@ export default async function handler(req, res) {
     };
 
     const sessionSecret = process.env.SESSION_SECRET || NOTION_TOKEN;
-    const signPayload = (value) => {
-      const payload = toBase64Url(JSON.stringify(value));
+    const signSession = (userId, isAdmin) => {
+      const payload = toBase64Url(
+        JSON.stringify({
+          sub: userId,
+          admin: isAdmin === true,
+          exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
+        }),
+      );
       const signature = createHmac('sha256', sessionSecret)
         .update(payload)
         .digest('base64url');
       return `${payload}.${signature}`;
     };
-    const verifyPayload = (token) => {
-      if (typeof token !== 'string') return null;
+
+    const verifySession = (authorization) => {
+      if (typeof authorization !== 'string' || !authorization.startsWith('Bearer ')) return null;
+      const token = authorization.slice('Bearer '.length).trim();
       const [payload, signature, extra] = token.split('.');
       if (!payload || !signature || extra) return null;
       const expected = createHmac('sha256', sessionSecret)
@@ -233,6 +235,8 @@ export default async function handler(req, res) {
         const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
         if (
           !decoded ||
+          typeof decoded.sub !== 'string' ||
+          decoded.sub.length === 0 ||
           typeof decoded.exp !== 'number' ||
           decoded.exp <= Math.floor(Date.now() / 1000)
         ) {
@@ -243,21 +247,6 @@ export default async function handler(req, res) {
         return null;
       }
     };
-    const signSession = (userId, isAdmin) => {
-      return signPayload({
-        sub: userId,
-        admin: isAdmin === true,
-        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7,
-      });
-    };
-
-    const verifySession = (authorization) => {
-      if (typeof authorization !== 'string' || !authorization.startsWith('Bearer ')) return null;
-      const decoded = verifyPayload(authorization.slice('Bearer '.length).trim());
-      return decoded && typeof decoded.sub === 'string' && decoded.sub.length > 0
-        ? decoded
-        : null;
-    };
 
     const sanitizeUserPage = (page) => {
       if (!page || typeof page !== 'object') return null;
@@ -267,79 +256,6 @@ export default async function handler(req, res) {
         Object.entries(properties).filter(([key]) => key.trim().toUpperCase() !== 'PASSWORD'),
       );
       return { ...page, properties: safeProperties };
-    };
-
-    const getPasskeys = (page) => {
-      const props = page && typeof page === 'object' ? page.properties : null;
-      const key = findKeyByCandidates(props, ['PASSKEYS', 'Passkeys', 'passkeys']);
-      if (!key) return [];
-      const raw = extractRichText(props[key]);
-      if (!raw) return [];
-      try {
-        const decoded = JSON.parse(raw);
-        return Array.isArray(decoded) ? decoded.filter((item) => item && typeof item === 'object') : [];
-      } catch {
-        return [];
-      }
-    };
-
-    const ensurePasskeysProperty = async () => {
-      const database = await notionRequest(
-        `https://api.notion.com/v1/databases/${DATABASE_ID}`,
-        'GET',
-      );
-      if (database.status !== 200) return database;
-      if (database.data?.properties?.PASSKEYS) return database;
-      return notionRequest(
-        `https://api.notion.com/v1/databases/${DATABASE_ID}`,
-        'PATCH',
-        { properties: { PASSKEYS: { rich_text: {} } } },
-      );
-    };
-
-    const savePasskeys = async (pageId, passkeys) => {
-      const propertyResult = await ensurePasskeysProperty();
-      if (propertyResult.status !== 200) return propertyResult;
-      const serialized = JSON.stringify(passkeys);
-      const chunks = serialized.match(/.{1,1900}/gs) || [];
-      return notionRequest(
-        `https://api.notion.com/v1/pages/${pageId}`,
-        'PATCH',
-        {
-          properties: {
-            PASSKEYS: {
-              rich_text: chunks.map((content) => ({
-                type: 'text',
-                text: { content },
-              })),
-            },
-          },
-        },
-      );
-    };
-
-    const displayNameFromUser = (page) => {
-      const props = page?.properties;
-      if (!props || typeof props !== 'object') return 'Cronometrista';
-      const username = extractRichText(props.USERNAME);
-      if (username) return username;
-      for (const value of Object.values(props)) {
-        if (!value || typeof value !== 'object' || !Array.isArray(value.title)) continue;
-        const title = value.title.map((entry) => entry?.plain_text || '').join('').trim();
-        if (title) return title;
-      }
-      return 'Cronometrista';
-    };
-
-    const relyingPartyForRequest = () => {
-      const requestOrigin = typeof req.headers.origin === 'string' ? req.headers.origin : '';
-      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(requestOrigin)) {
-        return { rpID: new URL(requestOrigin).hostname, origin: requestOrigin };
-      }
-      return {
-        rpID: 'matty110488.github.io',
-        origin: 'https://matty110488.github.io',
-      };
     };
 
     const queryAllDatabasePages = async (databaseId, filter) => {
@@ -389,169 +305,9 @@ export default async function handler(req, res) {
       });
     }
 
-    if (action === 'passkeyAuthenticationOptions') {
-      const { rpID, origin } = relyingPartyForRequest();
-      const options = await generateAuthenticationOptions({
-        rpID,
-        userVerification: 'required',
-        allowCredentials: [],
-      });
-      return res.status(200).json({
-        options,
-        challengeToken: signPayload({
-          kind: 'passkey-authentication',
-          challenge: options.challenge,
-          rpID,
-          origin,
-          exp: Math.floor(Date.now() / 1000) + 5 * 60,
-        }),
-      });
-    }
-
-    if (action === 'passkeyAuthenticationVerify') {
-      const challenge = verifyPayload(safeBody.challengeToken);
-      const response = safeBody.response;
-      if (
-        !challenge ||
-        challenge.kind !== 'passkey-authentication' ||
-        !response ||
-        typeof response !== 'object' ||
-        typeof response.id !== 'string'
-      ) {
-        return res.status(400).json({ error: 'Invalid passkey authentication request' });
-      }
-      const users = await queryAllDatabasePages(DATABASE_ID);
-      let matchedUser = null;
-      let matchedPasskey = null;
-      let matchedPasskeys = [];
-      for (const user of users) {
-        const passkeys = getPasskeys(user);
-        const found = passkeys.find((passkey) => passkey.id === response.id);
-        if (found) {
-          matchedUser = user;
-          matchedPasskey = found;
-          matchedPasskeys = passkeys;
-          break;
-        }
-      }
-      if (!matchedUser || !matchedPasskey) {
-        return res.status(401).json({ error: 'Passkey not recognized' });
-      }
-      const verification = await verifyAuthenticationResponse({
-        response,
-        expectedChallenge: challenge.challenge,
-        expectedOrigin: challenge.origin,
-        expectedRPID: challenge.rpID,
-        requireUserVerification: true,
-        credential: {
-          id: matchedPasskey.id,
-          publicKey: Buffer.from(matchedPasskey.publicKey, 'base64url'),
-          counter: Number(matchedPasskey.counter) || 0,
-          transports: Array.isArray(matchedPasskey.transports)
-            ? matchedPasskey.transports
-            : undefined,
-        },
-      });
-      if (!verification.verified) {
-        return res.status(401).json({ error: 'Passkey verification failed' });
-      }
-      matchedPasskey.counter = verification.authenticationInfo.newCounter;
-      const saved = await savePasskeys(matchedUser.id, matchedPasskeys);
-      if (saved.status !== 200) {
-        return res.status(saved.status).json(saved.data);
-      }
-      const isAdmin = isAdminFromProperties(matchedUser.properties);
-      return res.status(200).json({
-        user: sanitizeUserPage(matchedUser),
-        sessionToken: signSession(matchedUser.id, isAdmin),
-      });
-    }
-
     const session = verifySession(req.headers.authorization);
     if (!session) {
       return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    if (action === 'passkeyRegistrationOptions') {
-      const user = await notionRequest(
-        `https://api.notion.com/v1/pages/${session.sub}`,
-        'GET',
-      );
-      if (user.status !== 200) return res.status(user.status).json(user.data);
-      const passkeys = getPasskeys(user.data);
-      const { rpID, origin } = relyingPartyForRequest();
-      const options = await generateRegistrationOptions({
-        rpName: 'Crono Valtellinesi',
-        rpID,
-        userID: Buffer.from(session.sub),
-        userName: displayNameFromUser(user.data),
-        attestationType: 'none',
-        supportedAlgorithmIDs: [-7, -257],
-        excludeCredentials: passkeys.map((passkey) => ({
-          id: passkey.id,
-          transports: Array.isArray(passkey.transports) ? passkey.transports : undefined,
-        })),
-        authenticatorSelection: {
-          residentKey: 'required',
-          userVerification: 'required',
-        },
-      });
-      return res.status(200).json({
-        options,
-        challengeToken: signPayload({
-          kind: 'passkey-registration',
-          sub: session.sub,
-          challenge: options.challenge,
-          rpID,
-          origin,
-          exp: Math.floor(Date.now() / 1000) + 5 * 60,
-        }),
-      });
-    }
-
-    if (action === 'passkeyRegistrationVerify') {
-      const challenge = verifyPayload(safeBody.challengeToken);
-      const response = safeBody.response;
-      if (
-        !challenge ||
-        challenge.kind !== 'passkey-registration' ||
-        challenge.sub !== session.sub ||
-        !response ||
-        typeof response !== 'object'
-      ) {
-        return res.status(400).json({ error: 'Invalid passkey registration request' });
-      }
-      const verification = await verifyRegistrationResponse({
-        response,
-        expectedChallenge: challenge.challenge,
-        expectedOrigin: challenge.origin,
-        expectedRPID: challenge.rpID,
-        requireUserVerification: true,
-      });
-      if (!verification.verified || !verification.registrationInfo) {
-        return res.status(400).json({ error: 'Passkey registration failed' });
-      }
-      const user = await notionRequest(
-        `https://api.notion.com/v1/pages/${session.sub}`,
-        'GET',
-      );
-      if (user.status !== 200) return res.status(user.status).json(user.data);
-      const passkeys = getPasskeys(user.data).filter(
-        (passkey) => passkey.id !== verification.registrationInfo.credential.id,
-      );
-      const credential = verification.registrationInfo.credential;
-      passkeys.push({
-        id: credential.id,
-        publicKey: Buffer.from(credential.publicKey).toString('base64url'),
-        counter: credential.counter,
-        transports: credential.transports || [],
-        deviceType: verification.registrationInfo.credentialDeviceType,
-        backedUp: verification.registrationInfo.credentialBackedUp,
-        createdAt: new Date().toISOString(),
-      });
-      const saved = await savePasskeys(session.sub, passkeys);
-      if (saved.status !== 200) return res.status(saved.status).json(saved.data);
-      return res.status(200).json({ ok: true });
     }
 
     const allowedDataDatabaseIds = new Set([
