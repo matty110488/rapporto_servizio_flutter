@@ -71,5 +71,4 @@ class DefaultFirebaseOptions {
     projectId: 'appkronos-1d181',
     storageBucket: 'appkronos-1d181.firebasestorage.app',
   );
-
 }

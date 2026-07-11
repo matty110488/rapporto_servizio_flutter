@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../constants/cronometristi.dart';
 
 class GaraForm extends StatefulWidget {
@@ -259,7 +259,8 @@ class GaraFormState extends State<GaraForm> {
 
     setState(() {
       nomeController.text = (garaData['nome'] ?? '').toString();
-      organizzatoreController.text = (garaData['organizzatore'] ?? '').toString();
+      organizzatoreController.text =
+          (garaData['organizzatore'] ?? '').toString();
       luogoController.text = (garaData['luogo'] ?? '').toString();
       dscController.text = (garaData['dsc'] ?? '').toString();
       sport = (garaData['sport'] ?? '').toString();
