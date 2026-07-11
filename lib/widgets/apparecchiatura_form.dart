@@ -338,10 +338,10 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
         ),
         _buildToggleRow(
           title: 'IDcam',
-          subtitle: 'Indica se sono state utilizzate telecamere.',
+          subtitle: 'Indica se sono state utilizzate IDcam.',
           value: IDcam,
           onChanged: (val) => setState(() => IDcam = val),
-          fieldLabel: 'Numero telecamere',
+          fieldLabel: 'Numero IDcam',
           fieldValue: IDcamNumero,
           onFieldChanged: (val) => IDcamNumero = val,
         ),
