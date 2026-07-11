@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class ApparecchiaturaForm extends StatefulWidget {
@@ -246,19 +247,30 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
                 ),
               ),
               const SizedBox(width: 12),
-              SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment<bool>(value: true, label: Text('SI')),
-                  ButtonSegment<bool>(value: false, label: Text('NO')),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    value ? 'SÌ' : 'NO',
+                    style: TextStyle(
+                      color: value
+                          ? const Color(0xFF007AFF)
+                          : colorScheme.onSurface.withOpacity(0.65),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  CupertinoSwitch(
+                    value: value,
+                    activeTrackColor: const Color(0xFF007AFF),
+                    onChanged: (next) {
+                      onChanged(next);
+                      if (!next) {
+                        onFieldChanged('');
+                      }
+                    },
+                  ),
                 ],
-                selected: {value},
-                onSelectionChanged: (selection) {
-                  final next = selection.first;
-                  onChanged(next);
-                  if (!next) {
-                    onFieldChanged('');
-                  }
-                },
               ),
             ],
           ),
