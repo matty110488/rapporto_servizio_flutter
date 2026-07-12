@@ -119714,7 +119714,7 @@ s=8
 return A.u(i.wT(l,k),$async$yg)
 case 8:if(m.c==null){n=[1]
 s=6
-break}m.yi("Controlla la posta","Se username ed email coincidono con i dati registrati, riceverai un link per scegliere la tua password.")
+break}m.yi("Controlla la tua email","Se username ed email coincidono con i dati registrati, riceverai un link per scegliere la tua password.NB: verifica nella cartella SPAM / Posta Indesiderata se non hai ricevuto la mail")
 n.push(7)
 s=6
 break
@@ -119762,7 +119762,7 @@ break
 case 4:s=2
 break
 case 7:if(n.c==null){s=1
-break}n.yi("Controlla la posta","Se l\u2019indirizzo \xe8 registrato, riceverai un link per scegliere una nuova password.")
+break}n.yi("Controlla la posta","Se l\u2019indirizzo \xe8 registrato, riceverai un link per scegliere una nuova password.NB: verifica nella cartella SPAM / Posta Indesiderata se non hai ricevuto la mail")
 case 1:return A.x(q,r)
 case 2:return A.w(o.at(-1),r)}})
 return A.y($async$yh,r)},
