@@ -706,7 +706,7 @@ export default async function handler(req, res) {
     const allowedDataDatabaseIds = new Set([
       '2afde089ef9580e2b0e7d19d44f3a3f6',
       '2b1de089ef9580729622ff9543046cbc',
-      '39bde089ef958021a47cd012c593d249',
+      
       ...(process.env.ALLOWED_DATABASE_IDS || '')
         .split(',')
         .map((id) => id.trim())
