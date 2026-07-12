@@ -353,6 +353,26 @@ export default async function handler(req, res) {
       );
     };
 
+    const ensurePushTokenProperty = async () => {
+      const database = await notionRequest(
+        `https://api.notion.com/v1/databases/${DATABASE_ID}`,
+        'GET',
+      );
+      if (database.status !== 200) return database;
+      const props = database.data?.properties;
+      const existingKey = findKeyByCandidates(props, [
+        'FCM_TOKEN',
+        'PUSH_TOKEN',
+        'TOKEN_PUSH',
+      ]);
+      if (existingKey) return database;
+      return notionRequest(
+        `https://api.notion.com/v1/databases/${DATABASE_ID}`,
+        'PATCH',
+        { properties: { FCM_TOKEN: { rich_text: {} } } },
+      );
+    };
+
     const savePasskeys = async (pageId, passkeys) => {
       const propertyResult = await ensurePasskeysProperty();
       if (propertyResult.status !== 200) return propertyResult;
@@ -793,16 +813,17 @@ export default async function handler(req, res) {
         return res.status(page.status).json(page.data);
       }
       const props = page.data && typeof page.data === 'object' ? page.data.properties : {};
-      const tokenKey = findKeyByCandidates(props, [
+      let tokenKey = findKeyByCandidates(props, [
         'FCM_TOKEN',
         'PUSH_TOKEN',
         'TOKEN_PUSH',
       ]);
       if (!tokenKey) {
-        return res.status(400).json({
-          error: 'Missing token property on user page',
-          details: 'Create a rich_text property named FCM_TOKEN in Cronometristi DB',
-        });
+        const ensured = await ensurePushTokenProperty();
+        if (ensured.status !== 200) {
+          return res.status(ensured.status).json(ensured.data);
+        }
+        tokenKey = 'FCM_TOKEN';
       }
 
       const updatePayload = {
@@ -836,8 +857,15 @@ export default async function handler(req, res) {
 
       const userId = typeof safeBody.userId === 'string' ? safeBody.userId.trim() : '';
       const userName = typeof safeBody.userName === 'string' ? safeBody.userName.trim() : 'Un utente';
+      const available = safeBody.available;
       const garaTitolo =
         typeof safeBody.garaTitolo === 'string' ? safeBody.garaTitolo.trim() : 'una gara';
+      if (!userId || typeof available !== 'boolean') {
+        return res.status(400).json({ error: 'Missing availability notification data' });
+      }
+      if (session.sub !== userId && session.admin !== true) {
+        return res.status(403).json({ error: 'Cannot notify availability for another user' });
+      }
 
       const users = await queryAllDatabasePages(DATABASE_ID);
       const tokenCandidates = ['FCM_TOKEN', 'PUSH_TOKEN', 'TOKEN_PUSH'];
@@ -866,7 +894,9 @@ export default async function handler(req, res) {
       }
 
       const accessToken = await getFirebaseAccessToken();
-      const bodyText = `${userName} si e reso disponibile per ${garaTitolo}`;
+      const bodyText = available
+        ? `${userName} si e reso disponibile per ${garaTitolo}`
+        : `${userName} ha tolto la disponibilita per ${garaTitolo}`;
       const fcmUrl = `https://fcm.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/messages:send`;
       const results = await Promise.allSettled(
         tokenList.map((token) =>
@@ -880,13 +910,14 @@ export default async function handler(req, res) {
               message: {
                 token,
                 notification: {
-                  title: 'Nuova disponibilita',
+                  title: available ? 'Nuova disponibilita' : 'Disponibilita rimossa',
                   body: bodyText,
                 },
                 data: {
                   type: 'availability',
                   garaTitolo,
                   userName,
+                  available: String(available),
                 },
               },
             }),
