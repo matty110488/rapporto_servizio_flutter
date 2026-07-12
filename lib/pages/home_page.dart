@@ -99,13 +99,14 @@ class _HomePageState extends State<HomePage> {
         const SnackBar(
             content: Text('Notifiche attivate su questo dispositivo.')),
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
+      final message = e is PushNotificationSetupException
+          ? e.userMessage
+          : 'Non è stato possibile attivare le notifiche. Controlla i permessi del browser o del dispositivo.';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Non è stato possibile attivare le notifiche. Controlla i permessi del browser o del dispositivo.',
-          ),
+        SnackBar(
+          content: Text(message),
         ),
       );
     } finally {

@@ -37,7 +37,11 @@
 <body>
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('firebase-messaging-sw.js');
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('firebase-messaging-sw.js', {
+          scope: 'firebase-cloud-messaging-push-scope',
+        });
+      });
     }
   </script>
   <!-- Vendored Corbado passkeys bridge; provenance recorded in THIRD_PARTY_NOTICES.md. -->
