@@ -32,6 +32,29 @@ class PushNotice {
   final String body;
 }
 
+class PushSendResult {
+  const PushSendResult({
+    required this.sent,
+    required this.attempted,
+    this.errors = const [],
+  });
+
+  final int sent;
+  final int attempted;
+  final List<String> errors;
+
+  factory PushSendResult.fromJson(Map<String, dynamic> json) {
+    final rawErrors = json['errors'];
+    return PushSendResult(
+      sent: (json['sent'] as num?)?.toInt() ?? 0,
+      attempted: (json['attempted'] as num?)?.toInt() ?? 0,
+      errors: rawErrors is List
+          ? rawErrors.map((entry) => entry.toString()).toList()
+          : const [],
+    );
+  }
+}
+
 final _foregroundNotices = StreamController<PushNotice>.broadcast();
 Stream<PushNotice> get foregroundPushNotices => _foregroundNotices.stream;
 
@@ -103,6 +126,19 @@ Future<void> enableNotificationsForUser(String userId) async {
   await sendTokenToBackend(userId, token);
 }
 
+Future<PushSendResult> sendTestNotificationToCurrentDevice(
+  String userId,
+) async {
+  final token = await getCurrentPushToken();
+  if (token == null || token.isEmpty) {
+    throw const PushNotificationSetupException(
+      'Token notifiche non disponibile su questo dispositivo.',
+    );
+  }
+  await sendTokenToBackend(userId, token);
+  return _sendPushTestToBackend(userId, token);
+}
+
 Future<String?> getCurrentPushToken() async {
   Future<String?> readToken() {
     if (kIsWeb && _webVapidKey.isNotEmpty) {
@@ -163,4 +199,38 @@ Future<void> sendTokenToBackend(String userId, String token) async {
       'HTTP ${res.statusCode}: ${res.body}',
     );
   }
+}
+
+Future<PushSendResult> _sendPushTestToBackend(
+    String userId, String token) async {
+  final sessionToken = globalSessionToken;
+  if (sessionToken == null || sessionToken.isEmpty) {
+    throw const PushNotificationSetupException(
+      'Sessione scaduta: effettua nuovamente il login.',
+    );
+  }
+  final payload = jsonEncode({
+    'action': 'sendTestPushToken',
+    'userId': userId,
+    'token': token,
+  });
+
+  final res = await http.post(
+    Uri.parse(_webProxyUrl),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $sessionToken',
+    },
+    body: payload,
+  );
+
+  if (res.statusCode != 200) {
+    throw PushNotificationSetupException(
+      'Test notifiche non inviato dal server.',
+      'HTTP ${res.statusCode}: ${res.body}',
+    );
+  }
+
+  final data = jsonDecode(res.body) as Map<String, dynamic>;
+  return PushSendResult.fromJson(data);
 }

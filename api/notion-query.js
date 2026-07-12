@@ -188,6 +188,71 @@ export default async function handler(req, res) {
       }));
     };
 
+    const sendFcmMessages = async ({ tokens, title, body, data = {} }) => {
+      if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
+        throw new Error(
+          'Missing FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, or FIREBASE_PRIVATE_KEY',
+        );
+      }
+
+      const tokenList = [...new Set(tokens.filter(Boolean))];
+      if (tokenList.length === 0) {
+        return { sent: 0, attempted: 0, errors: [] };
+      }
+
+      const accessToken = await getFirebaseAccessToken();
+      const fcmUrl = `https://fcm.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/messages:send`;
+      const results = await Promise.allSettled(
+        tokenList.map((token) =>
+          fetch(fcmUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              message: {
+                token,
+                notification: { title, body },
+                webpush: {
+                  notification: {
+                    title,
+                    body,
+                    icon: 'icons/Icon-192.png',
+                  },
+                },
+                data,
+              },
+            }),
+          }),
+        ),
+      );
+
+      let sent = 0;
+      const errors = [];
+      for (const result of results) {
+        if (result.status === 'rejected') {
+          errors.push(String(result.reason));
+          continue;
+        }
+        const response = result.value;
+        const text = await response.text();
+        let responseData = {};
+        try {
+          responseData = text ? JSON.parse(text) : {};
+        } catch {
+          responseData = { raw: text };
+        }
+        if (response.ok) {
+          sent += 1;
+        } else {
+          errors.push(JSON.stringify(responseData));
+        }
+      }
+
+      return { sent, attempted: tokenList.length, errors };
+    };
+
     const findKeyByCandidates = (props, candidates) => {
       for (const key of candidates) {
         if (props && typeof props === 'object' && props[key]) return key;
@@ -869,7 +934,32 @@ export default async function handler(req, res) {
         'PATCH',
         updatePayload,
       );
-      return res.status(updated.status).json(updated.data);
+      if (updated.status !== 200) return res.status(updated.status).json(updated.data);
+      return res.status(200).json({ ok: true, tokenCount: tokens.length });
+    }
+
+    if (action === 'sendTestPushToken') {
+      const userId = typeof safeBody.userId === 'string' ? safeBody.userId.trim() : '';
+      const token = typeof safeBody.token === 'string' ? safeBody.token.trim() : '';
+      if (!userId || !token) {
+        return res.status(400).json({ error: 'Missing userId or token for sendTestPushToken' });
+      }
+      if (session.sub !== userId && session.admin !== true) {
+        return res.status(403).json({ error: 'Cannot test a token for another user' });
+      }
+
+      const result = await sendFcmMessages({
+        tokens: [token],
+        title: 'Test notifiche',
+        body: 'Se leggi questo messaggio, le notifiche funzionano su questo dispositivo.',
+        data: {
+          type: 'push-test',
+          userId,
+          createdAt: new Date().toISOString(),
+        },
+      });
+
+      return res.status(200).json({ ok: true, ...result });
     }
 
     if (action === 'notifyAdminsAvailability') {
@@ -919,59 +1009,24 @@ export default async function handler(req, res) {
         });
       }
 
-      const accessToken = await getFirebaseAccessToken();
       const bodyText = available
         ? `${userName} si e reso disponibile per ${garaTitolo}`
         : `${userName} ha tolto la disponibilita per ${garaTitolo}`;
-      const fcmUrl = `https://fcm.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/messages:send`;
-      const results = await Promise.allSettled(
-        tokenList.map((token) =>
-          fetch(fcmUrl, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              message: {
-                token,
-                notification: {
-                  title: available ? 'Nuova disponibilita' : 'Disponibilita rimossa',
-                  body: bodyText,
-                },
-                data: {
-                  type: 'availability',
-                  garaTitolo,
-                  userName,
-                  available: String(available),
-                },
-              },
-            }),
-          }),
-        ),
-      );
-
-      let sent = 0;
-      const errors = [];
-      for (const result of results) {
-        if (result.status === 'rejected') {
-          errors.push(String(result.reason));
-          continue;
-        }
-        const response = result.value;
-        const data = await response.json();
-        if (response.ok) {
-          sent += 1;
-        } else {
-          errors.push(JSON.stringify(data));
-        }
-      }
+      const result = await sendFcmMessages({
+        tokens: tokenList,
+        title: available ? 'Nuova disponibilita' : 'Disponibilita rimossa',
+        body: bodyText,
+        data: {
+          type: 'availability',
+          garaTitolo,
+          userName,
+          available: String(available),
+        },
+      });
 
       return res.status(200).json({
         ok: true,
-        sent,
-        attempted: tokenList.length,
-        errors,
+        ...result,
       });
     }
 

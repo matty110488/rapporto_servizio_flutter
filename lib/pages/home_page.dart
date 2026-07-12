@@ -37,7 +37,9 @@ class _HomePageState extends State<HomePage> {
   _DashboardData _dashboard = const _DashboardData();
   bool _registeringPasskey = false;
   bool _enablingNotifications = false;
+  bool _testingNotifications = false;
   bool _notificationsEnabled = false;
+  String _notificationStatusText = 'Controllo notifiche...';
   StreamSubscription<PushNotice>? _pushNoticeSubscription;
 
   @override
@@ -81,9 +83,22 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadNotificationStatus() async {
     try {
       final enabled = await notificationsAreEnabled();
-      if (mounted) setState(() => _notificationsEnabled = enabled);
+      if (mounted) {
+        setState(() {
+          _notificationsEnabled = enabled;
+          _notificationStatusText = enabled
+              ? 'Attive su questo dispositivo'
+              : 'Non attive su questo dispositivo';
+        });
+      }
     } catch (_) {
-      // Lo stato resta disattivato se il browser non espone ancora il permesso.
+      if (mounted) {
+        setState(() {
+          _notificationsEnabled = false;
+          _notificationStatusText =
+              'Stato non leggibile su questo browser/dispositivo';
+        });
+      }
     }
   }
 
@@ -94,7 +109,10 @@ class _HomePageState extends State<HomePage> {
     try {
       await enableNotificationsForUser(userId);
       if (!mounted) return;
-      setState(() => _notificationsEnabled = true);
+      setState(() {
+        _notificationsEnabled = true;
+        _notificationStatusText = 'Attive e registrate sul server';
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Notifiche attivate su questo dispositivo.')),
@@ -111,6 +129,39 @@ class _HomePageState extends State<HomePage> {
       );
     } finally {
       if (mounted) setState(() => _enablingNotifications = false);
+    }
+  }
+
+  Future<void> _testNotifications() async {
+    final userId = _loggedUserId;
+    if (userId == null || userId.isEmpty) return;
+    setState(() => _testingNotifications = true);
+    try {
+      final result = await sendTestNotificationToCurrentDevice(userId);
+      if (!mounted) return;
+      final message = result.sent > 0
+          ? 'Test inviato da Firebase a questo dispositivo. Se non compare nulla su iPhone, il blocco e nella ricezione iOS/PWA.'
+          : 'Test non consegnato: ${result.errors.isNotEmpty ? result.errors.first : 'nessun dettaglio dal server'}.';
+      setState(() {
+        _notificationsEnabled = result.sent > 0 || _notificationsEnabled;
+        _notificationStatusText = result.sent > 0
+            ? 'Test inviato al token di questo dispositivo'
+            : 'Test non consegnato dal server';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is PushNotificationSetupException
+          ? e.userMessage
+          : 'Test notifiche non riuscito: $e';
+      setState(() => _notificationStatusText = message);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) setState(() => _testingNotifications = false);
     }
   }
 
@@ -357,6 +408,8 @@ class _HomePageState extends State<HomePage> {
               children: [
                 _hero(userName),
                 const SizedBox(height: 14),
+                _notificationStatusCard(),
+                const SizedBox(height: 14),
                 Expanded(
                   child: GridView.builder(
                     itemCount: navItems.length,
@@ -396,6 +449,73 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _notificationStatusCard() {
+    final active = _notificationsEnabled;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: active ? const Color(0xFF7CCB9B) : const Color(0xFFDCE8F6),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            active ? Icons.notifications_active : Icons.notifications_none,
+            color: active ? const Color(0xFF1D7C4B) : const Color(0xFF49627E),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  active ? 'Notifiche attive' : 'Notifiche non attive',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1A2B40),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _notificationStatusText,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF49627E),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (active)
+            OutlinedButton(
+              onPressed: _testingNotifications ? null : _testNotifications,
+              child: _testingNotifications
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Test'),
+            )
+          else
+            FilledButton(
+              onPressed: _enablingNotifications ? null : _enableNotifications,
+              child: _enablingNotifications
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Attiva'),
+            ),
+        ],
       ),
     );
   }
