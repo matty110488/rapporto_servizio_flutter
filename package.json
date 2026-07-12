@@ -10,6 +10,6 @@
   },
   "dependencies": {
     "@simplewebauthn/server": "13.3.2",
-    "firebase-admin": "14.1.0"
+    "firebase-admin": "13.6.0"
   }
 }
