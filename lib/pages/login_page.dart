@@ -31,10 +31,15 @@ class _LoginPageState extends State<LoginPage> {
       errorMsg = null;
     });
 
-    final user = await auth.login(
-      userCtrl.text.trim(),
-      passCtrl.text.trim(),
-    );
+    Map<String, dynamic>? user;
+    try {
+      final identifier = userCtrl.text.trim();
+      user = identifier.contains('@')
+          ? await auth.loginWithFirebase(identifier, passCtrl.text)
+          : await auth.login(identifier, passCtrl.text);
+    } catch (_) {
+      user = null;
+    }
     if (!mounted) return;
 
     if (user == null) {
@@ -46,6 +51,125 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     widget.onLogin(user); // restituisco l'utente alla app
+  }
+
+  Future<void> _showFirstAccess() async {
+    final usernameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Primo accesso'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Inserisci lo username e la stessa email registrata in segreteria.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: usernameCtrl,
+              decoration: const InputDecoration(labelText: 'Username'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              decoration: const InputDecoration(labelText: 'Email'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Invia email'),
+          ),
+        ],
+      ),
+    );
+    if (submitted != true || !mounted) {
+      usernameCtrl.dispose();
+      emailCtrl.dispose();
+      return;
+    }
+    final username = usernameCtrl.text;
+    final email = emailCtrl.text;
+    usernameCtrl.dispose();
+    emailCtrl.dispose();
+    setState(() => loading = true);
+    try {
+      await auth.startFirstAccess(username, email);
+      if (!mounted) return;
+      _showInfo(
+        'Controlla la posta',
+        'Se username ed email coincidono con i dati registrati, riceverai un link per scegliere la tua password.',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => errorMsg = 'Servizio momentaneamente non disponibile.');
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> _showForgotPassword() async {
+    final emailCtrl = TextEditingController();
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Password dimenticata'),
+        content: TextField(
+          controller: emailCtrl,
+          keyboardType: TextInputType.emailAddress,
+          autocorrect: false,
+          decoration: const InputDecoration(labelText: 'Email'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Invia email'),
+          ),
+        ],
+      ),
+    );
+    final email = emailCtrl.text;
+    emailCtrl.dispose();
+    if (submitted != true || !mounted) return;
+    try {
+      await auth.sendPasswordReset(email);
+    } catch (_) {
+      // The message stays generic to avoid revealing registered accounts.
+    }
+    if (!mounted) return;
+    _showInfo(
+      'Controlla la posta',
+      'Se l’indirizzo è registrato, riceverai un link per scegliere una nuova password.',
+    );
+  }
+
+  Future<void> _showInfo(String title, String message) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> doPasskeyLogin() async {
@@ -93,7 +217,10 @@ class _LoginPageState extends State<LoginPage> {
               SizedBox(height: 24),
               TextField(
                 controller: userCtrl,
-                decoration: InputDecoration(labelText: "Username"),
+                autocorrect: false,
+                decoration: const InputDecoration(
+                  labelText: 'Email oppure username precedente',
+                ),
               ),
               SizedBox(height: 12),
               TextField(
@@ -118,6 +245,16 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: doPasskeyLogin,
                       icon: const Icon(Icons.fingerprint),
                       label: const Text('Accedi con Face ID o impronta'),
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton(
+                      onPressed: _showFirstAccess,
+                      child:
+                          const Text('Primo accesso: scegli la tua password'),
+                    ),
+                    TextButton(
+                      onPressed: _showForgotPassword,
+                      child: const Text('Password dimenticata?'),
                     ),
                   ],
                 ),

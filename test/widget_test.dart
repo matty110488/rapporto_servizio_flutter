@@ -12,7 +12,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Login Cronometristi'), findsOneWidget);
-    expect(find.text('Username'), findsOneWidget);
+    expect(find.text('Email oppure username precedente'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
     expect(find.text('Accedi'), findsOneWidget);
     expect(find.text('Accedi con Face ID o impronta'), findsOneWidget);

@@ -5,6 +5,8 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from '@simplewebauthn/server';
+import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://matty110488.github.io',
@@ -278,6 +280,49 @@ export default async function handler(req, res) {
       return { ...page, properties: safeProperties };
     };
 
+    const extractPropertyText = (field) => {
+      if (!field || typeof field !== 'object') return '';
+      if (typeof field.email === 'string') return field.email.trim();
+      for (const key of ['rich_text', 'title']) {
+        const list = Array.isArray(field[key]) ? field[key] : [];
+        const value = list.map((entry) => entry?.plain_text || '').join('').trim();
+        if (value) return value;
+      }
+      return '';
+    };
+
+    const findProperty = (props, candidates) => {
+      if (!props || typeof props !== 'object') return null;
+      const wanted = new Set(candidates.map((value) => value.replace(/[^a-z0-9]/gi, '').toLowerCase()));
+      for (const [key, value] of Object.entries(props)) {
+        const normalized = key.replace(/[^a-z0-9]/gi, '').toLowerCase();
+        if (wanted.has(normalized)) return value;
+      }
+      return null;
+    };
+
+    const emailFromUser = (page) =>
+      extractPropertyText(findProperty(page?.properties, ['EMAIL', 'E-MAIL', 'MAIL']));
+
+    const usernameFromUser = (page) =>
+      extractPropertyText(findProperty(page?.properties, ['USERNAME', 'USER NAME']));
+
+    const firebaseAuth = () => {
+      if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
+        throw new Error('Firebase Admin credentials are not configured');
+      }
+      if (getApps().length === 0) {
+        initializeApp({
+          credential: cert({
+            projectId: FIREBASE_PROJECT_ID,
+            clientEmail: FIREBASE_CLIENT_EMAIL,
+            privateKey: FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+          }),
+        });
+      }
+      return getAuth();
+    };
+
     const getPasskeys = (page) => {
       const props = page && typeof page === 'object' ? page.properties : null;
       const key = findKeyByCandidates(props, ['PASSKEYS', 'Passkeys', 'passkeys']);
@@ -374,6 +419,79 @@ export default async function handler(req, res) {
       }
       return all;
     };
+
+    const retrieveUserPage = async (pageId) => {
+      const result = await notionRequest(`https://api.notion.com/v1/pages/${pageId}`, 'GET');
+      if (result.status !== 200 || !result.data || typeof result.data !== 'object') {
+        throw new Error(`Notion user lookup failed (${result.status})`);
+      }
+      return result.data;
+    };
+
+    if (action === 'startFirstAccess') {
+      const username = typeof safeBody.username === 'string' ? safeBody.username.trim() : '';
+      const email = typeof safeBody.email === 'string' ? safeBody.email.trim().toLowerCase() : '';
+      if (!username || !email || !email.includes('@')) {
+        return res.status(400).json({ error: 'Invalid first access request' });
+      }
+
+      const users = await queryAllDatabasePages(DATABASE_ID);
+      const user = users.find(
+        (candidate) =>
+          usernameFromUser(candidate).toLowerCase() === username.toLowerCase() &&
+          emailFromUser(candidate).toLowerCase() === email,
+      );
+
+      if (user && typeof user.id === 'string') {
+        const auth = firebaseAuth();
+        let firebaseUser;
+        try {
+          firebaseUser = await auth.getUserByEmail(email);
+        } catch (error) {
+          if (error?.code !== 'auth/user-not-found') throw error;
+          firebaseUser = await auth.createUser({
+            email,
+            displayName: displayNameFromUser(user),
+          });
+        }
+        await auth.setCustomUserClaims(firebaseUser.uid, {
+          notionPageId: user.id,
+          admin: isAdminFromProperties(user.properties),
+        });
+      }
+
+      return res.status(200).json({ ok: true, canSendEmail: Boolean(user) });
+    }
+
+    if (action === 'firebaseLogin') {
+      const idToken = typeof safeBody.idToken === 'string' ? safeBody.idToken : '';
+      if (!idToken) return res.status(400).json({ error: 'Missing Firebase ID token' });
+
+      const auth = firebaseAuth();
+      const decoded = await auth.verifyIdToken(idToken);
+      let notionPageId = typeof decoded.notionPageId === 'string' ? decoded.notionPageId : '';
+
+      if (!notionPageId && typeof decoded.email === 'string') {
+        const email = decoded.email.trim().toLowerCase();
+        const users = await queryAllDatabasePages(DATABASE_ID);
+        const user = users.find((candidate) => emailFromUser(candidate).toLowerCase() === email);
+        if (user && typeof user.id === 'string') {
+          notionPageId = user.id;
+          await auth.setCustomUserClaims(decoded.uid, {
+            notionPageId,
+            admin: isAdminFromProperties(user.properties),
+          });
+        }
+      }
+
+      if (!notionPageId) return res.status(403).json({ error: 'User profile not linked' });
+      const user = await retrieveUserPage(notionPageId);
+      const isAdmin = isAdminFromProperties(user.properties);
+      return res.status(200).json({
+        user: sanitizeUserPage(user),
+        sessionToken: signSession(user.id, isAdmin),
+      });
+    }
 
     if (action === 'login') {
       const username = typeof safeBody.username === 'string' ? safeBody.username.trim() : '';
