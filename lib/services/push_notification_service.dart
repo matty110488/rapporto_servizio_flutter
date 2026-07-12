@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../state/session_state.dart';
 
@@ -12,6 +14,7 @@ const _webProxyUrl =
 const _webVapidKey = String.fromEnvironment('FIREBASE_WEB_VAPID_KEY');
 const _webMessagingServiceWorker =
     'firebase-cloud-messaging-push-scope/firebase-messaging-sw.js';
+const _pushDeviceIdKey = 'push_device_id';
 
 class PushNotificationSetupException implements Exception {
   const PushNotificationSetupException(this.userMessage, [this.cause]);
@@ -27,10 +30,15 @@ class PushNotificationSetupException implements Exception {
 }
 
 class PushNotice {
-  const PushNotice({required this.title, required this.body});
+  PushNotice({
+    required this.title,
+    required this.body,
+    DateTime? receivedAt,
+  }) : receivedAt = receivedAt ?? DateTime.now();
 
   final String title;
   final String body;
+  final DateTime receivedAt;
 }
 
 class PushSendResult {
@@ -72,6 +80,19 @@ Future<void> initFirebaseMessaging() async {
     final body = message.notification?.body ?? '';
     _foregroundNotices.add(PushNotice(title: title, body: body));
   });
+}
+
+Future<String> getPushDeviceId() async {
+  final prefs = await SharedPreferences.getInstance();
+  final existing = prefs.getString(_pushDeviceIdKey);
+  if (existing != null && existing.isNotEmpty) return existing;
+
+  final random = Random.secure();
+  final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+  final generated =
+      'dev_${DateTime.now().millisecondsSinceEpoch}_${base64UrlEncode(bytes)}';
+  await prefs.setString(_pushDeviceIdKey, generated);
+  return generated;
 }
 
 Future<bool> notificationsAreEnabled() async {
@@ -179,10 +200,12 @@ Future<String?> getCurrentPushToken() async {
 Future<void> sendTokenToBackend(String userId, String token) async {
   final sessionToken = globalSessionToken;
   if (sessionToken == null || sessionToken.isEmpty) return;
+  final deviceId = await getPushDeviceId();
   final payload = jsonEncode({
     'action': 'registerPushToken',
     'userId': userId,
     'token': token,
+    'deviceId': deviceId,
   });
 
   final res = await http.post(
@@ -214,6 +237,7 @@ Future<PushSendResult> _sendPushTestToBackend(
     'action': 'sendTestPushToken',
     'userId': userId,
     'token': token,
+    'deviceId': await getPushDeviceId(),
   });
 
   final res = await http.post(

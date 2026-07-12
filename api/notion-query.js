@@ -169,8 +169,13 @@ export default async function handler(req, res) {
         const decoded = JSON.parse(raw);
         if (Array.isArray(decoded)) {
           return decoded
-            .filter((entry) => typeof entry === 'string')
-            .map((entry) => entry.trim())
+            .map((entry) => {
+              if (typeof entry === 'string') return entry.trim();
+              if (entry && typeof entry === 'object' && typeof entry.token === 'string') {
+                return entry.token.trim();
+              }
+              return '';
+            })
             .filter(Boolean);
         }
       } catch {
@@ -179,8 +184,39 @@ export default async function handler(req, res) {
       return [raw];
     };
 
-    const pushTokenRichText = (tokens) => {
-      const serialized = JSON.stringify(tokens);
+    const extractPushTokenRecords = (field) => {
+      const raw = extractRichText(field);
+      if (!raw) return [];
+      try {
+        const decoded = JSON.parse(raw);
+        if (Array.isArray(decoded)) {
+          return decoded
+            .map((entry) => {
+              if (typeof entry === 'string') {
+                const token = entry.trim();
+                return token ? { token, legacy: true } : null;
+              }
+              if (entry && typeof entry === 'object' && typeof entry.token === 'string') {
+                const token = entry.token.trim();
+                if (!token) return null;
+                return {
+                  token,
+                  deviceId: typeof entry.deviceId === 'string' ? entry.deviceId.trim() : '',
+                  updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : '',
+                };
+              }
+              return null;
+            })
+            .filter(Boolean);
+        }
+      } catch {
+        // Legacy field format: a single raw token.
+      }
+      return [{ token: raw, legacy: true }];
+    };
+
+    const pushTokenRichText = (records) => {
+      const serialized = JSON.stringify(records);
       const chunks = serialized.match(/.{1,1900}/gs) || [];
       return chunks.map((content) => ({
         type: 'text',
@@ -893,6 +929,7 @@ export default async function handler(req, res) {
     if (action === 'registerPushToken') {
       const userId = typeof safeBody.userId === 'string' ? safeBody.userId.trim() : '';
       const token = typeof safeBody.token === 'string' ? safeBody.token.trim() : '';
+      const deviceId = typeof safeBody.deviceId === 'string' ? safeBody.deviceId.trim() : '';
       if (!userId || !token) {
         return res.status(400).json({ error: 'Missing userId or token for registerPushToken' });
       }
@@ -918,13 +955,29 @@ export default async function handler(req, res) {
         tokenKey = 'FCM_TOKEN';
       }
 
-      const existingTokens = extractPushTokens(props[tokenKey]);
-      const tokens = [token, ...existingTokens.filter((entry) => entry !== token)].slice(0, 10);
+      const existingRecords = extractPushTokenRecords(props[tokenKey]);
+      const now = new Date().toISOString();
+      const currentRecord = {
+        token,
+        deviceId,
+        updatedAt: now,
+      };
+      const records = [
+        currentRecord,
+        ...existingRecords.filter((entry) => {
+          if (!entry || entry.token === token) return false;
+          if (deviceId && entry.deviceId === deviceId) return false;
+          // Legacy string tokens are from the pre-deviceId flow and can create
+          // duplicate notifications on the same device after worker migration.
+          if (deviceId && entry.legacy === true) return false;
+          return true;
+        }),
+      ].slice(0, 10);
 
       const updatePayload = {
         properties: {
           [tokenKey]: {
-            rich_text: pushTokenRichText(tokens),
+            rich_text: pushTokenRichText(records),
           },
         },
       };
@@ -935,7 +988,7 @@ export default async function handler(req, res) {
         updatePayload,
       );
       if (updated.status !== 200) return res.status(updated.status).json(updated.data);
-      return res.status(200).json({ ok: true, tokenCount: tokens.length });
+      return res.status(200).json({ ok: true, tokenCount: records.length });
     }
 
     if (action === 'sendTestPushToken') {

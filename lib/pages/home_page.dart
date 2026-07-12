@@ -40,6 +40,7 @@ class _HomePageState extends State<HomePage> {
   bool _testingNotifications = false;
   bool _notificationsEnabled = false;
   String _notificationStatusText = 'Controllo notifiche...';
+  final List<PushNotice> _receivedNotices = [];
   StreamSubscription<PushNotice>? _pushNoticeSubscription;
 
   @override
@@ -50,6 +51,12 @@ class _HomePageState extends State<HomePage> {
     );
     _pushNoticeSubscription = foregroundPushNotices.listen((notice) {
       if (!mounted) return;
+      setState(() {
+        _receivedNotices.insert(0, notice);
+        if (_receivedNotices.length > 20) {
+          _receivedNotices.removeRange(20, _receivedNotices.length);
+        }
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Column(
@@ -169,6 +176,67 @@ class _HomePageState extends State<HomePage> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => page),
+    );
+  }
+
+  void _openNotificationsInbox() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Notifiche ricevute',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (_receivedNotices.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Text(
+                      'Nessuna notifica ricevuta mentre l\'app era aperta.',
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: _receivedNotices.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final notice = _receivedNotices[index];
+                        final hh =
+                            notice.receivedAt.hour.toString().padLeft(2, '0');
+                        final mm =
+                            notice.receivedAt.minute.toString().padLeft(2, '0');
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.notifications),
+                          title: Text(notice.title),
+                          subtitle: Text(
+                            notice.body.isEmpty
+                                ? 'Ricevuta alle $hh:$mm'
+                                : notice.body,
+                          ),
+                          trailing: Text('$hh:$mm'),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -378,6 +446,15 @@ class _HomePageState extends State<HomePage> {
                         ? Icons.notifications_active
                         : Icons.notifications_none,
                   ),
+          ),
+          IconButton(
+            onPressed: _openNotificationsInbox,
+            tooltip: 'Notifiche ricevute',
+            icon: Badge.count(
+              count: _receivedNotices.length,
+              isLabelVisible: _receivedNotices.isNotEmpty,
+              child: const Icon(Icons.notifications_active_outlined),
+            ),
           ),
           IconButton(
             onPressed: _registeringPasskey ? null : _enablePasskey,
