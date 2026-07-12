@@ -430,12 +430,6 @@ export default async function handler(req, res) {
       return result.data;
     };
 
-    if (action === 'firebaseAuthHealth') {
-      const auth = await firebaseAuth();
-      await auth.listUsers(1);
-      return res.status(200).json({ ok: true });
-    }
-
     if (action === 'startFirstAccess') {
       const username = typeof safeBody.username === 'string' ? safeBody.username.trim() : '';
       const email = typeof safeBody.email === 'string' ? safeBody.email.trim().toLowerCase() : '';
