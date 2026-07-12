@@ -19,6 +19,10 @@ messaging.onBackgroundMessage((payload) => {
     if (payload.notification.title) title = payload.notification.title;
     if (payload.notification.body) body = payload.notification.body;
   }
+  if (payload && payload.data) {
+    if (payload.data.title) title = payload.data.title;
+    if (payload.data.body) body = payload.data.body;
+  }
 
   self.registration.showNotification(title, {
     body,

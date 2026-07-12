@@ -15,6 +15,7 @@ const _webVapidKey = String.fromEnvironment('FIREBASE_WEB_VAPID_KEY');
 const _webMessagingServiceWorker =
     'firebase-cloud-messaging-push-scope/firebase-messaging-sw.js';
 const _pushDeviceIdKey = 'push_device_id';
+const _pushAppEnabledKey = 'push_app_enabled';
 
 class PushNotificationSetupException implements Exception {
   const PushNotificationSetupException(this.userMessage, [this.cause]);
@@ -31,14 +32,33 @@ class PushNotificationSetupException implements Exception {
 
 class PushNotice {
   PushNotice({
+    this.id,
     required this.title,
     required this.body,
+    this.type = '',
+    this.read = false,
     DateTime? receivedAt,
   }) : receivedAt = receivedAt ?? DateTime.now();
 
+  final String? id;
   final String title;
   final String body;
+  final String type;
+  final bool read;
   final DateTime receivedAt;
+
+  factory PushNotice.fromJson(Map<String, dynamic> json) {
+    final createdAt = json['createdAt'];
+    return PushNotice(
+      id: json['id'] is String ? json['id'] as String : null,
+      title: json['title'] is String ? json['title'] as String : 'Notifica',
+      body: json['body'] is String ? json['body'] as String : '',
+      type: json['type'] is String ? json['type'] as String : '',
+      read: json['read'] == true,
+      receivedAt:
+          createdAt is String ? DateTime.tryParse(createdAt)?.toLocal() : null,
+    );
+  }
 }
 
 class PushSendResult {
@@ -76,8 +96,10 @@ Future<void> initFirebaseMessaging() async {
 
   FirebaseMessaging.onMessage.listen((message) {
     print('[PUSH] Foreground message: ${message.messageId}');
-    final title = message.notification?.title ?? 'Nuova notifica';
-    final body = message.notification?.body ?? '';
+    final title = message.notification?.title ??
+        message.data['title'] ??
+        'Nuova notifica';
+    final body = message.notification?.body ?? message.data['body'] ?? '';
     _foregroundNotices.add(PushNotice(title: title, body: body));
   });
 }
@@ -99,6 +121,13 @@ Future<bool> notificationsAreEnabled() async {
   final settings = await FirebaseMessaging.instance.getNotificationSettings();
   return settings.authorizationStatus == AuthorizationStatus.authorized ||
       settings.authorizationStatus == AuthorizationStatus.provisional;
+}
+
+Future<bool> pushNotificationsAppEnabled() async {
+  final prefs = await SharedPreferences.getInstance();
+  final localChoice = prefs.getBool(_pushAppEnabledKey);
+  if (localChoice != null) return localChoice;
+  return notificationsAreEnabled();
 }
 
 Future<void> enableNotificationsForUser(String userId) async {
@@ -139,13 +168,61 @@ Future<void> enableNotificationsForUser(String userId) async {
     );
   }
 
-  final token = await getCurrentPushToken();
+  String? token;
+  try {
+    token = await getCurrentPushToken();
+  } catch (_) {
+    token = null;
+  }
   if (token == null || token.isEmpty) {
     throw const PushNotificationSetupException(
       'Token notifiche non disponibile. Riprova dopo aver chiuso e riaperto l\'app dalla schermata Home.',
     );
   }
   await sendTokenToBackend(userId, token);
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(_pushAppEnabledKey, true);
+}
+
+Future<void> disableNotificationsForUser(String userId) async {
+  final sessionToken = globalSessionToken;
+  if (sessionToken == null || sessionToken.isEmpty) {
+    throw const PushNotificationSetupException(
+      'Sessione scaduta: effettua nuovamente il login.',
+    );
+  }
+
+  String? token;
+  try {
+    token = await getCurrentPushToken();
+  } catch (_) {
+    token = null;
+  }
+  final payload = jsonEncode({
+    'action': 'deactivatePushToken',
+    'userId': userId,
+    'deviceId': await getPushDeviceId(),
+    if (token != null && token.isNotEmpty) 'token': token,
+  });
+
+  final res = await http.post(
+    Uri.parse(_webProxyUrl),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $sessionToken',
+    },
+    body: payload,
+  );
+
+  if (res.statusCode != 200) {
+    throw PushNotificationSetupException(
+      'Non è stato possibile disattivare le notifiche sul server.',
+      'HTTP ${res.statusCode}: ${res.body}',
+    );
+  }
+
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(_pushAppEnabledKey, false);
 }
 
 Future<PushSendResult> sendTestNotificationToCurrentDevice(
@@ -258,4 +335,68 @@ Future<PushSendResult> _sendPushTestToBackend(
 
   final data = jsonDecode(res.body) as Map<String, dynamic>;
   return PushSendResult.fromJson(data);
+}
+
+Future<List<PushNotice>> fetchPushNotifications(String userId) async {
+  final sessionToken = globalSessionToken;
+  if (sessionToken == null || sessionToken.isEmpty) {
+    throw const PushNotificationSetupException(
+      'Sessione scaduta: effettua nuovamente il login.',
+    );
+  }
+
+  final res = await http.post(
+    Uri.parse(_webProxyUrl),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $sessionToken',
+    },
+    body: jsonEncode({
+      'action': 'listPushNotifications',
+      'userId': userId,
+    }),
+  );
+
+  if (res.statusCode != 200) {
+    throw PushNotificationSetupException(
+      'Non è stato possibile leggere le notifiche.',
+      'HTTP ${res.statusCode}: ${res.body}',
+    );
+  }
+
+  final data = jsonDecode(res.body) as Map<String, dynamic>;
+  final raw = data['notifications'];
+  if (raw is! List) return const [];
+  return raw
+      .whereType<Map<String, dynamic>>()
+      .map(PushNotice.fromJson)
+      .toList(growable: false);
+}
+
+Future<void> clearPushNotifications(String userId) async {
+  final sessionToken = globalSessionToken;
+  if (sessionToken == null || sessionToken.isEmpty) {
+    throw const PushNotificationSetupException(
+      'Sessione scaduta: effettua nuovamente il login.',
+    );
+  }
+
+  final res = await http.post(
+    Uri.parse(_webProxyUrl),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $sessionToken',
+    },
+    body: jsonEncode({
+      'action': 'clearPushNotifications',
+      'userId': userId,
+    }),
+  );
+
+  if (res.statusCode != 200) {
+    throw PushNotificationSetupException(
+      'Non è stato possibile svuotare le notifiche.',
+      'HTTP ${res.statusCode}: ${res.body}',
+    );
+  }
 }

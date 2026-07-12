@@ -172,6 +172,7 @@ export default async function handler(req, res) {
             .map((entry) => {
               if (typeof entry === 'string') return entry.trim();
               if (entry && typeof entry === 'object' && typeof entry.token === 'string') {
+                if (entry.enabled === false) return '';
                 return entry.token.trim();
               }
               return '';
@@ -203,6 +204,7 @@ export default async function handler(req, res) {
                   token,
                   deviceId: typeof entry.deviceId === 'string' ? entry.deviceId.trim() : '',
                   updatedAt: typeof entry.updatedAt === 'string' ? entry.updatedAt : '',
+                  enabled: entry.enabled !== false,
                 };
               }
               return null;
@@ -216,6 +218,45 @@ export default async function handler(req, res) {
     };
 
     const pushTokenRichText = (records) => {
+      const serialized = JSON.stringify(records);
+      const chunks = serialized.match(/.{1,1900}/gs) || [];
+      return chunks.map((content) => ({
+        type: 'text',
+        text: { content },
+      }));
+    };
+
+    const extractNotificationRecords = (field) => {
+      const raw = extractRichText(field);
+      if (!raw) return [];
+      try {
+        const decoded = JSON.parse(raw);
+        if (!Array.isArray(decoded)) return [];
+        return decoded
+          .map((entry) => {
+            if (!entry || typeof entry !== 'object') return null;
+            return {
+              id:
+                typeof entry.id === 'string' && entry.id.trim()
+                  ? entry.id.trim()
+                  : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+              title: typeof entry.title === 'string' ? entry.title : 'Notifica',
+              body: typeof entry.body === 'string' ? entry.body : '',
+              type: typeof entry.type === 'string' ? entry.type : '',
+              createdAt:
+                typeof entry.createdAt === 'string'
+                  ? entry.createdAt
+                  : new Date().toISOString(),
+              read: entry.read === true,
+            };
+          })
+          .filter(Boolean);
+      } catch {
+        return [];
+      }
+    };
+
+    const notificationRichText = (records) => {
       const serialized = JSON.stringify(records);
       const chunks = serialized.match(/.{1,1900}/gs) || [];
       return chunks.map((content) => ({
@@ -249,15 +290,18 @@ export default async function handler(req, res) {
             body: JSON.stringify({
               message: {
                 token,
-                notification: { title, body },
                 webpush: {
-                  notification: {
-                    title,
-                    body,
-                    icon: 'icons/Icon-192.png',
+                  headers: {
+                    Urgency: 'high',
                   },
                 },
-                data,
+                data: Object.fromEntries(
+                  Object.entries({
+                    ...data,
+                    title,
+                    body,
+                  }).map(([key, value]) => [key, value == null ? '' : String(value)]),
+                ),
               },
             }),
           }),
@@ -394,8 +438,11 @@ export default async function handler(req, res) {
         'PASSWORD',
         'PASSKEYS',
         'FCM_TOKEN',
+        'FCM_NOTIFICATIONS',
         'PUSH_TOKEN',
+        'PUSH_NOTIFICATIONS',
         'TOKEN_PUSH',
+        'NOTIFICHE_PUSH',
       ]);
       const safeProperties = Object.fromEntries(
         Object.entries(properties).filter(
@@ -498,6 +545,70 @@ export default async function handler(req, res) {
         'PATCH',
         { properties: { FCM_TOKEN: { rich_text: {} } } },
       );
+    };
+
+    const ensurePushNotificationsProperty = async () => {
+      const database = await notionRequest(
+        `https://api.notion.com/v1/databases/${DATABASE_ID}`,
+        'GET',
+      );
+      if (database.status !== 200) return database;
+      const props = database.data?.properties;
+      const existingKey = findKeyByCandidates(props, [
+        'FCM_NOTIFICATIONS',
+        'PUSH_NOTIFICATIONS',
+        'NOTIFICHE_PUSH',
+      ]);
+      if (existingKey) {
+        return { status: 200, data: { key: existingKey } };
+      }
+      const created = await notionRequest(
+        `https://api.notion.com/v1/databases/${DATABASE_ID}`,
+        'PATCH',
+        { properties: { FCM_NOTIFICATIONS: { rich_text: {} } } },
+      );
+      if (created.status !== 200) return created;
+      return { status: 200, data: { key: 'FCM_NOTIFICATIONS' } };
+    };
+
+    const saveNotificationRecords = async (userId, nextRecords) => {
+      const ensured = await ensurePushNotificationsProperty();
+      if (ensured.status !== 200) return ensured;
+      const key = ensured.data?.key || 'FCM_NOTIFICATIONS';
+      return notionRequest(
+        `https://api.notion.com/v1/pages/${userId}`,
+        'PATCH',
+        {
+          properties: {
+            [key]: {
+              rich_text: notificationRichText(nextRecords.slice(0, 50)),
+            },
+          },
+        },
+      );
+    };
+
+    const appendUserNotification = async (userId, notification) => {
+      const page = await notionRequest(`https://api.notion.com/v1/pages/${userId}`, 'GET');
+      if (page.status !== 200) return page;
+      const props = page.data && typeof page.data === 'object' ? page.data.properties : {};
+      const notificationKey = findKeyByCandidates(props, [
+        'FCM_NOTIFICATIONS',
+        'PUSH_NOTIFICATIONS',
+        'NOTIFICHE_PUSH',
+      ]);
+      const existingRecords = notificationKey
+        ? extractNotificationRecords(props[notificationKey])
+        : [];
+      const record = {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        title: notification.title || 'Notifica',
+        body: notification.body || '',
+        type: notification.type || '',
+        createdAt: new Date().toISOString(),
+        read: false,
+      };
+      return saveNotificationRecords(userId, [record, ...existingRecords]);
     };
 
     const savePasskeys = async (pageId, passkeys) => {
@@ -961,6 +1072,7 @@ export default async function handler(req, res) {
         token,
         deviceId,
         updatedAt: now,
+        enabled: true,
       };
       const records = [
         currentRecord,
@@ -991,6 +1103,87 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, tokenCount: records.length });
     }
 
+    if (action === 'deactivatePushToken') {
+      const userId = typeof safeBody.userId === 'string' ? safeBody.userId.trim() : '';
+      const token = typeof safeBody.token === 'string' ? safeBody.token.trim() : '';
+      const deviceId = typeof safeBody.deviceId === 'string' ? safeBody.deviceId.trim() : '';
+      if (!userId || (!token && !deviceId)) {
+        return res.status(400).json({ error: 'Missing userId and token/deviceId for deactivatePushToken' });
+      }
+      if (session.sub !== userId && session.admin !== true) {
+        return res.status(403).json({ error: 'Cannot deactivate a token for another user' });
+      }
+
+      const page = await notionRequest(`https://api.notion.com/v1/pages/${userId}`, 'GET');
+      if (page.status !== 200) {
+        return res.status(page.status).json(page.data);
+      }
+      const props = page.data && typeof page.data === 'object' ? page.data.properties : {};
+      const tokenKey = findKeyByCandidates(props, [
+        'FCM_TOKEN',
+        'PUSH_TOKEN',
+        'TOKEN_PUSH',
+      ]);
+      if (!tokenKey) return res.status(200).json({ ok: true, tokenCount: 0 });
+
+      const existingRecords = extractPushTokenRecords(props[tokenKey]);
+      const records = existingRecords
+        .filter((entry) => {
+          if (!entry) return false;
+          if (token && entry.token === token) return false;
+          if (deviceId && entry.deviceId === deviceId) return false;
+          return true;
+        })
+        .slice(0, 10);
+
+      const updated = await notionRequest(
+        `https://api.notion.com/v1/pages/${userId}`,
+        'PATCH',
+        {
+          properties: {
+            [tokenKey]: {
+              rich_text: pushTokenRichText(records),
+            },
+          },
+        },
+      );
+      if (updated.status !== 200) return res.status(updated.status).json(updated.data);
+      return res.status(200).json({ ok: true, tokenCount: records.length });
+    }
+
+    if (action === 'listPushNotifications') {
+      const userId = typeof safeBody.userId === 'string' ? safeBody.userId.trim() : session.sub;
+      if (!userId) return res.status(400).json({ error: 'Missing userId for listPushNotifications' });
+      if (session.sub !== userId && session.admin !== true) {
+        return res.status(403).json({ error: 'Cannot list notifications for another user' });
+      }
+
+      const page = await notionRequest(`https://api.notion.com/v1/pages/${userId}`, 'GET');
+      if (page.status !== 200) return res.status(page.status).json(page.data);
+      const props = page.data && typeof page.data === 'object' ? page.data.properties : {};
+      const notificationKey = findKeyByCandidates(props, [
+        'FCM_NOTIFICATIONS',
+        'PUSH_NOTIFICATIONS',
+        'NOTIFICHE_PUSH',
+      ]);
+      const notifications = notificationKey
+        ? extractNotificationRecords(props[notificationKey])
+        : [];
+      return res.status(200).json({ ok: true, notifications });
+    }
+
+    if (action === 'clearPushNotifications') {
+      const userId = typeof safeBody.userId === 'string' ? safeBody.userId.trim() : session.sub;
+      if (!userId) return res.status(400).json({ error: 'Missing userId for clearPushNotifications' });
+      if (session.sub !== userId && session.admin !== true) {
+        return res.status(403).json({ error: 'Cannot clear notifications for another user' });
+      }
+
+      const saved = await saveNotificationRecords(userId, []);
+      if (saved.status !== 200) return res.status(saved.status).json(saved.data);
+      return res.status(200).json({ ok: true, notifications: [] });
+    }
+
     if (action === 'sendTestPushToken') {
       const userId = typeof safeBody.userId === 'string' ? safeBody.userId.trim() : '';
       const token = typeof safeBody.token === 'string' ? safeBody.token.trim() : '';
@@ -1011,6 +1204,13 @@ export default async function handler(req, res) {
           createdAt: new Date().toISOString(),
         },
       });
+      if (result.sent > 0) {
+        await appendUserNotification(userId, {
+          title: 'Test notifiche',
+          body: 'Se leggi questo messaggio, le notifiche funzionano su questo dispositivo.',
+          type: 'push-test',
+        });
+      }
 
       return res.status(200).json({ ok: true, ...result });
     }
@@ -1037,7 +1237,7 @@ export default async function handler(req, res) {
 
       const users = await queryAllDatabasePages(DATABASE_ID);
       const tokenCandidates = ['FCM_TOKEN', 'PUSH_TOKEN', 'TOKEN_PUSH'];
-      const tokens = new Set();
+      const recipients = new Map();
 
       for (const row of users) {
         if (!row || typeof row !== 'object') continue;
@@ -1048,7 +1248,16 @@ export default async function handler(req, res) {
 
         const tokenKey = findKeyByCandidates(props, tokenCandidates);
         if (!tokenKey) continue;
-        for (const token of extractPushTokens(props[tokenKey])) {
+        const rowTokens = extractPushTokens(props[tokenKey]);
+        if (rowTokens.length === 0) continue;
+        if (typeof row.id === 'string') {
+          recipients.set(row.id, rowTokens);
+        }
+      }
+
+      const tokens = new Set();
+      for (const rowTokens of recipients.values()) {
+        for (const token of rowTokens) {
           tokens.add(token);
         }
       }
@@ -1076,6 +1285,17 @@ export default async function handler(req, res) {
           available: String(available),
         },
       });
+      if (result.sent > 0) {
+        await Promise.allSettled(
+          [...recipients.keys()].map((recipientId) =>
+            appendUserNotification(recipientId, {
+              title: available ? 'Nuova disponibilita' : 'Disponibilita rimossa',
+              body: bodyText,
+              type: 'availability',
+            }),
+          ),
+        );
+      }
 
       return res.status(200).json({
         ok: true,

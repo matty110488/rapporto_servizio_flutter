@@ -1,16 +1,14 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../models/gara.dart';
+import '../screens/archivio_screen.dart';
 import '../services/auth_service.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
-import '../services/push_notification_service.dart';
 import '../utils/notion_user.dart';
-import '../screens/archivio_screen.dart';
 import 'designazioni_page.dart';
 import 'gare_page.dart';
+import 'notifications_page.dart';
 import 'root_screen.dart';
 
 class HomePage extends StatefulWidget {
@@ -36,207 +34,22 @@ class _HomePageState extends State<HomePage> {
   String? _dashboardError;
   _DashboardData _dashboard = const _DashboardData();
   bool _registeringPasskey = false;
-  bool _enablingNotifications = false;
-  bool _testingNotifications = false;
-  bool _notificationsEnabled = false;
-  String _notificationStatusText = 'Controllo notifiche...';
-  final List<PushNotice> _receivedNotices = [];
-  StreamSubscription<PushNotice>? _pushNoticeSubscription;
 
   @override
   void initState() {
     super.initState();
-    _notion = NotionService(
-      databaseId: _db2025,
-    );
-    _pushNoticeSubscription = foregroundPushNotices.listen((notice) {
-      if (!mounted) return;
-      setState(() {
-        _receivedNotices.insert(0, notice);
-        if (_receivedNotices.length > 20) {
-          _receivedNotices.removeRange(20, _receivedNotices.length);
-        }
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                notice.title,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              if (notice.body.isNotEmpty) Text(notice.body),
-            ],
-          ),
-        ),
-      );
-    });
+    _notion = NotionService(databaseId: _db2025);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       PrankPopupService.maybeShow(context, widget.loggedUser);
     });
     _loadDashboard();
-    _loadNotificationStatus();
-  }
-
-  @override
-  void dispose() {
-    _pushNoticeSubscription?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _loadNotificationStatus() async {
-    try {
-      final enabled = await notificationsAreEnabled();
-      if (mounted) {
-        setState(() {
-          _notificationsEnabled = enabled;
-          _notificationStatusText = enabled
-              ? 'Attive su questo dispositivo'
-              : 'Non attive su questo dispositivo';
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _notificationsEnabled = false;
-          _notificationStatusText =
-              'Stato non leggibile su questo browser/dispositivo';
-        });
-      }
-    }
-  }
-
-  Future<void> _enableNotifications() async {
-    final userId = _loggedUserId;
-    if (userId == null || userId.isEmpty) return;
-    setState(() => _enablingNotifications = true);
-    try {
-      await enableNotificationsForUser(userId);
-      if (!mounted) return;
-      setState(() {
-        _notificationsEnabled = true;
-        _notificationStatusText = 'Attive e registrate sul server';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Notifiche attivate su questo dispositivo.')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      final message = e is PushNotificationSetupException
-          ? e.userMessage
-          : 'Non è stato possibile attivare le notifiche. Controlla i permessi del browser o del dispositivo.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _enablingNotifications = false);
-    }
-  }
-
-  Future<void> _testNotifications() async {
-    final userId = _loggedUserId;
-    if (userId == null || userId.isEmpty) return;
-    setState(() => _testingNotifications = true);
-    try {
-      final result = await sendTestNotificationToCurrentDevice(userId);
-      if (!mounted) return;
-      final message = result.sent > 0
-          ? 'Test inviato da Firebase a questo dispositivo. Se non compare nulla su iPhone, il blocco e nella ricezione iOS/PWA.'
-          : 'Test non consegnato: ${result.errors.isNotEmpty ? result.errors.first : 'nessun dettaglio dal server'}.';
-      setState(() {
-        _notificationsEnabled = result.sent > 0 || _notificationsEnabled;
-        _notificationStatusText = result.sent > 0
-            ? 'Test inviato al token di questo dispositivo'
-            : 'Test non consegnato dal server';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      final message = e is PushNotificationSetupException
-          ? e.userMessage
-          : 'Test notifiche non riuscito: $e';
-      setState(() => _notificationStatusText = message);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
-    } finally {
-      if (mounted) setState(() => _testingNotifications = false);
-    }
   }
 
   void _openPage(BuildContext context, Widget page) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => page),
-    );
-  }
-
-  void _openNotificationsInbox() {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Notifiche ricevute',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (_receivedNotices.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Text(
-                      'Nessuna notifica ricevuta mentre l\'app era aperta.',
-                    ),
-                  )
-                else
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: _receivedNotices.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final notice = _receivedNotices[index];
-                        final hh =
-                            notice.receivedAt.hour.toString().padLeft(2, '0');
-                        final mm =
-                            notice.receivedAt.minute.toString().padLeft(2, '0');
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.notifications),
-                          title: Text(notice.title),
-                          subtitle: Text(
-                            notice.body.isEmpty
-                                ? 'Ricevuta alle $hh:$mm'
-                                : notice.body,
-                          ),
-                          trailing: Text('$hh:$mm'),
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -335,9 +148,7 @@ class _HomePageState extends State<HomePage> {
 
       if (!mounted) return;
       setState(() {
-        _dashboard = _DashboardData(
-          nextServices: prossimiDue,
-        );
+        _dashboard = _DashboardData(nextServices: prossimiDue);
         _loadingDashboard = false;
       });
     } catch (e) {
@@ -370,13 +181,8 @@ class _HomePageState extends State<HomePage> {
       final start = parseStart(g)!;
       return start.isAfter(today) || isSameDay(start, today);
     }).toList();
-    if (upcoming.isNotEmpty) {
-      return upcoming.take(limit).toList();
-    }
-
-    if (withDate.isNotEmpty) {
-      return withDate.take(limit).toList();
-    }
+    if (upcoming.isNotEmpty) return upcoming.take(limit).toList();
+    if (withDate.isNotEmpty) return withDate.take(limit).toList();
     return services.take(limit).toList();
   }
 
@@ -387,7 +193,7 @@ class _HomePageState extends State<HomePage> {
       _HomeNavData(
         icon: Icons.flag,
         label: 'Calendario gare',
-        subtitle: 'Consulta eventi e disponibilita',
+        subtitle: 'Consulta eventi e disponibilità',
         onTap: () =>
             _openPage(context, GarePage(loggedUser: widget.loggedUser)),
       ),
@@ -410,10 +216,19 @@ class _HomePageState extends State<HomePage> {
       _HomeNavData(
         icon: Icons.folder,
         label: 'Rapportini completati',
-        subtitle: 'Apri e modifica rapportini gia inviati',
+        subtitle: 'Apri e modifica rapportini già inviati',
         onTap: () => _openPage(
           context,
           ArchivioScreen(loggedUser: widget.loggedUser),
+        ),
+      ),
+      _HomeNavData(
+        icon: Icons.mark_email_unread_outlined,
+        label: 'Notifiche',
+        subtitle: 'Gestisci avvisi, storico e test',
+        onTap: () => _openPage(
+          context,
+          NotificationsPage(loggedUser: widget.loggedUser),
         ),
       ),
     ];
@@ -432,30 +247,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         actions: [
-          IconButton(
-            onPressed: _enablingNotifications ? null : _enableNotifications,
-            tooltip:
-                _notificationsEnabled ? 'Notifiche attive' : 'Attiva notifiche',
-            icon: _enablingNotifications
-                ? const SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(
-                    _notificationsEnabled
-                        ? Icons.notifications_active
-                        : Icons.notifications_none,
-                  ),
-          ),
-          IconButton(
-            onPressed: _openNotificationsInbox,
-            tooltip: 'Notifiche ricevute',
-            icon: Badge.count(
-              count: _receivedNotices.length,
-              isLabelVisible: _receivedNotices.isNotEmpty,
-              child: const Icon(Icons.notifications_active_outlined),
-            ),
-          ),
           IconButton(
             onPressed: _registeringPasskey ? null : _enablePasskey,
             tooltip: 'Attiva Face ID o impronta',
@@ -484,8 +275,6 @@ class _HomePageState extends State<HomePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _hero(userName),
-                const SizedBox(height: 14),
-                _notificationStatusCard(),
                 const SizedBox(height: 14),
                 Expanded(
                   child: GridView.builder(
@@ -526,73 +315,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _notificationStatusCard() {
-    final active = _notificationsEnabled;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: active ? const Color(0xFF7CCB9B) : const Color(0xFFDCE8F6),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            active ? Icons.notifications_active : Icons.notifications_none,
-            color: active ? const Color(0xFF1D7C4B) : const Color(0xFF49627E),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  active ? 'Notifiche attive' : 'Notifiche non attive',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1A2B40),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _notificationStatusText,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF49627E),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (active)
-            OutlinedButton(
-              onPressed: _testingNotifications ? null : _testNotifications,
-              child: _testingNotifications
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Test'),
-            )
-          else
-            FilledButton(
-              onPressed: _enablingNotifications ? null : _enableNotifications,
-              child: _enablingNotifications
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Attiva'),
-            ),
-        ],
       ),
     );
   }
@@ -671,8 +393,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             )
-          else ...[
-            const SizedBox(height: 2),
+          else
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(10),
@@ -741,7 +462,6 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
-          ],
         ],
       ),
     );

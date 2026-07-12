@@ -1,0 +1,419 @@
+import 'dart:async';
+
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+
+import '../services/push_notification_service.dart';
+
+class NotificationsPage extends StatefulWidget {
+  final Map<String, dynamic> loggedUser;
+
+  const NotificationsPage({
+    super.key,
+    required this.loggedUser,
+  });
+
+  @override
+  State<NotificationsPage> createState() => _NotificationsPageState();
+}
+
+class _NotificationsPageState extends State<NotificationsPage> {
+  bool _loading = true;
+  bool _busy = false;
+  bool _testing = false;
+  bool _enabled = false;
+  String _statusText = 'Controllo stato notifiche...';
+  List<PushNotice> _notifications = const [];
+  StreamSubscription<PushNotice>? _foregroundSubscription;
+
+  String? get _loggedUserId {
+    final id = widget.loggedUser['id'];
+    if (id is String && id.isNotEmpty) return id;
+    return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _foregroundSubscription = foregroundPushNotices.listen((notice) {
+      if (!mounted) return;
+      setState(() {
+        _notifications = [notice, ..._notifications].take(50).toList();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${notice.title}: ${notice.body}')),
+      );
+      _loadNotifications(silent: true);
+    });
+    _loadAll();
+  }
+
+  @override
+  void dispose() {
+    _foregroundSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadAll() async {
+    setState(() => _loading = true);
+    await Future.wait([
+      _loadStatus(),
+      _loadNotifications(silent: true),
+    ]);
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _loadStatus() async {
+    try {
+      final permissionEnabled = await notificationsAreEnabled();
+      final appEnabled = await pushNotificationsAppEnabled();
+      if (!mounted) return;
+      setState(() {
+        _enabled = permissionEnabled && appEnabled;
+        _statusText = _enabled
+            ? 'Attive su questo dispositivo'
+            : permissionEnabled
+                ? 'Disattivate nell’app'
+                : 'Non attive su questo dispositivo';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _enabled = false;
+        _statusText = 'Stato non leggibile su questo browser/dispositivo';
+      });
+    }
+  }
+
+  Future<void> _loadNotifications({bool silent = false}) async {
+    final userId = _loggedUserId;
+    if (userId == null) return;
+    try {
+      final notifications = await fetchPushNotifications(userId);
+      if (!mounted) return;
+      setState(() => _notifications = notifications);
+    } catch (e) {
+      if (!mounted || silent) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lettura notifiche non riuscita: $e')),
+      );
+    }
+  }
+
+  Future<void> _setEnabled(bool value) async {
+    final userId = _loggedUserId;
+    if (userId == null || _busy) return;
+    setState(() => _busy = true);
+    try {
+      if (value) {
+        await enableNotificationsForUser(userId);
+      } else {
+        await disableNotificationsForUser(userId);
+      }
+      if (!mounted) return;
+      setState(() {
+        _enabled = value;
+        _statusText =
+            value ? 'Attive e registrate sul server' : 'Disattivate nell’app';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(value
+              ? 'Notifiche attivate su questo dispositivo.'
+              : 'Notifiche disattivate su questo dispositivo.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is PushNotificationSetupException
+          ? e.userMessage
+          : 'Operazione notifiche non riuscita: $e';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+      await _loadStatus();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _testNotifications() async {
+    final userId = _loggedUserId;
+    if (userId == null || _testing) return;
+    setState(() => _testing = true);
+    try {
+      final result = await sendTestNotificationToCurrentDevice(userId);
+      if (!mounted) return;
+      setState(() {
+        _enabled = result.sent > 0 || _enabled;
+        _statusText = result.sent > 0
+            ? 'Test inviato al token di questo dispositivo'
+            : 'Test non consegnato dal server';
+      });
+      await _loadNotifications(silent: true);
+      if (!mounted) return;
+      final message = result.sent > 0
+          ? 'Test inviato. Dovresti ricevere una sola notifica.'
+          : 'Test non consegnato: ${result.errors.isNotEmpty ? result.errors.first : 'nessun dettaglio dal server'}.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is PushNotificationSetupException
+          ? e.userMessage
+          : 'Test notifiche non riuscito: $e';
+      setState(() => _statusText = message);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) setState(() => _testing = false);
+    }
+  }
+
+  Future<void> _clearNotifications() async {
+    final userId = _loggedUserId;
+    if (userId == null) return;
+    setState(() => _busy = true);
+    try {
+      await clearPushNotifications(userId);
+      if (!mounted) return;
+      setState(() => _notifications = const []);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Pulizia notifiche non riuscita: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  String _formatTimestamp(DateTime value) {
+    final day = value.day.toString().padLeft(2, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '$day/$month $hour:$minute';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Notifiche'),
+        actions: [
+          IconButton(
+            onPressed: _loading ? null : _loadAll,
+            tooltip: 'Aggiorna',
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFEAF3FF), Color(0xFFF7FBFF), Color(0xFFFFFFFF)],
+          ),
+        ),
+        child: SafeArea(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    _settingsCard(),
+                    const SizedBox(height: 14),
+                    _testCard(),
+                    const SizedBox(height: 14),
+                    _historyHeader(),
+                    const SizedBox(height: 8),
+                    if (_notifications.isEmpty)
+                      _emptyHistory()
+                    else
+                      ..._notifications.map(_notificationTile),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _settingsCard() {
+    return _card(
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF3FF),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.mark_email_unread_outlined,
+              color: Color(0xFF0A66C2),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Notifiche push',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1A2B40),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _statusText,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF49627E),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_busy)
+            const SizedBox.square(
+              dimension: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            CupertinoSwitch(
+              value: _enabled,
+              activeTrackColor: const Color(0xFF007AFF),
+              onChanged: _setEnabled,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _testCard() {
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Test notifiche',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1A2B40),
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Invia una notifica di prova a questo dispositivo. Il risultato corretto è riceverne una sola.',
+            style: TextStyle(color: Color(0xFF49627E)),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _testing ? null : _testNotifications,
+              icon: _testing
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.send),
+              label: const Text('Invia test'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _historyHeader() {
+    return Row(
+      children: [
+        const Expanded(
+          child: Text(
+            'Notifiche ricevute',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1A2B40),
+            ),
+          ),
+        ),
+        TextButton.icon(
+          onPressed:
+              _notifications.isEmpty || _busy ? null : _clearNotifications,
+          icon: const Icon(Icons.delete_outline),
+          label: const Text('Svuota'),
+        ),
+      ],
+    );
+  }
+
+  Widget _emptyHistory() {
+    return _card(
+      child: const Text(
+        'Nessuna notifica registrata. Le nuove notifiche compariranno qui anche se l’app era chiusa.',
+        style: TextStyle(color: Color(0xFF49627E)),
+      ),
+    );
+  }
+
+  Widget _notificationTile(PushNotice notice) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: _card(
+        child: ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(
+            Icons.mark_email_unread_outlined,
+            color: Color(0xFF0A66C2),
+          ),
+          title: Text(
+            notice.title,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (notice.body.isNotEmpty) Text(notice.body),
+              const SizedBox(height: 4),
+              Text(
+                _formatTimestamp(notice.receivedAt),
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _card({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFDCE8F6)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 14,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
