@@ -304,8 +304,10 @@ class _GarePageState extends State<GarePage> {
         ids,
         disponibilitaViaApp: disponibilitaViaApp,
       );
+      AdminNotificationResult? notificationResult;
+      String? notificationError;
       try {
-        await notion.notifyAdminsAvailability(
+        notificationResult = await notion.notifyAdminsAvailability(
           garaId: gara.id,
           garaTitolo: gara.titolo,
           userId: userId,
@@ -314,6 +316,7 @@ class _GarePageState extends State<GarePage> {
         );
       } catch (e) {
         // Non blocchiamo il flusso disponibilita se la push fallisce.
+        notificationError = e.toString();
         print('Notifica admin fallita: $e');
       }
       await load();
@@ -322,9 +325,12 @@ class _GarePageState extends State<GarePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            join
-                ? 'Ti sei reso disponibile per ${gara.titolo}'
-                : 'Hai annullato la disponibilita per ${gara.titolo}',
+            _availabilitySnackText(
+              garaTitle: gara.titolo,
+              joined: join,
+              notificationResult: notificationResult,
+              notificationError: notificationError,
+            ),
           ),
         ),
       );
@@ -340,6 +346,36 @@ class _GarePageState extends State<GarePage> {
         });
       }
     }
+  }
+
+  String _availabilitySnackText({
+    required String garaTitle,
+    required bool joined,
+    required AdminNotificationResult? notificationResult,
+    required String? notificationError,
+  }) {
+    final action = joined
+        ? 'Ti sei reso disponibile per $garaTitle'
+        : 'Hai annullato la disponibilita per $garaTitle';
+
+    if (notificationResult != null) {
+      if (notificationResult.sent > 0) {
+        return '$action. Notifiche inviate agli admin: ${notificationResult.sent}.';
+      }
+      if (notificationResult.reason.isNotEmpty) {
+        return '$action. Nessun admin notificato: ${notificationResult.reason}.';
+      }
+      if (notificationResult.errors.isNotEmpty) {
+        return '$action. Notifica admin non consegnata: ${notificationResult.errors.first}.';
+      }
+      return '$action. Nessun admin notificato.';
+    }
+
+    if (notificationError != null && notificationError.isNotEmpty) {
+      return '$action. Notifica admin fallita: $notificationError';
+    }
+
+    return action;
   }
 
   @override
