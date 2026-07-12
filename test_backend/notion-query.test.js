@@ -63,3 +63,43 @@ test('keeps data actions unavailable without a signed session', async () => {
   assert.equal(res.statusCode, 401);
   assert.deepEqual(res.body, { error: 'Authentication required' });
 });
+
+test('first access stays generic when username and email do not match', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    status: 200,
+    async json() {
+      return {
+        results: [
+          {
+            id: 'notion-user-id',
+            properties: {
+              USERNAME: { rich_text: [{ plain_text: 'mario' }] },
+              EMAIL: { email: 'mario@example.com' },
+            },
+          },
+        ],
+        has_more: false,
+      };
+    },
+  });
+
+  try {
+    const req = {
+      method: 'POST',
+      headers: { origin: 'https://matty110488.github.io' },
+      body: {
+        action: 'startFirstAccess',
+        username: 'utente-errato',
+        email: 'mario@example.com',
+      },
+    };
+    const res = responseRecorder();
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.body, { ok: true, canSendEmail: false });
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

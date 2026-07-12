@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:passkeys/authenticator.dart';
 import 'package:passkeys/types.dart';
@@ -14,6 +15,40 @@ class AuthService {
             passkeyAuthenticator ?? PasskeyAuthenticator(debugMode: false);
 
   final PasskeyAuthenticator _passkeyAuthenticator;
+
+  Future<Map<String, dynamic>> loginWithFirebase(
+    String email,
+    String password,
+  ) async {
+    final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
+    final idToken = await credential.user?.getIdToken();
+    if (idToken == null || idToken.isEmpty) {
+      throw StateError('Accesso Firebase non completato.');
+    }
+    final decoded = await _post({
+      'action': 'firebaseLogin',
+      'idToken': idToken,
+    });
+    return _readAuthenticatedUser(decoded);
+  }
+
+  Future<void> startFirstAccess(String username, String email) async {
+    final decoded = await _post({
+      'action': 'startFirstAccess',
+      'username': username.trim(),
+      'email': email.trim(),
+    });
+    if (decoded['canSendEmail'] == true) {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email.trim());
+    }
+  }
+
+  Future<void> sendPasswordReset(String email) async {
+    await FirebaseAuth.instance.sendPasswordResetEmail(email: email.trim());
+  }
 
   // LOGIN: restituisce la pagina dell'utente se username + password sono corretti
   Future<Map<String, dynamic>?> login(String username, String password) async {

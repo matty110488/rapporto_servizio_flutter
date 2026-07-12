@@ -26,6 +26,25 @@ soltanto chiavi pubbliche e metadati non segreti. Se la proprietà non esiste, i
 backend prova a crearla automaticamente nel database utenti. Username e password
 restano disponibili come recupero.
 
+## Password privata dell'utente
+
+La migrazione graduale usa Firebase Authentication:
+
+1. L'utente sceglie **Primo accesso: scegli la tua password**.
+2. Inserisce lo username e l'email gia presenti nella sua riga Notion.
+3. Firebase invia all'email personale il link per impostare la password.
+4. Da quel momento l'utente accede inserendo email e nuova password.
+
+La nuova password non viene salvata in Notion e non e leggibile dalla
+segreteria. Durante la migrazione restano funzionanti il vecchio accesso con
+username e la passkey Face ID/impronta. La proprieta `PASSWORD` di Notion non va
+rimossa finche tutti gli utenti non hanno completato il primo accesso.
+
+Nel progetto Firebase deve essere abilitato il provider
+**Authentication > Sign-in method > Email/Password**. Le credenziali Admin gia
+usate dal backend per le notifiche servono anche per verificare l'identita e
+collegarla alla corretta pagina Notion.
+
 Le passkey sono legate al dominio `matty110488.github.io`. Le build native da
 App Store o Play Store richiederebbero inoltre Apple Associated Domains e Android
 Digital Asset Links; la versione distribuita come icona web non richiede questa
@@ -65,7 +84,7 @@ Variabili obbligatorie:
 - `NOTION_TOKEN`: token dell'integrazione Notion, solo lato server.
 - `DATABASE_ID`: database Notion degli utenti/cronometristi.
 
-Variabili per le notifiche push:
+Variabili per notifiche push e autenticazione Firebase:
 
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_CLIENT_EMAIL`
@@ -112,8 +131,8 @@ consentono di recuperare la versione desiderata senza perdere dati.
 
 - Il vecchio token Notion deve essere revocato e sostituito nel pannello Notion
   e nella variabile `NOTION_TOKEN` di Vercel.
-- Le password sono ancora gestite come proprietà Notion per compatibilità. La
-  migrazione futura consigliata è Firebase Authentication o un sistema server
-  con password sottoposte a hashing.
+- Le vecchie password restano temporaneamente in Notion solo per compatibilità
+  durante la migrazione. Le nuove password personali sono gestite da Firebase e
+  non vengono mai inviate a Notion o al backend Vercel.
 - Una sessione salvata prima dell'introduzione dell'autenticazione firmata viene
   automaticamente eliminata: al primo avvio sarà richiesto un nuovo login.
