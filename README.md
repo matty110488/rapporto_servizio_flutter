@@ -14,6 +14,23 @@ Il client non contiene il token Notion. Tutte le richieste passano dal backend,
 che rilascia dopo il login una sessione firmata valida sette giorni. Le pagine
 utente restituite al client non includono la proprietà `PASSWORD`.
 
+## Face ID, Touch ID e impronta Android
+
+L'app supporta passkey WebAuthn sulla PWA installata dalla schermata Home sia su
+iOS sia su Android. Dopo un normale login, l'utente preme l'icona dell'impronta
+nella pagina iniziale e conferma la creazione della passkey. Nei login successivi
+può usare **Accedi con Face ID o impronta**.
+
+La biometria resta sul dispositivo: Notion conserva nella proprietà `PASSKEYS`
+soltanto chiavi pubbliche e metadati non segreti. Se la proprietà non esiste, il
+backend prova a crearla automaticamente nel database utenti. Username e password
+restano disponibili come recupero.
+
+Le passkey sono legate al dominio `matty110488.github.io`. Le build native da
+App Store o Play Store richiederebbero inoltre Apple Associated Domains e Android
+Digital Asset Links; la versione distribuita come icona web non richiede questa
+configurazione aggiuntiva.
+
 ## Avvio locale
 
 Requisiti: Flutter 3.38.3 e un browser supportato.

@@ -1,5 +1,6 @@
 # Flutter/Dart/Pub
 .dart_tool/
+node_modules/
 .packages
 .pub/
 build/
@@ -14,6 +15,7 @@ flutter_export_environment.sh
 # Android
 **/android/**/gradle-wrapper.jar
 **/android/.gradle/
+**/android/.kotlin/
 **/android/captures/
 **/android/*/local.properties
 **/android/*/key.properties
