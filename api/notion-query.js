@@ -5,8 +5,6 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from '@simplewebauthn/server';
-import { cert, getApps, initializeApp } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://matty110488.github.io',
@@ -307,10 +305,14 @@ export default async function handler(req, res) {
     const usernameFromUser = (page) =>
       extractPropertyText(findProperty(page?.properties, ['USERNAME', 'USER NAME']));
 
-    const firebaseAuth = () => {
+    const firebaseAuth = async () => {
       if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
         throw new Error('Firebase Admin credentials are not configured');
       }
+      const [{ cert, getApps, initializeApp }, { getAuth }] = await Promise.all([
+        import('firebase-admin/app'),
+        import('firebase-admin/auth'),
+      ]);
       if (getApps().length === 0) {
         initializeApp({
           credential: cert({
@@ -443,7 +445,7 @@ export default async function handler(req, res) {
       );
 
       if (user && typeof user.id === 'string') {
-        const auth = firebaseAuth();
+        const auth = await firebaseAuth();
         let firebaseUser;
         try {
           firebaseUser = await auth.getUserByEmail(email);
@@ -467,7 +469,7 @@ export default async function handler(req, res) {
       const idToken = typeof safeBody.idToken === 'string' ? safeBody.idToken : '';
       if (!idToken) return res.status(400).json({ error: 'Missing Firebase ID token' });
 
-      const auth = firebaseAuth();
+      const auth = await firebaseAuth();
       const decoded = await auth.verifyIdToken(idToken);
       let notionPageId = typeof decoded.notionPageId === 'string' ? decoded.notionPageId : '';
 
