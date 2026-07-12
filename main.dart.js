@@ -121257,7 +121257,7 @@ $S:697}
 A.aS1.prototype={
 $0(){var s=$.eR,r=(s==null?$.eR=$.kU():s).l_("[DEFAULT]")
 A.dJ(r,$.jg(),!0)
-return A.U8(new A.hg(r)).gxq().iJ("firebase-messaging-sw.js","BGblpbsE9nsFeuMobH0GQ3OWdZnunf1KrxzWM4wEYNHOWRpmjfDTAyXyLrnLwZSgFtEfUYoSbwpk9hEYxKHzfY8")},
+return A.U8(new A.hg(r)).gxq().iJ("firebase-cloud-messaging-push-scope/firebase-messaging-sw.js","BGblpbsE9nsFeuMobH0GQ3OWdZnunf1KrxzWM4wEYNHOWRpmjfDTAyXyLrnLwZSgFtEfUYoSbwpk9hEYxKHzfY8")},
 $S:698}
 A.auM.prototype={
 wI(a,b){return this.a9p(a,b)},
