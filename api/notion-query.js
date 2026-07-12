@@ -243,6 +243,7 @@ export default async function handler(req, res) {
               title: typeof entry.title === 'string' ? entry.title : 'Notifica',
               body: typeof entry.body === 'string' ? entry.body : '',
               type: typeof entry.type === 'string' ? entry.type : '',
+              garaId: typeof entry.garaId === 'string' ? entry.garaId : '',
               createdAt:
                 typeof entry.createdAt === 'string'
                   ? entry.createdAt
@@ -463,6 +464,48 @@ export default async function handler(req, res) {
       return '';
     };
 
+    const extractStatusName = (field) => {
+      if (!field || typeof field !== 'object') return '';
+      const status = field.status;
+      if (status && typeof status === 'object' && typeof status.name === 'string') {
+        return status.name.trim();
+      }
+      const select = field.select;
+      if (select && typeof select === 'object' && typeof select.name === 'string') {
+        return select.name.trim();
+      }
+      return '';
+    };
+
+    const statusNameFromPayload = (properties) => {
+      if (!properties || typeof properties !== 'object') return '';
+      return extractStatusName(properties.STATUS);
+    };
+
+    const extractRelationIds = (field) => {
+      if (!field || typeof field !== 'object' || !Array.isArray(field.relation)) return [];
+      return field.relation
+        .map((entry) =>
+          entry && typeof entry === 'object' && typeof entry.id === 'string'
+            ? entry.id.trim()
+            : '',
+        )
+        .filter(Boolean);
+    };
+
+    const extractPageTitle = (page) => {
+      const props = page && typeof page === 'object' ? page.properties : {};
+      if (!props || typeof props !== 'object') return 'la gara';
+      for (const value of Object.values(props)) {
+        if (!value || typeof value !== 'object') continue;
+        if (value.type === 'title') {
+          const text = extractPropertyText(value);
+          if (text) return text;
+        }
+      }
+      return 'la gara';
+    };
+
     const findProperty = (props, candidates) => {
       if (!props || typeof props !== 'object') return null;
       const wanted = new Set(candidates.map((value) => value.replace(/[^a-z0-9]/gi, '').toLowerCase()));
@@ -600,15 +643,106 @@ export default async function handler(req, res) {
       const existingRecords = notificationKey
         ? extractNotificationRecords(props[notificationKey])
         : [];
+      if (notification.type && notification.garaId) {
+        const alreadyExists = existingRecords.some(
+          (entry) =>
+            entry.type === notification.type &&
+            entry.garaId === notification.garaId,
+        );
+        if (alreadyExists) {
+          return { status: 200, data: { ok: true, deduped: true } };
+        }
+      }
       const record = {
         id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
         title: notification.title || 'Notifica',
         body: notification.body || '',
         type: notification.type || '',
+        garaId: notification.garaId || '',
         createdAt: new Date().toISOString(),
         read: false,
       };
       return saveNotificationRecords(userId, [record, ...existingRecords]);
+    };
+
+    const notifyDesignatedCronos = async (garaPage) => {
+      const props =
+        garaPage && typeof garaPage === 'object' && garaPage.properties
+          ? garaPage.properties
+          : {};
+      const relationKey = findKeyByCandidates(props, [
+        'KRONOS DESIGNATI',
+        'KRONOS_DESIGNATI',
+        'CRONOMETRISTI DESIGNATI',
+      ]);
+      const kronosIds = relationKey ? extractRelationIds(props[relationKey]) : [];
+      const uniqueKronosIds = [...new Set(kronosIds)];
+      if (uniqueKronosIds.length === 0) {
+        return {
+          sent: 0,
+          attempted: 0,
+          recipients: 0,
+          reason: 'No designated cronos',
+        };
+      }
+
+      const garaTitolo = extractPageTitle(garaPage);
+      const garaId = typeof garaPage.id === 'string' ? garaPage.id : '';
+      const title = 'Designazione inviata';
+      const body = `Sei stato designato per ${garaTitolo}`;
+      const tokenCandidates = ['FCM_TOKEN', 'PUSH_TOKEN', 'TOKEN_PUSH'];
+      const tokens = new Set();
+      let recipients = 0;
+
+      await Promise.allSettled(
+        uniqueKronosIds.map(async (cronoId) => {
+          const user = await notionRequest(`https://api.notion.com/v1/pages/${cronoId}`, 'GET');
+          if (user.status !== 200) return;
+          const saved = await appendUserNotification(cronoId, {
+            title,
+            body,
+            type: 'designation',
+            garaId,
+          });
+          if (saved.status !== 200) return;
+          if (saved.data?.deduped === true) return;
+          recipients += 1;
+          const userProps =
+            user.data && typeof user.data === 'object' && user.data.properties
+              ? user.data.properties
+              : {};
+          const tokenKey = findKeyByCandidates(userProps, tokenCandidates);
+          if (!tokenKey) return;
+          for (const token of extractPushTokens(userProps[tokenKey])) {
+            tokens.add(token);
+          }
+        }),
+      );
+
+      const tokenList = [...tokens];
+      if (tokenList.length === 0) {
+        return {
+          sent: 0,
+          attempted: 0,
+          recipients,
+          reason: 'No crono tokens available',
+        };
+      }
+
+      const result = await sendFcmMessages({
+        tokens: tokenList,
+        title,
+        body,
+        data: {
+          type: 'designation',
+          garaId,
+          garaTitolo,
+        },
+      });
+      return {
+        ...result,
+        recipients,
+      };
     };
 
     const savePasskeys = async (pageId, passkeys) => {
@@ -1029,12 +1163,92 @@ export default async function handler(req, res) {
       if (Object.keys(properties).some((key) => !allowedProperties.has(key))) {
         return res.status(403).json({ error: 'Property update not allowed' });
       }
+      const previousStatus = extractStatusName(page.data?.properties?.STATUS).toUpperCase();
+      const targetStatus = statusNameFromPayload(properties).toUpperCase();
       const response = await notionRequest(
         `https://api.notion.com/v1/pages/${pageId}`,
         'PATCH',
         payload,
       );
+      if (
+        response.status === 200 &&
+        targetStatus === 'DESIGNAZIONE INVIATA' &&
+        previousStatus !== 'DESIGNAZIONE INVIATA'
+      ) {
+        try {
+          const notificationResult = await notifyDesignatedCronos(response.data);
+          if (response.data && typeof response.data === 'object') {
+            response.data.pushNotification = notificationResult;
+          }
+        } catch (error) {
+          if (response.data && typeof response.data === 'object') {
+            response.data.pushNotification = {
+              sent: 0,
+              attempted: 0,
+              error: error instanceof Error ? error.message : String(error),
+            };
+          }
+        }
+      }
       return res.status(response.status).json(response.data);
+    }
+
+    if (action === 'notifyDesignationsForSentStatus') {
+      if (session.admin !== true) {
+        return res.status(403).json({ error: 'Admin required for designation notification scan' });
+      }
+
+      const recentHoursRaw = Number(safeBody.recentHours);
+      const recentHours =
+        Number.isFinite(recentHoursRaw) && recentHoursRaw > 0
+          ? Math.min(recentHoursRaw, 168)
+          : 24;
+      const editedAfter = Date.now() - recentHours * 60 * 60 * 1000;
+      const results = [];
+      for (const databaseId of allowedDataDatabaseIds) {
+        const pages = await queryAllDatabasePages(databaseId);
+        for (const garaPage of pages) {
+          const lastEdited = Date.parse(garaPage?.last_edited_time || '');
+          if (!Number.isFinite(lastEdited) || lastEdited < editedAfter) continue;
+          const props =
+            garaPage && typeof garaPage === 'object' && garaPage.properties
+              ? garaPage.properties
+              : {};
+          const statusKey = findKeyByCandidates(props, ['STATUS', 'STATO']);
+          const status = statusKey ? extractStatusName(props[statusKey]).toUpperCase() : '';
+          if (status !== 'DESIGNAZIONE INVIATA') continue;
+          try {
+            const notificationResult = await notifyDesignatedCronos(garaPage);
+            results.push({
+              garaId: typeof garaPage.id === 'string' ? garaPage.id : '',
+              garaTitolo: extractPageTitle(garaPage),
+              ...notificationResult,
+            });
+          } catch (error) {
+            results.push({
+              garaId: typeof garaPage.id === 'string' ? garaPage.id : '',
+              garaTitolo: extractPageTitle(garaPage),
+              sent: 0,
+              attempted: 0,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+      }
+
+      const sent = results.reduce((sum, item) => sum + (Number(item.sent) || 0), 0);
+      const attempted = results.reduce(
+        (sum, item) => sum + (Number(item.attempted) || 0),
+        0,
+      );
+      return res.status(200).json({
+        ok: true,
+        sent,
+        attempted,
+        recentHours,
+        checked: results.length,
+        results,
+      });
     }
 
     if (action === 'registerPushToken') {

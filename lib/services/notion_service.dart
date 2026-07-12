@@ -224,6 +224,19 @@ class NotionService {
     return AdminNotificationResult.fromJson(data);
   }
 
+  Future<DesignationNotificationScanResult>
+      notifyDesignationsForSentStatus() async {
+    final res = await _postViaWebProxy({
+      'action': 'notifyDesignationsForSentStatus',
+    });
+
+    if (res.statusCode != 200) {
+      throw Exception('Errore notifica designazioni: ${res.body}');
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return DesignationNotificationScanResult.fromJson(data);
+  }
+
   Future<void> updateGaraStatus(String pageId, String statusName) async {
     final statusPayload = {
       'properties': {
@@ -302,6 +315,28 @@ class AdminNotificationResult {
       errors: rawErrors is List
           ? rawErrors.map((entry) => entry.toString()).toList()
           : const [],
+    );
+  }
+}
+
+class DesignationNotificationScanResult {
+  const DesignationNotificationScanResult({
+    required this.sent,
+    required this.attempted,
+    required this.checked,
+  });
+
+  final int sent;
+  final int attempted;
+  final int checked;
+
+  factory DesignationNotificationScanResult.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return DesignationNotificationScanResult(
+      sent: (json['sent'] as num?)?.toInt() ?? 0,
+      attempted: (json['attempted'] as num?)?.toInt() ?? 0,
+      checked: (json['checked'] as num?)?.toInt() ?? 0,
     );
   }
 }
