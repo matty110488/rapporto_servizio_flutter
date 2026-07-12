@@ -162,6 +162,32 @@ export default async function handler(req, res) {
         .trim();
     };
 
+    const extractPushTokens = (field) => {
+      const raw = extractRichText(field);
+      if (!raw) return [];
+      try {
+        const decoded = JSON.parse(raw);
+        if (Array.isArray(decoded)) {
+          return decoded
+            .filter((entry) => typeof entry === 'string')
+            .map((entry) => entry.trim())
+            .filter(Boolean);
+        }
+      } catch {
+        // Legacy field format: a single raw token.
+      }
+      return [raw];
+    };
+
+    const pushTokenRichText = (tokens) => {
+      const serialized = JSON.stringify(tokens);
+      const chunks = serialized.match(/.{1,1900}/gs) || [];
+      return chunks.map((content) => ({
+        type: 'text',
+        text: { content },
+      }));
+    };
+
     const findKeyByCandidates = (props, candidates) => {
       for (const key of candidates) {
         if (props && typeof props === 'object' && props[key]) return key;
@@ -827,15 +853,13 @@ export default async function handler(req, res) {
         tokenKey = 'FCM_TOKEN';
       }
 
+      const existingTokens = extractPushTokens(props[tokenKey]);
+      const tokens = [token, ...existingTokens.filter((entry) => entry !== token)].slice(0, 10);
+
       const updatePayload = {
         properties: {
           [tokenKey]: {
-            rich_text: [
-              {
-                type: 'text',
-                text: { content: token },
-              },
-            ],
+            rich_text: pushTokenRichText(tokens),
           },
         },
       };
@@ -881,8 +905,9 @@ export default async function handler(req, res) {
 
         const tokenKey = findKeyByCandidates(props, tokenCandidates);
         if (!tokenKey) continue;
-        const token = extractRichText(props[tokenKey]);
-        if (token) tokens.add(token);
+        for (const token of extractPushTokens(props[tokenKey])) {
+          tokens.add(token);
+        }
       }
 
       const tokenList = [...tokens];
