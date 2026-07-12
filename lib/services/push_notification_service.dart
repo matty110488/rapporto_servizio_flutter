@@ -10,7 +10,8 @@ import '../state/session_state.dart';
 const _webProxyUrl =
     'https://rapporto-servizio-flutter.vercel.app/api/notion-query';
 const _webVapidKey = String.fromEnvironment('FIREBASE_WEB_VAPID_KEY');
-const _webMessagingServiceWorker = 'firebase-messaging-sw.js';
+const _webMessagingServiceWorker =
+    'firebase-cloud-messaging-push-scope/firebase-messaging-sw.js';
 
 class PushNotificationSetupException implements Exception {
   const PushNotificationSetupException(this.userMessage, [this.cause]);
