@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/gara.dart';
 import '../services/auth_service.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
+import '../services/push_notification_service.dart';
 import '../utils/notion_user.dart';
 import '../screens/archivio_screen.dart';
 import 'designazioni_page.dart';
@@ -33,6 +36,9 @@ class _HomePageState extends State<HomePage> {
   String? _dashboardError;
   _DashboardData _dashboard = const _DashboardData();
   bool _registeringPasskey = false;
+  bool _enablingNotifications = false;
+  bool _notificationsEnabled = false;
+  StreamSubscription<PushNotice>? _pushNoticeSubscription;
 
   @override
   void initState() {
@@ -40,11 +46,71 @@ class _HomePageState extends State<HomePage> {
     _notion = NotionService(
       databaseId: _db2025,
     );
+    _pushNoticeSubscription = foregroundPushNotices.listen((notice) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                notice.title,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              if (notice.body.isNotEmpty) Text(notice.body),
+            ],
+          ),
+        ),
+      );
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       PrankPopupService.maybeShow(context, widget.loggedUser);
     });
     _loadDashboard();
+    _loadNotificationStatus();
+  }
+
+  @override
+  void dispose() {
+    _pushNoticeSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadNotificationStatus() async {
+    try {
+      final enabled = await notificationsAreEnabled();
+      if (mounted) setState(() => _notificationsEnabled = enabled);
+    } catch (_) {
+      // Lo stato resta disattivato se il browser non espone ancora il permesso.
+    }
+  }
+
+  Future<void> _enableNotifications() async {
+    final userId = _loggedUserId;
+    if (userId == null || userId.isEmpty) return;
+    setState(() => _enablingNotifications = true);
+    try {
+      await enableNotificationsForUser(userId);
+      if (!mounted) return;
+      setState(() => _notificationsEnabled = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Notifiche attivate su questo dispositivo.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Non è stato possibile attivare le notifiche. Controlla i permessi del browser o del dispositivo.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _enablingNotifications = false);
+    }
   }
 
   void _openPage(BuildContext context, Widget page) {
@@ -246,6 +312,21 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         actions: [
+          IconButton(
+            onPressed: _enablingNotifications ? null : _enableNotifications,
+            tooltip:
+                _notificationsEnabled ? 'Notifiche attive' : 'Attiva notifiche',
+            icon: _enablingNotifications
+                ? const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    _notificationsEnabled
+                        ? Icons.notifications_active
+                        : Icons.notifications_none,
+                  ),
+          ),
           IconButton(
             onPressed: _registeringPasskey ? null : _enablePasskey,
             tooltip: 'Attiva Face ID o impronta',

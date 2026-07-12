@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -10,9 +11,42 @@ const _webProxyUrl =
     'https://rapporto-servizio-flutter.vercel.app/api/notion-query';
 const _webVapidKey = String.fromEnvironment('FIREBASE_WEB_VAPID_KEY');
 
+class PushNotice {
+  const PushNotice({required this.title, required this.body});
+
+  final String title;
+  final String body;
+}
+
+final _foregroundNotices = StreamController<PushNotice>.broadcast();
+Stream<PushNotice> get foregroundPushNotices => _foregroundNotices.stream;
+
 Future<void> initFirebaseMessaging() async {
-  final messaging = FirebaseMessaging.instance;
-  final settings = await messaging.requestPermission(
+  if (kIsWeb && _webVapidKey.isEmpty) {
+    print(
+      '[PUSH] FIREBASE_WEB_VAPID_KEY is empty. Web token generation will fail.',
+    );
+  }
+
+  FirebaseMessaging.onMessage.listen((message) {
+    print('[PUSH] Foreground message: ${message.messageId}');
+    final title = message.notification?.title ?? 'Nuova notifica';
+    final body = message.notification?.body ?? '';
+    _foregroundNotices.add(PushNotice(title: title, body: body));
+  });
+}
+
+Future<bool> notificationsAreEnabled() async {
+  final settings = await FirebaseMessaging.instance.getNotificationSettings();
+  return settings.authorizationStatus == AuthorizationStatus.authorized ||
+      settings.authorizationStatus == AuthorizationStatus.provisional;
+}
+
+Future<void> enableNotificationsForUser(String userId) async {
+  if (kIsWeb && _webVapidKey.isEmpty) {
+    throw StateError('Configurazione notifiche web non disponibile.');
+  }
+  final settings = await FirebaseMessaging.instance.requestPermission(
     alert: true,
     badge: true,
     sound: true,
@@ -21,17 +55,16 @@ Future<void> initFirebaseMessaging() async {
     provisional: false,
     carPlay: false,
   );
-  print('[PUSH] Permission status: ${settings.authorizationStatus}');
-  if (kIsWeb && _webVapidKey.isEmpty) {
-    print(
-      '[PUSH] FIREBASE_WEB_VAPID_KEY is empty. Web token generation will fail.',
-    );
-  }
+  final allowed =
+      settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional;
+  if (!allowed) throw StateError('Permesso notifiche non concesso.');
 
-  FirebaseMessaging.onMessage.listen((message) {
-    // Foreground handling can be expanded later with local notifications.
-    print('[PUSH] Foreground message: ${message.messageId}');
-  });
+  final token = await getCurrentPushToken();
+  if (token == null || token.isEmpty) {
+    throw StateError('Token notifiche non disponibile.');
+  }
+  await sendTokenToBackend(userId, token);
 }
 
 Future<String?> getCurrentPushToken() async {

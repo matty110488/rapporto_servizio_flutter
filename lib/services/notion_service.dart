@@ -204,6 +204,7 @@ class NotionService {
     required String garaTitolo,
     required String userId,
     required String userName,
+    required bool available,
   }) async {
     final payload = {
       'action': 'notifyAdminsAvailability',
@@ -211,6 +212,7 @@ class NotionService {
       'garaTitolo': garaTitolo,
       'userId': userId,
       'userName': userName,
+      'available': available,
     };
 
     final res = await _postViaWebProxy(payload);
