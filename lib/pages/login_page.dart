@@ -219,7 +219,7 @@ class _LoginPageState extends State<LoginPage> {
                 controller: userCtrl,
                 autocorrect: false,
                 decoration: const InputDecoration(
-                  labelText: 'Email oppure username precedente',
+                  labelText: 'Email',
                 ),
               ),
               SizedBox(height: 12),
