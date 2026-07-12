@@ -106,8 +106,9 @@ class _LoginPageState extends State<LoginPage> {
       await auth.startFirstAccess(username, email);
       if (!mounted) return;
       _showInfo(
-        'Controlla la posta',
-        'Se username ed email coincidono con i dati registrati, riceverai un link per scegliere la tua password.',
+        'Controlla la tua email',
+        'Se username ed email coincidono con i dati registrati, riceverai un link per scegliere la tua password.'
+            'NB: verifica nella cartella SPAM / Posta Indesiderata se non hai ricevuto la mail',
       );
     } catch (_) {
       if (!mounted) return;
@@ -152,7 +153,8 @@ class _LoginPageState extends State<LoginPage> {
     if (!mounted) return;
     _showInfo(
       'Controlla la posta',
-      'Se l’indirizzo è registrato, riceverai un link per scegliere una nuova password.',
+      'Se l’indirizzo è registrato, riceverai un link per scegliere una nuova password.'
+          'NB: verifica nella cartella SPAM / Posta Indesiderata se non hai ricevuto la mail',
     );
   }
 
