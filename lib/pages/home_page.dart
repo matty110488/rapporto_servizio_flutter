@@ -4,6 +4,7 @@ import '../models/gara.dart';
 import '../services/auth_service.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
+import '../utils/notion_user.dart';
 import '../screens/archivio_screen.dart';
 import 'designazioni_page.dart';
 import 'gare_page.dart';
@@ -103,34 +104,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   String _extractUserName() {
-    final props = widget.loggedUser['properties'];
-    if (props is Map<String, dynamic>) {
-      for (final entry in props.entries) {
-        final value = entry.value;
-        if (value is Map<String, dynamic>) {
-          if (value['type'] == 'title') {
-            final titles = value['title'] as List<dynamic>? ?? const [];
-            if (titles.isNotEmpty) {
-              final plain =
-                  (titles.first as Map<String, dynamic>)['plain_text'];
-              if (plain is String && plain.isNotEmpty) {
-                return plain;
-              }
-            }
-          }
-          if (value['type'] == 'rich_text') {
-            final texts = value['rich_text'] as List<dynamic>? ?? const [];
-            if (texts.isNotEmpty) {
-              final plain = (texts.first as Map<String, dynamic>)['plain_text'];
-              if (plain is String && plain.isNotEmpty) {
-                return plain;
-              }
-            }
-          }
-        }
-      }
-    }
-    return 'Utente';
+    return extractNotionUserName(widget.loggedUser);
   }
 
   String? get _loggedUserId {

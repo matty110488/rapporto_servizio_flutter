@@ -263,8 +263,17 @@ export default async function handler(req, res) {
       if (!page || typeof page !== 'object') return null;
       const properties =
         page.properties && typeof page.properties === 'object' ? page.properties : {};
+      const privatePropertyNames = new Set([
+        'PASSWORD',
+        'PASSKEYS',
+        'FCM_TOKEN',
+        'PUSH_TOKEN',
+        'TOKEN_PUSH',
+      ]);
       const safeProperties = Object.fromEntries(
-        Object.entries(properties).filter(([key]) => key.trim().toUpperCase() !== 'PASSWORD'),
+        Object.entries(properties).filter(
+          ([key]) => !privatePropertyNames.has(key.trim().toUpperCase()),
+        ),
       );
       return { ...page, properties: safeProperties };
     };
