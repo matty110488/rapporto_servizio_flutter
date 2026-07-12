@@ -199,7 +199,7 @@ class NotionService {
     }
   }
 
-  Future<void> notifyAdminsAvailability({
+  Future<AdminNotificationResult> notifyAdminsAvailability({
     required String garaId,
     required String garaTitolo,
     required String userId,
@@ -220,6 +220,8 @@ class NotionService {
     if (res.statusCode != 200) {
       throw Exception('Errore notifica admin: ${res.body}');
     }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return AdminNotificationResult.fromJson(data);
   }
 
   Future<void> updateGaraStatus(String pageId, String statusName) async {
@@ -275,5 +277,31 @@ class NotionService {
     );
 
     return res;
+  }
+}
+
+class AdminNotificationResult {
+  const AdminNotificationResult({
+    required this.sent,
+    required this.attempted,
+    this.reason = '',
+    this.errors = const [],
+  });
+
+  final int sent;
+  final int attempted;
+  final String reason;
+  final List<String> errors;
+
+  factory AdminNotificationResult.fromJson(Map<String, dynamic> json) {
+    final rawErrors = json['errors'];
+    return AdminNotificationResult(
+      sent: (json['sent'] as num?)?.toInt() ?? 0,
+      attempted: (json['attempted'] as num?)?.toInt() ?? 0,
+      reason: json['reason'] is String ? json['reason'] as String : '',
+      errors: rawErrors is List
+          ? rawErrors.map((entry) => entry.toString()).toList()
+          : const [],
+    );
   }
 }
