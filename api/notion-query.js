@@ -252,6 +252,7 @@ export default async function handler(req, res) {
               body: typeof entry.body === 'string' ? entry.body : '',
               type: typeof entry.type === 'string' ? entry.type : '',
               garaId: typeof entry.garaId === 'string' ? entry.garaId : '',
+              eventKey: typeof entry.eventKey === 'string' ? entry.eventKey : '',
               createdAt:
                 typeof entry.createdAt === 'string'
                   ? entry.createdAt
@@ -713,7 +714,14 @@ export default async function handler(req, res) {
       const existingRecords = notificationKey
         ? extractNotificationRecords(props[notificationKey])
         : [];
-      if (notification.type === 'designation' && notification.garaId) {
+      if (notification.eventKey) {
+        const alreadyExists = existingRecords.some(
+          (entry) => entry.eventKey === notification.eventKey,
+        );
+        if (alreadyExists) {
+          return { status: 200, data: { ok: true, deduped: true } };
+        }
+      } else if (notification.type === 'designation' && notification.garaId) {
         const alreadyExists = existingRecords.some(
           (entry) =>
             entry.type === notification.type &&
@@ -729,6 +737,7 @@ export default async function handler(req, res) {
         body: notification.body || '',
         type: notification.type || '',
         garaId: notification.garaId || '',
+        eventKey: notification.eventKey || '',
         createdAt: new Date().toISOString(),
         read: false,
       };
@@ -758,6 +767,11 @@ export default async function handler(req, res) {
 
       const garaTitolo = extractPageTitle(garaPage);
       const garaId = typeof garaPage.id === 'string' ? garaPage.id : '';
+      const eventKey = [
+        'designation',
+        garaId,
+        typeof garaPage.last_edited_time === 'string' ? garaPage.last_edited_time : '',
+      ].join(':');
       const title = 'Designazione inviata';
       const body = designationBodyForGara(garaPage);
       const tokenCandidates = ['FCM_TOKEN', 'PUSH_TOKEN', 'TOKEN_PUSH'];
@@ -773,6 +787,7 @@ export default async function handler(req, res) {
             body,
             type: 'designation',
             garaId,
+            eventKey,
           });
           if (saved.status !== 200) return;
           if (saved.data?.deduped === true) return;

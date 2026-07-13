@@ -289,7 +289,9 @@ class _HomePageState extends State<HomePage> {
       _HomeNavData(
         icon: Icons.mark_email_unread_outlined,
         label: 'Notifiche',
-        subtitle: 'Gestisci avvisi, storico e test',
+        subtitle: _unreadNotifications > 0
+            ? '$_unreadNotifications nuove notifiche'
+            : 'Gestisci avvisi, storico e test',
         badgeCount: _unreadNotifications,
         onTap: () => _openPage(
           context,
@@ -596,54 +598,90 @@ class _HomeCard extends StatelessWidget {
               ),
             ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEAF3FF),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(icon, color: const Color(0xFF0A66C2)),
-                    ),
-                    if (badgeCount > 0)
-                      Positioned(
-                        right: -6,
-                        top: -6,
-                        child: Badge.count(
-                          count: badgeCount,
-                          backgroundColor: Colors.red,
-                          textColor: Colors.white,
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEAF3FF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(icon, color: const Color(0xFF0A66C2)),
                         ),
+                        if (badgeCount > 0)
+                          Positioned(
+                            right: -6,
+                            top: -6,
+                            child: Badge.count(
+                              count: badgeCount,
+                              backgroundColor: Colors.red,
+                              textColor: Colors.white,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const Spacer(),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A2B40),
                       ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight:
+                            badgeCount > 0 ? FontWeight.w700 : FontWeight.w400,
+                        color: badgeCount > 0
+                            ? Colors.red
+                            : const Color(0xFF49627E),
+                      ),
+                    ),
                   ],
                 ),
-                const Spacer(),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A2B40),
+              ),
+              if (badgeCount > 0)
+                Positioned(
+                  right: 10,
+                  top: 10,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x33000000),
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      badgeCount > 99 ? '99+' : '$badgeCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF49627E),
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
         ),
       ),
