@@ -303,88 +303,146 @@ class _HomePageState extends State<HomePage> {
       ),
     ];
 
-    return Scaffold(
-      appBar: AppBar(
-        leadingWidth: 170,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 12),
-          child: SizedBox(
-            width: 170,
-            child: Image.asset(
-              'assets/logo.png',
-              fit: BoxFit.contain,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useSidebar = constraints.maxWidth >= 900;
+        return Scaffold(
+          appBar: useSidebar
+              ? null
+              : AppBar(
+                  title: SizedBox(
+                    height: 42,
+                    child: Image.asset(
+                      'assets/logo.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  actions: [
+                    _passkeyButton(),
+                    const SizedBox(width: 8),
+                  ],
+                ),
+          drawer: useSidebar
+              ? null
+              : _HomeDrawer(
+                  userName: userName,
+                  navItems: navItems,
+                  registeringPasskey: _registeringPasskey,
+                  onEnablePasskey: _enablePasskey,
+                  onLogout: widget.onLogout,
+                ),
+          body: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFEAF3FF),
+                  Color(0xFFF7FBFF),
+                  Color(0xFFFFFFFF),
+                ],
+              ),
+            ),
+            child: SafeArea(
+              child: useSidebar
+                  ? Row(
+                      children: [
+                        _HomeSidebar(
+                          userName: userName,
+                          navItems: navItems,
+                          registeringPasskey: _registeringPasskey,
+                          onEnablePasskey: _enablePasskey,
+                          onLogout: widget.onLogout,
+                        ),
+                        Expanded(
+                          child: _homeContent(
+                            userName: userName,
+                            navItems: navItems,
+                            compact: false,
+                          ),
+                        ),
+                      ],
+                    )
+                  : _homeContent(
+                      userName: userName,
+                      navItems: navItems,
+                      compact: true,
+                    ),
             ),
           ),
-        ),
-        actions: [
-          IconButton(
-            onPressed: _registeringPasskey ? null : _enablePasskey,
-            tooltip: 'Attiva Face ID o impronta',
-            icon: _registeringPasskey
-                ? const SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.fingerprint),
+        );
+      },
+    );
+  }
+
+  Widget _passkeyButton() {
+    return IconButton(
+      onPressed: _registeringPasskey ? null : _enablePasskey,
+      tooltip: 'Attiva Face ID o impronta',
+      icon: _registeringPasskey
+          ? const SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.fingerprint),
+    );
+  }
+
+  Widget _homeContent({
+    required String userName,
+    required List<_HomeNavData> navItems,
+    required bool compact,
+  }) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: compact ? 720 : 980),
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+            compact ? 16 : 28,
+            compact ? 12 : 28,
+            compact ? 16 : 28,
+            24,
           ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEAF3FF), Color(0xFFF7FBFF), Color(0xFFFFFFFF)],
-          ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _hero(userName),
-                const SizedBox(height: 14),
-                Expanded(
-                  child: GridView.builder(
-                    itemCount: navItems.length,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 0.95,
-                    ),
-                    itemBuilder: (context, index) {
-                      final item = navItems[index];
-                      return _HomeCard(
-                        icon: item.icon,
-                        label: item.label,
-                        subtitle: item.subtitle,
-                        badgeCount: item.badgeCount,
-                        onTap: item.onTap,
-                      );
-                    },
-                  ),
+          children: [
+            _hero(userName),
+            const SizedBox(height: 18),
+            if (compact) ...[
+              const Text(
+                'Menu principale',
+                style: TextStyle(
+                  color: Color(0xFF1A2B40),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF0A66C2),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    onPressed: widget.onLogout,
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Logout'),
-                  ),
+              ),
+              const SizedBox(height: 10),
+              ...navItems.map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _HomeActionTile(item: item),
                 ),
-              ],
-            ),
-          ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF0A66C2),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: widget.onLogout,
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Logout'),
+                ),
+              ),
+            ] else
+              _DesktopSummaryCard(
+                notificationsCount: _unreadNotifications,
+                onOpenNotifications: navItems.last.onTap,
+              ),
+          ],
         ),
       ),
     );
@@ -563,19 +621,214 @@ class _HomeNavData {
   });
 }
 
-class _HomeCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String subtitle;
-  final int badgeCount;
-  final VoidCallback onTap;
+class _HomeSidebar extends StatelessWidget {
+  final String userName;
+  final List<_HomeNavData> navItems;
+  final bool registeringPasskey;
+  final VoidCallback onEnablePasskey;
+  final VoidCallback onLogout;
 
-  const _HomeCard({
-    required this.icon,
-    required this.label,
-    required this.subtitle,
-    this.badgeCount = 0,
-    required this.onTap,
+  const _HomeSidebar({
+    required this.userName,
+    required this.navItems,
+    required this.registeringPasskey,
+    required this.onEnablePasskey,
+    required this.onLogout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 292,
+      margin: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFDCE8F6)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x16000000),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Image.asset(
+              'assets/logo.png',
+              height: 58,
+              fit: BoxFit.contain,
+            ),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            'Ciao, $userName',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF1A2B40),
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Scegli una sezione dal menu.',
+            style: TextStyle(
+              color: Color(0xFF49627E),
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 22),
+          Expanded(
+            child: ListView.separated(
+              itemCount: navItems.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                return _HomeMenuTile(item: navItems[index]);
+              },
+            ),
+          ),
+          const Divider(height: 24),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(46),
+              alignment: Alignment.centerLeft,
+            ),
+            onPressed: registeringPasskey ? null : onEnablePasskey,
+            icon: registeringPasskey
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.fingerprint),
+            label: const Text('Face ID / impronta'),
+          ),
+          const SizedBox(height: 10),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(46),
+              backgroundColor: const Color(0xFF0A66C2),
+              foregroundColor: Colors.white,
+              alignment: Alignment.centerLeft,
+            ),
+            onPressed: onLogout,
+            icon: const Icon(Icons.logout),
+            label: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeDrawer extends StatelessWidget {
+  final String userName;
+  final List<_HomeNavData> navItems;
+  final bool registeringPasskey;
+  final VoidCallback onEnablePasskey;
+  final VoidCallback onLogout;
+
+  const _HomeDrawer({
+    required this.userName,
+    required this.navItems,
+    required this.registeringPasskey,
+    required this.onEnablePasskey,
+    required this.onLogout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Image.asset(
+                'assets/logo.png',
+                height: 48,
+                fit: BoxFit.contain,
+              ),
+              const SizedBox(height: 18),
+              Text(
+                userName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF1A2B40),
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: navItems.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    return _HomeMenuTile(
+                      item: navItems[index],
+                      closeDrawerBeforeTap: true,
+                    );
+                  },
+                ),
+              ),
+              const Divider(height: 24),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(46),
+                  alignment: Alignment.centerLeft,
+                ),
+                onPressed: registeringPasskey
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                        onEnablePasskey();
+                      },
+                icon: registeringPasskey
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.fingerprint),
+                label: const Text('Face ID / impronta'),
+              ),
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(46),
+                  backgroundColor: const Color(0xFF0A66C2),
+                  foregroundColor: Colors.white,
+                  alignment: Alignment.centerLeft,
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  onLogout();
+                },
+                icon: const Icon(Icons.logout),
+                label: const Text('Logout'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeMenuTile extends StatelessWidget {
+  final _HomeNavData item;
+  final bool closeDrawerBeforeTap;
+
+  const _HomeMenuTile({
+    required this.item,
+    this.closeDrawerBeforeTap = false,
   });
 
   @override
@@ -583,107 +836,181 @@ class _HomeCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        onTap: () {
+          if (closeDrawerBeforeTap) Navigator.pop(context);
+          item.onTap();
+        },
+        borderRadius: BorderRadius.circular(16),
         child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFDCE8F6)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x12000000),
-                blurRadius: 14,
-                offset: Offset(0, 5),
-              ),
-            ],
+            color: item.badgeCount > 0 ? const Color(0xFFFFF1F1) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: item.badgeCount > 0
+                  ? const Color(0xFFFFB4B4)
+                  : const Color(0xFFE2ECF8),
+            ),
           ),
-          child: Stack(
+          child: Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.all(14),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: item.badgeCount > 0
+                      ? Colors.red
+                      : const Color(0xFFEAF3FF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  item.icon,
+                  color: item.badgeCount > 0
+                      ? Colors.white
+                      : const Color(0xFF0A66C2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEAF3FF),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(icon, color: const Color(0xFF0A66C2)),
-                        ),
-                        if (badgeCount > 0)
-                          Positioned(
-                            right: -6,
-                            top: -6,
-                            child: Badge.count(
-                              count: badgeCount,
-                              backgroundColor: Colors.red,
-                              textColor: Colors.white,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const Spacer(),
                     Text(
-                      label,
+                      item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
                         color: Color(0xFF1A2B40),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 2),
                     Text(
-                      subtitle,
+                      item.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12,
-                        fontWeight:
-                            badgeCount > 0 ? FontWeight.w700 : FontWeight.w400,
-                        color: badgeCount > 0
+                        color: item.badgeCount > 0
                             ? Colors.red
                             : const Color(0xFF49627E),
+                        fontSize: 12,
+                        fontWeight: item.badgeCount > 0
+                            ? FontWeight.w700
+                            : FontWeight.w400,
                       ),
                     ),
                   ],
                 ),
               ),
-              if (badgeCount > 0)
-                Positioned(
-                  right: 10,
-                  top: 10,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(999),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x33000000),
-                          blurRadius: 6,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      badgeCount > 99 ? '99+' : '$badgeCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
+              if (item.badgeCount > 0) ...[
+                const SizedBox(width: 8),
+                Badge.count(
+                  count: item.badgeCount,
+                  backgroundColor: Colors.red,
+                  textColor: Colors.white,
                 ),
+              ],
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _HomeActionTile extends StatelessWidget {
+  final _HomeNavData item;
+
+  const _HomeActionTile({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return _HomeMenuTile(item: item);
+  }
+}
+
+class _DesktopSummaryCard extends StatelessWidget {
+  final int notificationsCount;
+  final VoidCallback onOpenNotifications;
+
+  const _DesktopSummaryCard({
+    required this.notificationsCount,
+    required this.onOpenNotifications,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFDCE8F6)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: notificationsCount > 0
+                  ? const Color(0xFFFFE7E7)
+                  : const Color(0xFFEAF3FF),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              notificationsCount > 0
+                  ? Icons.mark_email_unread_outlined
+                  : Icons.dashboard_outlined,
+              color:
+                  notificationsCount > 0 ? Colors.red : const Color(0xFF0A66C2),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Dashboard',
+                  style: TextStyle(
+                    color: Color(0xFF1A2B40),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  notificationsCount > 0
+                      ? '$notificationsCount notifiche non lette'
+                      : 'Usa il menu laterale per aprire le sezioni operative.',
+                  style: TextStyle(
+                    color: notificationsCount > 0
+                        ? Colors.red
+                        : const Color(0xFF49627E),
+                    fontSize: 13,
+                    fontWeight: notificationsCount > 0
+                        ? FontWeight.w700
+                        : FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (notificationsCount > 0)
+            FilledButton(
+              onPressed: onOpenNotifications,
+              child: const Text('Apri notifiche'),
+            ),
+        ],
       ),
     );
   }
