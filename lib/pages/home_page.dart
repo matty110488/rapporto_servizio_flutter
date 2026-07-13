@@ -32,6 +32,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   static const _db2025 = '2afde089ef9580e2b0e7d19d44f3a3f6';
   static const _db2026 = '2b1de089ef9580729622ff9543046cbc';
+  static const _layoutVersion = 'Home layout 2026.07.13';
 
   late final NotionService _notion;
   bool _loadingDashboard = true;
@@ -442,6 +443,17 @@ class _HomePageState extends State<HomePage> {
                 notificationsCount: _unreadNotifications,
                 onOpenNotifications: navItems.last.onTap,
               ),
+            const SizedBox(height: 14),
+            const Center(
+              child: Text(
+                _layoutVersion,
+                style: TextStyle(
+                  color: Color(0xFF7B8EA3),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -681,6 +693,15 @@ class _HomeSidebar extends StatelessWidget {
             style: TextStyle(
               color: Color(0xFF49627E),
               fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            _HomePageState._layoutVersion,
+            style: TextStyle(
+              color: Color(0xFF7B8EA3),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 22),
