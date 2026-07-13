@@ -13,14 +13,31 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
+  if (payload && payload.notification) {
+    return;
+  }
+
   var title = 'Nuova notifica';
   var body = '';
-  if (payload && payload.notification) {
-    if (payload.notification.title) title = payload.notification.title;
-    if (payload.notification.body) body = payload.notification.body;
+  if (payload && payload.data) {
+    if (payload.data.title) title = payload.data.title;
+    if (payload.data.body) body = payload.data.body;
   }
   self.registration.showNotification(title, {
     body,
     icon: 'icons/Icon-192.png',
+    data: payload && payload.data ? payload.data : {},
   });
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  var garaId = event.notification.data && event.notification.data.garaId
+    ? event.notification.data.garaId
+    : '';
+  var url = './';
+  if (garaId) {
+    url = './?garaId=' + encodeURIComponent(garaId);
+  }
+  event.waitUntil(clients.openWindow(url));
 });
