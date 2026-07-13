@@ -60,3 +60,5 @@ docs/
 *.tmp
 *.swp
 *.DS_Store
+.vercel
+.env*

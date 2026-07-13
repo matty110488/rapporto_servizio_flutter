@@ -68,6 +68,7 @@ export default async function handler(req, res) {
     FIREBASE_CLIENT_EMAIL,
     FIREBASE_PRIVATE_KEY,
     PUBLIC_APP_URL,
+    CRON_SECRET,
   } = process.env;
   if (!NOTION_TOKEN || !DATABASE_ID) {
     return res.status(500).json({ error: 'Missing NOTION_TOKEN or DATABASE_ID' });
@@ -1059,13 +1060,24 @@ export default async function handler(req, res) {
       });
     }
 
+    const secureEquals = (left, right) => {
+      if (!left || !right) return false;
+      const leftBuffer = Buffer.from(String(left));
+      const rightBuffer = Buffer.from(String(right));
+      if (leftBuffer.length !== rightBuffer.length) return false;
+      return timingSafeEqual(leftBuffer, rightBuffer);
+    };
+
     const isVercelCronRequest =
       req.method === 'GET' &&
       typeof req.headers['user-agent'] === 'string' &&
       req.headers['user-agent'].includes('vercel-cron/1.0') &&
       typeof req.headers['x-vercel-cron-schedule'] === 'string';
-    const session = isVercelCronRequest
-      ? { sub: 'vercel-cron', admin: true }
+    const isSecretCronRequest =
+      action === 'notifyDesignationsForSentStatus' &&
+      secureEquals(req.headers['x-cron-secret'], CRON_SECRET);
+    const session = isVercelCronRequest || isSecretCronRequest
+      ? { sub: isVercelCronRequest ? 'vercel-cron' : 'github-cron', admin: true }
       : verifySession(req.headers.authorization);
     if (!session) {
       return res.status(401).json({ error: 'Authentication required' });

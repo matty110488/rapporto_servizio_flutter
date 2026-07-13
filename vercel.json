@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/notion-query",
-      "schedule": "*/5 * * * *"
-    }
-  ]
-}

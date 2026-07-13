@@ -1,0 +1,17 @@
+.dart_tool
+.git
+.github
+.idea
+.vscode
+.vercel
+android
+build
+docs
+ios
+linux
+macos
+node_modules
+test
+test_backend
+windows
+web

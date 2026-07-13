@@ -1,0 +1,25 @@
+name: Notification poller
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger notification scan
+        env:
+          CRON_SECRET: ${{ secrets.NOTIFICATION_CRON_SECRET }}
+        run: |
+          test -n "$CRON_SECRET"
+          curl --fail --silent --show-error \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "X-Cron-Secret: $CRON_SECRET" \
+            --data '{"action":"notifyDesignationsForSentStatus","recentHours":1,"source":"github-actions"}' \
+            https://rapporto-servizio-flutter.vercel.app/api/notion-query
