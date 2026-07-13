@@ -105,6 +105,19 @@ class NotionService {
     return '';
   }
 
+  Future<Map<String, dynamic>> retrievePage(String pageId) async {
+    final res = await _postViaWebProxy({
+      'action': 'retrievePage',
+      'pageId': pageId,
+    });
+
+    if (res.statusCode != 200) {
+      throw Exception('Errore retrievePage: ${res.body}');
+    }
+
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
   Future<List<String>> fetchKronosDesignatiIds(String pageId) async {
     final res = await _postViaWebProxy({
       'action': 'retrievePage',

@@ -7,7 +7,9 @@ import '../screens/archivio_screen.dart';
 import '../services/auth_service.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
+import '../services/push_notification_service.dart';
 import '../utils/notion_user.dart';
+import 'dettaglio_gara.dart';
 import 'designazioni_page.dart';
 import 'gare_page.dart';
 import 'notifications_page.dart';
@@ -36,6 +38,8 @@ class _HomePageState extends State<HomePage> {
   String? _dashboardError;
   _DashboardData _dashboard = const _DashboardData();
   bool _registeringPasskey = false;
+  int _unreadNotifications = 0;
+  Timer? _notificationPollingTimer;
 
   @override
   void initState() {
@@ -46,9 +50,26 @@ class _HomePageState extends State<HomePage> {
       PrankPopupService.maybeShow(context, widget.loggedUser);
     });
     _loadDashboard();
-    if (_isAdmin) {
+    unawaited(_syncDesignationNotifications());
+    unawaited(_loadNotificationBadge());
+    _notificationPollingTimer =
+        Timer.periodic(const Duration(seconds: 45), (_) {
       unawaited(_syncDesignationNotifications());
-    }
+      unawaited(_loadNotificationBadge());
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final garaId = Uri.base.queryParameters['garaId'];
+      if (garaId != null && garaId.isNotEmpty) {
+        unawaited(_openGaraFromNotification(garaId));
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationPollingTimer?.cancel();
+    super.dispose();
   }
 
   void _openPage(BuildContext context, Widget page) {
@@ -117,70 +138,41 @@ class _HomePageState extends State<HomePage> {
     return null;
   }
 
-  bool get _isAdmin {
-    final props = widget.loggedUser['properties'];
-    if (props is! Map<String, dynamic>) return false;
-
-    const adminKeys = [
-      'ADMIN',
-      'Admin',
-      'admin',
-      'RUOLO',
-      'Ruolo',
-      'ROLE',
-      'Role',
-      'role',
-    ];
-
-    bool matchAdminText(String? value) {
-      if (value == null) return false;
-      final lower = value.toLowerCase();
-      return lower == 'admin' || lower == 'amministratore';
-    }
-
-    bool hasAdminValue(Map<String, dynamic> field) {
-      if (field['checkbox'] == true) return true;
-
-      final select = field['select'];
-      if (select is Map<String, dynamic>) {
-        final name = select['name'];
-        if (name is String && matchAdminText(name)) return true;
-      }
-
-      final multi = field['multi_select'];
-      if (multi is List) {
-        for (final entry in multi) {
-          if (entry is Map<String, dynamic>) {
-            final name = entry['name'];
-            if (name is String && matchAdminText(name)) return true;
-          }
-        }
-      }
-
-      final rich = field['rich_text'];
-      if (rich is List && rich.isNotEmpty) {
-        final first = rich.first;
-        if (first is Map<String, dynamic>) {
-          final text = first['plain_text'];
-          if (text is String && matchAdminText(text)) return true;
-        }
-      }
-
-      return false;
-    }
-
-    for (final key in adminKeys) {
-      final value = props[key];
-      if (value is Map<String, dynamic> && hasAdminValue(value)) return true;
-    }
-    return false;
-  }
-
   Future<void> _syncDesignationNotifications() async {
     try {
       await _notion.notifyDesignationsForSentStatus();
     } catch (_) {
       // Silent by design: notification sync must not block the home page.
+    }
+  }
+
+  Future<void> _loadNotificationBadge() async {
+    final userId = _loggedUserId;
+    if (userId == null) return;
+    try {
+      final notifications = await fetchPushNotifications(userId);
+      if (!mounted) return;
+      setState(() {
+        _unreadNotifications =
+            notifications.where((notice) => !notice.read).length;
+      });
+    } catch (_) {
+      // Silent: badge refresh must not block the home page.
+    }
+  }
+
+  Future<void> _openGaraFromNotification(String garaId) async {
+    try {
+      final page = await _notion.retrievePage(garaId);
+      final gara = Gara.fromNotion(page);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => DettaglioGara(gara: gara)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _openPage(context, GarePage(loggedUser: widget.loggedUser));
     }
   }
 
@@ -298,9 +290,13 @@ class _HomePageState extends State<HomePage> {
         icon: Icons.mark_email_unread_outlined,
         label: 'Notifiche',
         subtitle: 'Gestisci avvisi, storico e test',
+        badgeCount: _unreadNotifications,
         onTap: () => _openPage(
           context,
-          NotificationsPage(loggedUser: widget.loggedUser),
+          NotificationsPage(
+            loggedUser: widget.loggedUser,
+            onNotificationsChanged: _loadNotificationBadge,
+          ),
         ),
       ),
     ];
@@ -364,6 +360,7 @@ class _HomePageState extends State<HomePage> {
                         icon: item.icon,
                         label: item.label,
                         subtitle: item.subtitle,
+                        badgeCount: item.badgeCount,
                         onTap: item.onTap,
                       );
                     },
@@ -552,12 +549,14 @@ class _HomeNavData {
   final IconData icon;
   final String label;
   final String subtitle;
+  final int badgeCount;
   final VoidCallback onTap;
 
   _HomeNavData({
     required this.icon,
     required this.label,
     required this.subtitle,
+    this.badgeCount = 0,
     required this.onTap,
   });
 }
@@ -566,12 +565,14 @@ class _HomeCard extends StatelessWidget {
   final IconData icon;
   final String label;
   final String subtitle;
+  final int badgeCount;
   final VoidCallback onTap;
 
   const _HomeCard({
     required this.icon,
     required this.label,
     required this.subtitle,
+    this.badgeCount = 0,
     required this.onTap,
   });
 
@@ -600,14 +601,29 @@ class _HomeCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEAF3FF),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: const Color(0xFF0A66C2)),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEAF3FF),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(icon, color: const Color(0xFF0A66C2)),
+                    ),
+                    if (badgeCount > 0)
+                      Positioned(
+                        right: -6,
+                        top: -6,
+                        child: Badge.count(
+                          count: badgeCount,
+                          backgroundColor: Colors.red,
+                          textColor: Colors.white,
+                        ),
+                      ),
+                  ],
                 ),
                 const Spacer(),
                 Text(

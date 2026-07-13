@@ -3,14 +3,19 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../models/gara.dart';
+import '../services/notion_service.dart';
 import '../services/push_notification_service.dart';
+import 'dettaglio_gara.dart';
 
 class NotificationsPage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
+  final VoidCallback? onNotificationsChanged;
 
   const NotificationsPage({
     super.key,
     required this.loggedUser,
+    this.onNotificationsChanged,
   });
 
   @override
@@ -25,6 +30,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
   String _statusText = 'Controllo stato notifiche...';
   List<PushNotice> _notifications = const [];
   StreamSubscription<PushNotice>? _foregroundSubscription;
+  Timer? _pollingTimer;
+  late final NotionService _notion;
 
   String? get _loggedUserId {
     final id = widget.loggedUser['id'];
@@ -35,22 +42,28 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   void initState() {
     super.initState();
+    _notion = NotionService(databaseId: '2afde089ef9580e2b0e7d19d44f3a3f6');
     _foregroundSubscription = foregroundPushNotices.listen((notice) {
       if (!mounted) return;
       setState(() {
         _notifications = [notice, ..._notifications].take(50).toList();
       });
+      widget.onNotificationsChanged?.call();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${notice.title}: ${notice.body}')),
       );
       _loadNotifications(silent: true);
     });
     _loadAll();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      unawaited(_syncAndLoadNotifications());
+    });
   }
 
   @override
   void dispose() {
     _foregroundSubscription?.cancel();
+    _pollingTimer?.cancel();
     super.dispose();
   }
 
@@ -58,9 +71,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
     setState(() => _loading = true);
     await Future.wait([
       _loadStatus(),
-      _loadNotifications(silent: true),
+      _syncAndLoadNotifications(),
     ]);
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _syncAndLoadNotifications() async {
+    try {
+      await _notion.notifyDesignationsForSentStatus();
+    } catch (_) {
+      // Silent: polling must not block the notification list.
+    }
+    await _loadNotifications(silent: true);
   }
 
   Future<void> _loadStatus() async {
@@ -92,6 +114,26 @@ class _NotificationsPageState extends State<NotificationsPage> {
       final notifications = await fetchPushNotifications(userId);
       if (!mounted) return;
       setState(() => _notifications = notifications);
+      if (notifications.any((notice) => !notice.read)) {
+        await markPushNotificationsRead(userId);
+        if (!mounted) return;
+        setState(() {
+          _notifications = _notifications
+              .map(
+                (notice) => PushNotice(
+                  id: notice.id,
+                  title: notice.title,
+                  body: notice.body,
+                  type: notice.type,
+                  garaId: notice.garaId,
+                  read: true,
+                  receivedAt: notice.receivedAt,
+                ),
+              )
+              .toList(growable: false);
+        });
+        widget.onNotificationsChanged?.call();
+      }
     } catch (e) {
       if (!mounted || silent) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -172,21 +214,44 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
-  Future<void> _clearNotifications() async {
+  Future<void> _deleteNotification(PushNotice notice) async {
     final userId = _loggedUserId;
-    if (userId == null) return;
+    final id = notice.id;
+    if (userId == null || id == null || id.isEmpty) return;
     setState(() => _busy = true);
     try {
-      await clearPushNotifications(userId);
+      await deletePushNotification(userId, id);
       if (!mounted) return;
-      setState(() => _notifications = const []);
+      setState(() {
+        _notifications =
+            _notifications.where((entry) => entry.id != id).toList();
+      });
+      widget.onNotificationsChanged?.call();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Pulizia notifiche non riuscita: $e')),
+        SnackBar(content: Text('Eliminazione notifica non riuscita: $e')),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _openGara(PushNotice notice) async {
+    if (notice.garaId.isEmpty) return;
+    try {
+      final page = await _notion.retrievePage(notice.garaId);
+      final gara = Gara.fromNotion(page);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => DettaglioGara(gara: gara)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Apertura gara non riuscita: $e')),
+      );
     }
   }
 
@@ -349,10 +414,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ),
         ),
         TextButton.icon(
-          onPressed:
-              _notifications.isEmpty || _busy ? null : _clearNotifications,
-          icon: const Icon(Icons.delete_outline),
-          label: const Text('Svuota'),
+          onPressed: _loading ? null : _loadAll,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Aggiorna'),
         ),
       ],
     );
@@ -373,6 +437,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       child: _card(
         child: ListTile(
           contentPadding: EdgeInsets.zero,
+          onTap: notice.garaId.isEmpty ? null : () => _openGara(notice),
           leading: const Icon(
             Icons.mark_email_unread_outlined,
             color: Color(0xFF0A66C2),
@@ -387,10 +452,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
               if (notice.body.isNotEmpty) Text(notice.body),
               const SizedBox(height: 4),
               Text(
-                _formatTimestamp(notice.receivedAt),
+                notice.garaId.isEmpty
+                    ? _formatTimestamp(notice.receivedAt)
+                    : '${_formatTimestamp(notice.receivedAt)} - Tocca per aprire la gara',
                 style: const TextStyle(fontSize: 12),
               ),
             ],
+          ),
+          trailing: IconButton(
+            tooltip: 'Elimina notifica',
+            onPressed: _busy ? null : () => _deleteNotification(notice),
+            icon: const Icon(Icons.delete_outline),
           ),
         ),
       ),

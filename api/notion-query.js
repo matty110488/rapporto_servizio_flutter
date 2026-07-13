@@ -42,7 +42,7 @@ function setCorsHeaders(req, res) {
     }
   }
   res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
     return res.status(204).end();
   }
 
-  if (req.method !== 'POST') {
+  if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -67,15 +67,22 @@ export default async function handler(req, res) {
     FIREBASE_PROJECT_ID,
     FIREBASE_CLIENT_EMAIL,
     FIREBASE_PRIVATE_KEY,
+    PUBLIC_APP_URL,
   } = process.env;
   if (!NOTION_TOKEN || !DATABASE_ID) {
     return res.status(500).json({ error: 'Missing NOTION_TOKEN or DATABASE_ID' });
   }
 
   try {
-    const rawBody = typeof req.body === 'string'
-      ? (req.body ? JSON.parse(req.body) : {})
-      : req.body ?? {};
+    const rawBody = req.method === 'GET'
+      ? {
+          action: 'notifyDesignationsForSentStatus',
+          recentHours: 1,
+          source: 'cron',
+        }
+      : typeof req.body === 'string'
+        ? (req.body ? JSON.parse(req.body) : {})
+        : req.body ?? {};
     const safeBody =
       rawBody && typeof rawBody === 'object' && !Array.isArray(rawBody) ? rawBody : {};
     const action = typeof safeBody.action === 'string' ? safeBody.action.trim() : 'queryDatabase';
@@ -266,6 +273,17 @@ export default async function handler(req, res) {
       }));
     };
 
+    const appBaseUrl =
+      typeof PUBLIC_APP_URL === 'string' && PUBLIC_APP_URL.trim()
+        ? PUBLIC_APP_URL.trim().replace(/\/$/, '')
+        : 'https://matty110488.github.io/rapporto_servizio_flutter';
+
+    const notificationLinkForData = (data = {}) => {
+      const garaId = typeof data.garaId === 'string' ? data.garaId.trim() : '';
+      if (!garaId) return appBaseUrl;
+      return `${appBaseUrl}/?garaId=${encodeURIComponent(garaId)}`;
+    };
+
     const sendFcmMessages = async ({ tokens, title, body, data = {} }) => {
       if (!FIREBASE_PROJECT_ID || !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
         throw new Error(
@@ -291,9 +309,18 @@ export default async function handler(req, res) {
             body: JSON.stringify({
               message: {
                 token,
+                notification: { title, body },
                 webpush: {
                   headers: {
                     Urgency: 'high',
+                  },
+                  notification: {
+                    title,
+                    body,
+                    icon: 'icons/Icon-192.png',
+                  },
+                  fcm_options: {
+                    link: notificationLinkForData(data),
                   },
                 },
                 data: Object.fromEntries(
@@ -506,6 +533,48 @@ export default async function handler(req, res) {
       return 'la gara';
     };
 
+    const extractDateRangeText = (field) => {
+      const date = field && typeof field === 'object' ? field.date : null;
+      if (!date || typeof date !== 'object') return '';
+      const formatDate = (value) => {
+        if (typeof value !== 'string' || !value) return '';
+        const [year, month, day] = value.slice(0, 10).split('-');
+        if (!year || !month || !day) return value;
+        return `${day}/${month}/${year}`;
+      };
+      const start = formatDate(date.start);
+      const end = formatDate(date.end);
+      if (start && end && start !== end) return `${start} - ${end}`;
+      return start || end || '';
+    };
+
+    const extractGaraDateText = (page) => {
+      const props = page && typeof page === 'object' ? page.properties : {};
+      const key = findKeyByCandidates(props, ['DATA GARA', 'DATA', 'DATE']);
+      return key ? extractDateRangeText(props[key]) : '';
+    };
+
+    const extractGaraPlaceText = (page) => {
+      const props = page && typeof page === 'object' ? page.properties : {};
+      const key = findKeyByCandidates(props, [
+        "LOCALITA'",
+        'LOCALITA',
+        'LOCALITÀ',
+        'LUOGO',
+      ]);
+      return key ? extractPropertyText(props[key]) : '';
+    };
+
+    const designationBodyForGara = (garaPage) => {
+      const garaTitolo = extractPageTitle(garaPage);
+      const dateText = extractGaraDateText(garaPage);
+      const placeText = extractGaraPlaceText(garaPage);
+      const details = [dateText, placeText].filter(Boolean).join(' - ');
+      return details
+        ? `${garaTitolo}\n${details}`
+        : garaTitolo;
+    };
+
     const findProperty = (props, candidates) => {
       if (!props || typeof props !== 'object') return null;
       const wanted = new Set(candidates.map((value) => value.replace(/[^a-z0-9]/gi, '').toLowerCase()));
@@ -643,7 +712,7 @@ export default async function handler(req, res) {
       const existingRecords = notificationKey
         ? extractNotificationRecords(props[notificationKey])
         : [];
-      if (notification.type && notification.garaId) {
+      if (notification.type === 'designation' && notification.garaId) {
         const alreadyExists = existingRecords.some(
           (entry) =>
             entry.type === notification.type &&
@@ -689,7 +758,7 @@ export default async function handler(req, res) {
       const garaTitolo = extractPageTitle(garaPage);
       const garaId = typeof garaPage.id === 'string' ? garaPage.id : '';
       const title = 'Designazione inviata';
-      const body = `Sei stato designato per ${garaTitolo}`;
+      const body = designationBodyForGara(garaPage);
       const tokenCandidates = ['FCM_TOKEN', 'PUSH_TOKEN', 'TOKEN_PUSH'];
       const tokens = new Set();
       let recipients = 0;
@@ -737,6 +806,8 @@ export default async function handler(req, res) {
           type: 'designation',
           garaId,
           garaTitolo,
+          garaData: extractGaraDateText(garaPage),
+          garaLuogo: extractGaraPlaceText(garaPage),
         },
       });
       return {
@@ -988,7 +1059,14 @@ export default async function handler(req, res) {
       });
     }
 
-    const session = verifySession(req.headers.authorization);
+    const isVercelCronRequest =
+      req.method === 'GET' &&
+      typeof req.headers['user-agent'] === 'string' &&
+      req.headers['user-agent'].includes('vercel-cron/1.0') &&
+      typeof req.headers['x-vercel-cron-schedule'] === 'string';
+    const session = isVercelCronRequest
+      ? { sub: 'vercel-cron', admin: true }
+      : verifySession(req.headers.authorization);
     if (!session) {
       return res.status(401).json({ error: 'Authentication required' });
     }
@@ -1194,10 +1272,6 @@ export default async function handler(req, res) {
     }
 
     if (action === 'notifyDesignationsForSentStatus') {
-      if (session.admin !== true) {
-        return res.status(403).json({ error: 'Admin required for designation notification scan' });
-      }
-
       const recentHoursRaw = Number(safeBody.recentHours);
       const recentHours =
         Number.isFinite(recentHoursRaw) && recentHoursRaw > 0
@@ -1386,6 +1460,58 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, notifications });
     }
 
+    if (action === 'markPushNotificationsRead') {
+      const userId = typeof safeBody.userId === 'string' ? safeBody.userId.trim() : session.sub;
+      if (!userId) return res.status(400).json({ error: 'Missing userId for markPushNotificationsRead' });
+      if (session.sub !== userId && session.admin !== true) {
+        return res.status(403).json({ error: 'Cannot mark notifications for another user' });
+      }
+
+      const page = await notionRequest(`https://api.notion.com/v1/pages/${userId}`, 'GET');
+      if (page.status !== 200) return res.status(page.status).json(page.data);
+      const props = page.data && typeof page.data === 'object' ? page.data.properties : {};
+      const notificationKey = findKeyByCandidates(props, [
+        'FCM_NOTIFICATIONS',
+        'PUSH_NOTIFICATIONS',
+        'NOTIFICHE_PUSH',
+      ]);
+      const notifications = notificationKey
+        ? extractNotificationRecords(props[notificationKey])
+        : [];
+      const nextNotifications = notifications.map((entry) => ({ ...entry, read: true }));
+      const saved = await saveNotificationRecords(userId, nextNotifications);
+      if (saved.status !== 200) return res.status(saved.status).json(saved.data);
+      return res.status(200).json({ ok: true, notifications: nextNotifications });
+    }
+
+    if (action === 'deletePushNotification') {
+      const userId = typeof safeBody.userId === 'string' ? safeBody.userId.trim() : session.sub;
+      const notificationId =
+        typeof safeBody.notificationId === 'string' ? safeBody.notificationId.trim() : '';
+      if (!userId || !notificationId) {
+        return res.status(400).json({ error: 'Missing userId or notificationId for deletePushNotification' });
+      }
+      if (session.sub !== userId && session.admin !== true) {
+        return res.status(403).json({ error: 'Cannot delete notifications for another user' });
+      }
+
+      const page = await notionRequest(`https://api.notion.com/v1/pages/${userId}`, 'GET');
+      if (page.status !== 200) return res.status(page.status).json(page.data);
+      const props = page.data && typeof page.data === 'object' ? page.data.properties : {};
+      const notificationKey = findKeyByCandidates(props, [
+        'FCM_NOTIFICATIONS',
+        'PUSH_NOTIFICATIONS',
+        'NOTIFICHE_PUSH',
+      ]);
+      const notifications = notificationKey
+        ? extractNotificationRecords(props[notificationKey])
+        : [];
+      const nextNotifications = notifications.filter((entry) => entry.id !== notificationId);
+      const saved = await saveNotificationRecords(userId, nextNotifications);
+      if (saved.status !== 200) return res.status(saved.status).json(saved.data);
+      return res.status(200).json({ ok: true, notifications: nextNotifications });
+    }
+
     if (action === 'clearPushNotifications') {
       const userId = typeof safeBody.userId === 'string' ? safeBody.userId.trim() : session.sub;
       if (!userId) return res.status(400).json({ error: 'Missing userId for clearPushNotifications' });
@@ -1440,6 +1566,7 @@ export default async function handler(req, res) {
       const userId = typeof safeBody.userId === 'string' ? safeBody.userId.trim() : '';
       const userName = typeof safeBody.userName === 'string' ? safeBody.userName.trim() : 'Un utente';
       const available = safeBody.available;
+      const garaId = typeof safeBody.garaId === 'string' ? safeBody.garaId.trim() : '';
       const garaTitolo =
         typeof safeBody.garaTitolo === 'string' ? safeBody.garaTitolo.trim() : 'una gara';
       if (!userId || typeof available !== 'boolean') {
@@ -1488,13 +1615,28 @@ export default async function handler(req, res) {
       const bodyText = available
         ? `${userName} si e reso disponibile per ${garaTitolo}`
         : `${userName} ha tolto la disponibilita per ${garaTitolo}`;
+      let bodyWithDetails = bodyText;
+      let garaData = '';
+      let garaLuogo = '';
+      if (garaId) {
+        const garaPage = await notionRequest(`https://api.notion.com/v1/pages/${garaId}`, 'GET');
+        if (garaPage.status === 200) {
+          garaData = extractGaraDateText(garaPage.data);
+          garaLuogo = extractGaraPlaceText(garaPage.data);
+          const details = [garaData, garaLuogo].filter(Boolean).join(' - ');
+          if (details) bodyWithDetails = `${bodyText}\n${details}`;
+        }
+      }
       const result = await sendFcmMessages({
         tokens: tokenList,
         title: available ? 'Nuova disponibilita' : 'Disponibilita rimossa',
-        body: bodyText,
+        body: bodyWithDetails,
         data: {
           type: 'availability',
+          garaId,
           garaTitolo,
+          garaData,
+          garaLuogo,
           userName,
           available: String(available),
         },
@@ -1504,8 +1646,9 @@ export default async function handler(req, res) {
           [...recipients.keys()].map((recipientId) =>
             appendUserNotification(recipientId, {
               title: available ? 'Nuova disponibilita' : 'Disponibilita rimossa',
-              body: bodyText,
+              body: bodyWithDetails,
               type: 'availability',
+              garaId,
             }),
           ),
         );

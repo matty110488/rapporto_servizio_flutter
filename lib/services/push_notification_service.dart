@@ -36,6 +36,7 @@ class PushNotice {
     required this.title,
     required this.body,
     this.type = '',
+    this.garaId = '',
     this.read = false,
     DateTime? receivedAt,
   }) : receivedAt = receivedAt ?? DateTime.now();
@@ -44,6 +45,7 @@ class PushNotice {
   final String title;
   final String body;
   final String type;
+  final String garaId;
   final bool read;
   final DateTime receivedAt;
 
@@ -54,6 +56,7 @@ class PushNotice {
       title: json['title'] is String ? json['title'] as String : 'Notifica',
       body: json['body'] is String ? json['body'] as String : '',
       type: json['type'] is String ? json['type'] as String : '',
+      garaId: json['garaId'] is String ? json['garaId'] as String : '',
       read: json['read'] == true,
       receivedAt:
           createdAt is String ? DateTime.tryParse(createdAt)?.toLocal() : null,
@@ -100,7 +103,14 @@ Future<void> initFirebaseMessaging() async {
         message.data['title'] ??
         'Nuova notifica';
     final body = message.notification?.body ?? message.data['body'] ?? '';
-    _foregroundNotices.add(PushNotice(title: title, body: body));
+    _foregroundNotices.add(
+      PushNotice(
+        title: title,
+        body: body,
+        type: message.data['type'] ?? '',
+        garaId: message.data['garaId'] ?? '',
+      ),
+    );
   });
 }
 
@@ -396,6 +406,66 @@ Future<void> clearPushNotifications(String userId) async {
   if (res.statusCode != 200) {
     throw PushNotificationSetupException(
       'Non è stato possibile svuotare le notifiche.',
+      'HTTP ${res.statusCode}: ${res.body}',
+    );
+  }
+}
+
+Future<void> markPushNotificationsRead(String userId) async {
+  final sessionToken = globalSessionToken;
+  if (sessionToken == null || sessionToken.isEmpty) {
+    throw const PushNotificationSetupException(
+      'Sessione scaduta: effettua nuovamente il login.',
+    );
+  }
+
+  final res = await http.post(
+    Uri.parse(_webProxyUrl),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $sessionToken',
+    },
+    body: jsonEncode({
+      'action': 'markPushNotificationsRead',
+      'userId': userId,
+    }),
+  );
+
+  if (res.statusCode != 200) {
+    throw PushNotificationSetupException(
+      'Non è stato possibile segnare le notifiche come lette.',
+      'HTTP ${res.statusCode}: ${res.body}',
+    );
+  }
+}
+
+Future<void> deletePushNotification(
+  String userId,
+  String notificationId,
+) async {
+  final sessionToken = globalSessionToken;
+  if (sessionToken == null || sessionToken.isEmpty) {
+    throw const PushNotificationSetupException(
+      'Sessione scaduta: effettua nuovamente il login.',
+    );
+  }
+
+  final res = await http.post(
+    Uri.parse(_webProxyUrl),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $sessionToken',
+    },
+    body: jsonEncode({
+      'action': 'deletePushNotification',
+      'userId': userId,
+      'notificationId': notificationId,
+    }),
+  );
+
+  if (res.statusCode != 200) {
+    throw PushNotificationSetupException(
+      'Non è stato possibile eliminare la notifica.',
       'HTTP ${res.statusCode}: ${res.body}',
     );
   }
