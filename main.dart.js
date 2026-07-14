@@ -119809,7 +119809,7 @@ return A.bH(o,new A.rN(j,new A.FR(q,new A.aIw(p,a),s,m,B.X4,B.fO,new A.vq(n,t.aM
 ahF(a){var s=a.a
 if(s.length>1)return this.ai2(a)
 return this.amm(B.m.ga1(s))},
-ai2(a){var s,r,q,p=this,o=null,n=a.a,m=B.m.ga1(n),l=a.c,k=l?"Pacchetto suggerito":"Pacchetto",j=l?B.pq:B.ip,i=l?B.pf:B.kK,h=A.bf(18),g=A.dJ(l?B.V3:B.UC),f=A.bf(14),e=A.dJ(B.cW)
+ai2(a){var s,r,q,p=this,o=null,n=a.a,m=B.m.ga1(n),l=a.c,k=l?"Gara in pi\xf9 giorni":"Pacchetto",j=l?B.pq:B.ip,i=l?B.pf:B.kK,h=A.bf(18),g=A.dJ(l?B.V3:B.UC),f=A.bf(14),e=A.dJ(B.cW)
 f=A.bH(o,p.W3(m),B.O,o,new A.bk(B.pr,o,e,f,o,o,B.a5),o,o,o,B.wL,o,o,62)
 e=A.bf(999)
 s=t.p
