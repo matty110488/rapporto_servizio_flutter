@@ -311,6 +311,7 @@ class _HomePageState extends State<HomePage> {
           appBar: useSidebar
               ? null
               : AppBar(
+                  automaticallyImplyLeading: false,
                   title: SizedBox(
                     height: 42,
                     child: Image.asset(
@@ -322,15 +323,6 @@ class _HomePageState extends State<HomePage> {
                     _passkeyButton(),
                     const SizedBox(width: 8),
                   ],
-                ),
-          drawer: useSidebar
-              ? null
-              : _HomeDrawer(
-                  userName: userName,
-                  navItems: navItems,
-                  registeringPasskey: _registeringPasskey,
-                  onEnablePasskey: _enablePasskey,
-                  onLogout: widget.onLogout,
                 ),
           body: DecoratedBox(
             decoration: const BoxDecoration(
@@ -747,120 +739,17 @@ class _HomeSidebar extends StatelessWidget {
   }
 }
 
-class _HomeDrawer extends StatelessWidget {
-  final String userName;
-  final List<_HomeNavData> navItems;
-  final bool registeringPasskey;
-  final VoidCallback onEnablePasskey;
-  final VoidCallback onLogout;
-
-  const _HomeDrawer({
-    required this.userName,
-    required this.navItems,
-    required this.registeringPasskey,
-    required this.onEnablePasskey,
-    required this.onLogout,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Image.asset(
-                'assets/logo.png',
-                height: 48,
-                fit: BoxFit.contain,
-              ),
-              const SizedBox(height: 18),
-              Text(
-                userName,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF1A2B40),
-                  fontSize: 19,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 18),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: navItems.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    return _HomeMenuTile(
-                      item: navItems[index],
-                      closeDrawerBeforeTap: true,
-                    );
-                  },
-                ),
-              ),
-              const Divider(height: 24),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(46),
-                  alignment: Alignment.centerLeft,
-                ),
-                onPressed: registeringPasskey
-                    ? null
-                    : () {
-                        Navigator.pop(context);
-                        onEnablePasskey();
-                      },
-                icon: registeringPasskey
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.fingerprint),
-                label: const Text('Face ID / impronta'),
-              ),
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(46),
-                  backgroundColor: const Color(0xFF0A66C2),
-                  foregroundColor: Colors.white,
-                  alignment: Alignment.centerLeft,
-                ),
-                onPressed: () {
-                  Navigator.pop(context);
-                  onLogout();
-                },
-                icon: const Icon(Icons.logout),
-                label: const Text('Logout'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _HomeMenuTile extends StatelessWidget {
   final _HomeNavData item;
-  final bool closeDrawerBeforeTap;
 
-  const _HomeMenuTile({
-    required this.item,
-    this.closeDrawerBeforeTap = false,
-  });
+  const _HomeMenuTile({required this.item});
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          if (closeDrawerBeforeTap) Navigator.pop(context);
-          item.onTap();
-        },
+        onTap: item.onTap,
         borderRadius: BorderRadius.circular(16),
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
