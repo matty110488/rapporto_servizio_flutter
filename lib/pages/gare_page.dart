@@ -20,13 +20,18 @@ class GarePage extends StatefulWidget {
 class _GarePageState extends State<GarePage> {
   static const _db2025 = '2afde089ef9580e2b0e7d19d44f3a3f6';
   static const _db2026 = '2b1de089ef9580729622ff9543046cbc';
+  static const Map<int, String> _databaseByYear = {
+    2025: _db2025,
+    2026: _db2026,
+  };
 
   late NotionService notion;
   List<Gara> gare = [];
   bool loading = true;
   Set<String> updatingGare = {};
   Set<String> expandedMonths = {};
-  bool showPastEvents = false;
+  int selectedYear = DateTime.now().year;
+  _CalendarPeriod calendarPeriod = _CalendarPeriod.upcoming;
   _AssignmentFilter assignmentFilter = _AssignmentFilter.all;
   String sportFilter = '';
 
@@ -34,9 +39,10 @@ class _GarePageState extends State<GarePage> {
   void initState() {
     super.initState();
 
-    notion = NotionService(
-      databaseId: _db2025,
-    );
+    if (!_databaseByYear.containsKey(selectedYear)) {
+      selectedYear = _databaseByYear.keys.reduce((a, b) => a > b ? a : b);
+    }
+    notion = NotionService(databaseId: _databaseByYear[selectedYear]!);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       PrankPopupService.maybeShow(context, widget.loggedUser);
@@ -51,15 +57,30 @@ class _GarePageState extends State<GarePage> {
         loading = true;
       });
     }
-    final results = await notion.fetchGare(
-      additionalDatabaseIds: const [_db2026],
-    );
+    notion = NotionService(databaseId: _databaseByYear[selectedYear]!);
+    final results = await notion.fetchGare();
+    final nextGare = results.map((e) => Gara.fromNotion(e)).toList();
 
     if (!mounted) return;
     setState(() {
-      gare = results.map((e) => Gara.fromNotion(e)).toList();
+      gare = nextGare;
+      expandedMonths = _defaultExpandedMonths(nextGare);
       loading = false;
     });
+  }
+
+  Future<void> _changeYear(int year) async {
+    if (year == selectedYear) return;
+    setState(() {
+      selectedYear = year;
+      sportFilter = '';
+      assignmentFilter = _AssignmentFilter.all;
+      calendarPeriod = year < DateTime.now().year
+          ? _CalendarPeriod.past
+          : _CalendarPeriod.upcoming;
+      loading = true;
+    });
+    await load();
   }
 
   String? get _loggedUserId {
@@ -87,11 +108,15 @@ class _GarePageState extends State<GarePage> {
     return _isUserAssigned(gara) && !_puoCandidarsi(gara);
   }
 
-  bool _isCurrentOrFutureMonth(DateTime date) {
+  bool _isPastEvent(Gara gara) {
+    final end = _parseDate(gara.dataGaraFine);
+    final start = _parseDate(gara.dataGara);
+    final reference = end ?? start;
+    if (reference == null) return false;
     final now = DateTime.now();
-    if (date.year > now.year) return true;
-    if (date.year < now.year) return false;
-    return date.month >= now.month;
+    final today = DateTime(now.year, now.month, now.day);
+    final eventDay = DateTime(reference.year, reference.month, reference.day);
+    return eventDay.isBefore(today);
   }
 
   String _loggedUserName() {
@@ -207,13 +232,10 @@ class _GarePageState extends State<GarePage> {
     filtered = filtered
         .where((g) => g.status.trim().toUpperCase() != 'VENDUTA')
         .toList();
-    if (!showPastEvents) {
-      filtered = filtered.where((g) {
-        final d = _parseDate(g.dataGara);
-        if (d == null) return true;
-        return _isCurrentOrFutureMonth(d);
-      }).toList();
-    }
+    filtered = filtered.where((g) {
+      final isPast = _isPastEvent(g);
+      return calendarPeriod == _CalendarPeriod.past ? isPast : !isPast;
+    }).toList();
     if (assignmentFilter == _AssignmentFilter.disponibilita) {
       filtered = filtered.where(_isDisponibilitaData).toList();
     } else if (assignmentFilter == _AssignmentFilter.designato) {
@@ -223,6 +245,20 @@ class _GarePageState extends State<GarePage> {
       filtered = filtered.where((g) => g.sport.trim() == sportFilter).toList();
     }
     return filtered;
+  }
+
+  Set<String> _defaultExpandedMonths(List<Gara> source) {
+    final filtered = source
+        .where((g) => g.status.trim().toUpperCase() != 'VENDUTA')
+        .where((g) {
+      final isPast = _isPastEvent(g);
+      return calendarPeriod == _CalendarPeriod.past ? isPast : !isPast;
+    }).toList();
+    final grouped = _garePerMese(filtered);
+    if (calendarPeriod == _CalendarPeriod.past) {
+      return grouped.keys.take(2).toSet();
+    }
+    return grouped.keys.toSet();
   }
 
   List<String> _sportsOptions() {
@@ -387,6 +423,11 @@ class _GarePageState extends State<GarePage> {
         title: const Text('Calendario gare'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Aggiorna calendario',
+            onPressed: loading ? null : () => load(showSpinner: true),
+          ),
+          IconButton(
             icon: const Icon(Icons.help_outline),
             tooltip: 'Aiuto',
             onPressed: () => showHelpDialog(
@@ -424,6 +465,8 @@ class _GarePageState extends State<GarePage> {
                     : ListView(
                         padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
                         children: [
+                          _buildCalendarHeader(filtered.length),
+                          const SizedBox(height: 10),
                           _buildFiltersCard(),
                           const SizedBox(height: 10),
                           ...grouped.entries.map(_buildMonthSection),
@@ -459,6 +502,8 @@ class _GarePageState extends State<GarePage> {
       padding: const EdgeInsets.all(20),
       children: [
         if (filtersEnabled) ...[
+          _buildCalendarHeader(0),
+          const SizedBox(height: 10),
           _buildFiltersCard(),
           const SizedBox(height: 10),
         ],
@@ -515,32 +560,60 @@ class _GarePageState extends State<GarePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Periodo',
-            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 10,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _buildFilterChip(
-                label: 'Mese corrente e futuri',
-                selected: !showPastEvents,
-                onSelected: (_) => setState(() => showPastEvents = false),
+              _filterGroup(
+                label: 'Anno',
+                child: Wrap(
+                  spacing: 6,
+                  children: _databaseByYear.keys
+                      .toList()
+                      .reversed
+                      .map(
+                        (year) => _buildFilterChip(
+                          label: year == DateTime.now().year
+                              ? '$year'
+                              : '$year archivio',
+                          selected: selectedYear == year,
+                          onSelected: (_) => _changeYear(year),
+                        ),
+                      )
+                      .toList(),
+                ),
               ),
-              _buildFilterChip(
-                label: 'Includi gare passate',
-                selected: showPastEvents,
-                onSelected: (_) => setState(() => showPastEvents = true),
+              _filterGroup(
+                label: 'Vista',
+                child: Wrap(
+                  spacing: 6,
+                  children: [
+                    _buildFilterChip(
+                      label: 'Prossime',
+                      selected: calendarPeriod == _CalendarPeriod.upcoming,
+                      onSelected: (_) => setState(() {
+                        calendarPeriod = _CalendarPeriod.upcoming;
+                        expandedMonths = _defaultExpandedMonths(gare);
+                      }),
+                    ),
+                    _buildFilterChip(
+                      label: 'Passate',
+                      selected: calendarPeriod == _CalendarPeriod.past,
+                      onSelected: (_) => setState(() {
+                        calendarPeriod = _CalendarPeriod.past;
+                        expandedMonths = _defaultExpandedMonths(gare);
+                      }),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            'Filtra per',
-            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-          ),
+          Text('Filtri',
+              style:
+                  textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -568,36 +641,140 @@ class _GarePageState extends State<GarePage> {
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            'Sport',
-            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: 320,
-            child: DropdownButtonFormField<String>(
-              initialValue: sportFilter.isEmpty ? '' : sportFilter,
-              items: [
-                const DropdownMenuItem<String>(
-                  value: '',
-                  child: Text('Tutti gli sport'),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: sportFilter.isEmpty ? '' : sportFilter,
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: '',
+                      child: Text('Tutti gli sport'),
+                    ),
+                    ...sports.map(
+                      (s) => DropdownMenuItem<String>(
+                        value: s,
+                        child: Text(s, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => sportFilter = value ?? ''),
+                  decoration: const InputDecoration(
+                    labelText: 'Sport',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  isExpanded: true,
                 ),
-                ...sports.map(
-                  (s) => DropdownMenuItem<String>(
-                    value: s,
-                    child: Text(s, overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton.icon(
+                onPressed: () => setState(() {
+                  sportFilter = '';
+                  assignmentFilter = _AssignmentFilter.all;
+                }),
+                icon: const Icon(Icons.filter_alt_off),
+                label: const Text('Pulisci'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalendarHeader(int visibleCount) {
+    final isCurrentYear = selectedYear == DateTime.now().year;
+    final periodLabel =
+        calendarPeriod == _CalendarPeriod.upcoming ? 'prossime' : 'passate';
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF004E9A), Color(0xFF0A66C2), Color(0xFF338FE5)],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x220A66C2),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.18),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.event, color: Colors.white),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isCurrentYear
+                      ? 'Calendario $selectedYear'
+                      : 'Archivio $selectedYear',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$visibleCount gare $periodLabel visibili',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
-              onChanged: (value) => setState(() => sportFilter = value ?? ''),
-              decoration: const InputDecoration(
-                labelText: 'Seleziona sport',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              isExpanded: true,
             ),
           ),
+          IconButton.filledTonal(
+            tooltip: 'Aggiorna calendario',
+            onPressed: loading ? null : () => load(showSpinner: true),
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterGroup({required String label, required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBFF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2ECF8)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF49627E),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          child,
         ],
       ),
     );
@@ -695,7 +872,8 @@ class _GarePageState extends State<GarePage> {
   Widget _buildRaceCard(Gara g) {
     final showAction = _loggedUserId != null;
     final candidabile = _puoCandidarsi(g);
-    final statusStyle = _statusStyle(g.status);
+    final assigned = _isUserAssigned(g);
+    final designato = _isDesignato(g);
 
     return Material(
       color: Colors.transparent,
@@ -716,19 +894,21 @@ class _GarePageState extends State<GarePage> {
             border: Border.all(color: const Color(0xFFD9E8FA)),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 5,
-                  height: 110,
+                  width: 62,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    color: statusStyle.accent,
-                    borderRadius: BorderRadius.circular(99),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFDCE8F6)),
                   ),
+                  child: _dateBadge(g),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -740,7 +920,7 @@ class _GarePageState extends State<GarePage> {
                             child: Text(
                               g.titolo,
                               style: const TextStyle(
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w800,
                                 fontSize: 16,
                               ),
                             ),
@@ -750,22 +930,32 @@ class _GarePageState extends State<GarePage> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      _metaRow(Icons.event, _formatDateRange(g)),
-                      if (g.localita.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        _metaRow(Icons.place, g.localita),
-                      ],
-                      if (g.sport.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        _metaRow(Icons.sports, g.sport),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          _metaPill(Icons.event, _formatDateRange(g)),
+                          if (g.sport.isNotEmpty)
+                            _metaPill(Icons.sports, g.sport),
+                          if (g.localita.isNotEmpty)
+                            _metaPill(Icons.place, g.localita),
+                        ],
+                      ),
+                      if (assigned || designato) ...[
+                        const SizedBox(height: 9),
+                        _involvementChip(
+                          designato ? 'Sei designato' : 'Disponibilità data',
+                          designato
+                              ? Icons.verified_user_outlined
+                              : Icons.person_pin_circle_outlined,
+                        ),
                       ],
                       if (showAction && candidabile) ...[
                         const SizedBox(height: 10),
                         FilledButton.icon(
                           onPressed: updatingGare.contains(g.id)
                               ? null
-                              : () =>
-                                  _toggleDisponibilita(g, !_isUserAssigned(g)),
+                              : () => _toggleDisponibilita(g, !assigned),
                           icon: updatingGare.contains(g.id)
                               ? const SizedBox(
                                   width: 16,
@@ -773,10 +963,10 @@ class _GarePageState extends State<GarePage> {
                                   child:
                                       CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : Icon(_isUserAssigned(g)
+                              : Icon(assigned
                                   ? Icons.person_remove_alt_1
                                   : Icons.person_add_alt_1),
-                          label: Text(_isUserAssigned(g)
+                          label: Text(assigned
                               ? 'Rimuovimi dalla gara'
                               : 'Mi rendo disponibile'),
                           style: FilledButton.styleFrom(
@@ -796,18 +986,117 @@ class _GarePageState extends State<GarePage> {
     );
   }
 
-  Widget _metaRow(IconData icon, String text) {
-    return Row(
+  Widget _dateBadge(Gara gara) {
+    final date = _parseDate(gara.dataGara);
+    if (date == null) {
+      return const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.event_busy, color: Color(0xFF6D7E91)),
+          SizedBox(height: 4),
+          Text(
+            'N/D',
+            style: TextStyle(
+              color: Color(0xFF27415F),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      );
+    }
+    final day = DateFormat('dd').format(date);
+    const shortMonths = [
+      'GEN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAG',
+      'GIU',
+      'LUG',
+      'AGO',
+      'SET',
+      'OTT',
+      'NOV',
+      'DIC',
+    ];
+    final month = shortMonths[date.month - 1];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: const Color(0xFF306AA3)),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            text,
-            style: const TextStyle(color: Color(0xFF27415F)),
+        Text(
+          day,
+          style: const TextStyle(
+            color: Color(0xFF0A66C2),
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            height: 1,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          month,
+          style: const TextStyle(
+            color: Color(0xFF49627E),
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.4,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _metaPill(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFE2ECF8)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: const Color(0xFF306AA3)),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              text,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF27415F),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _involvementChip(String label, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F7EF),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: const Color(0xFF1D7C4B)),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF1D7C4B),
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -915,4 +1204,9 @@ enum _AssignmentFilter {
   all,
   disponibilita,
   designato,
+}
+
+enum _CalendarPeriod {
+  upcoming,
+  past,
 }

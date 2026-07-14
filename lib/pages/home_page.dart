@@ -290,14 +290,14 @@ class _HomePageState extends State<HomePage> {
       _HomeNavData(
         icon: Icons.assignment,
         label: 'Rapporti di Servizio',
-        subtitle: 'Compila e invia il rapportino gara',
+        subtitle: 'Compila e invia il Rapporto di Servizio',
         onTap: () =>
             _openPage(context, RootScreen(loggedUser: widget.loggedUser)),
       ),
       _HomeNavData(
         icon: Icons.folder,
         label: 'Rapportini completati',
-        subtitle: 'Apri e modifica rapportini già inviati',
+        subtitle: 'Apri e modifica Rapporti di Servizio già inviati',
         onTap: () => _openPage(
           context,
           ArchivioScreen(loggedUser: widget.loggedUser),
@@ -308,7 +308,7 @@ class _HomePageState extends State<HomePage> {
         label: 'Notifiche',
         subtitle: _unreadNotifications > 0
             ? '$_unreadNotifications nuove notifiche'
-            : 'Gestisci avvisi, storico e test',
+            : 'Visualizza le notifiche',
         badgeCount: _unreadNotifications,
         onTap: () => _openPage(
           context,
