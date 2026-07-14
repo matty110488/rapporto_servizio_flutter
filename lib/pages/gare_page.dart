@@ -272,7 +272,7 @@ class _GarePageState extends State<GarePage> {
     return sports;
   }
 
-  Map<String, List<Gara>> _garePerMese(List<Gara> source) {
+  Map<String, List<_CalendarEntry>> _garePerMese(List<Gara> source) {
     final sorted = List<Gara>.from(source)
       ..sort((a, b) {
         final da = _parseDate(a.dataGara);
@@ -290,14 +290,224 @@ class _GarePageState extends State<GarePage> {
         return a.titolo.toLowerCase().compareTo(b.titolo.toLowerCase());
       });
 
-    final Map<String, List<Gara>> grouped = {};
-    for (final gara in sorted) {
-      final date = _parseDate(gara.dataGara);
+    final entries = _calendarEntries(sorted);
+    final Map<String, List<_CalendarEntry>> grouped = {};
+    for (final entry in entries) {
+      final date = entry.startDate;
       final label = date == null ? 'Senza data' : _meseAnno(date);
-      grouped.putIfAbsent(label, () => []).add(gara);
+      grouped.putIfAbsent(label, () => []).add(entry);
     }
 
     return grouped;
+  }
+
+  List<_CalendarEntry> _calendarEntries(List<Gara> sorted) {
+    final manualGroups = <String, List<Gara>>{};
+    final withoutManualGroup = <Gara>[];
+
+    for (final gara in sorted) {
+      final packageId = gara.idSicWin.trim();
+      if (packageId.isEmpty) {
+        withoutManualGroup.add(gara);
+      } else {
+        manualGroups.putIfAbsent(packageId, () => []).add(gara);
+      }
+    }
+
+    final entries = <_CalendarEntry>[];
+    for (final group in manualGroups.entries) {
+      final gare = _sortGareByDate(group.value);
+      if (gare.length > 1) {
+        entries.add(
+          _CalendarEntry.package(
+            gare: gare,
+            packageId: group.key,
+            suggested: false,
+          ),
+        );
+      } else {
+        withoutManualGroup.addAll(gare);
+      }
+    }
+
+    entries
+        .addAll(_suggestedPackageEntries(_sortGareByDate(withoutManualGroup)));
+    entries.sort(_compareCalendarEntries);
+    return entries;
+  }
+
+  List<_CalendarEntry> _suggestedPackageEntries(List<Gara> source) {
+    final entries = <_CalendarEntry>[];
+    final used = <String>{};
+
+    for (final gara in source) {
+      if (used.contains(gara.id)) continue;
+
+      final group = <Gara>[gara];
+      used.add(gara.id);
+      var last = gara;
+
+      for (final candidate in source) {
+        if (used.contains(candidate.id)) continue;
+        if (_canSuggestSamePackage(last, candidate, group.first)) {
+          group.add(candidate);
+          used.add(candidate.id);
+          last = candidate;
+        }
+      }
+
+      if (group.length > 1) {
+        entries.add(
+          _CalendarEntry.package(
+            gare: _sortGareByDate(group),
+            suggested: true,
+          ),
+        );
+      } else {
+        entries.add(_CalendarEntry.single(gara));
+      }
+    }
+
+    return entries;
+  }
+
+  bool _canSuggestSamePackage(Gara previous, Gara candidate, Gara first) {
+    final previousDate = _parseDate(previous.dataGara);
+    final candidateDate = _parseDate(candidate.dataGara);
+    if (previousDate == null || candidateDate == null) return false;
+
+    final previousDay = DateTime(
+      previousDate.year,
+      previousDate.month,
+      previousDate.day,
+    );
+    final candidateDay = DateTime(
+      candidateDate.year,
+      candidateDate.month,
+      candidateDate.day,
+    );
+    final dayGap = candidateDay.difference(previousDay).inDays;
+    if (dayGap < 1 || dayGap > 2) return false;
+
+    final previousPlace = _normalizedPlace(previous);
+    final candidatePlace = _normalizedPlace(candidate);
+    if (previousPlace.isEmpty || previousPlace != candidatePlace) return false;
+
+    final firstOrganizer = _normalizeText(first.organizzatore);
+    final candidateOrganizer = _normalizeText(candidate.organizzatore);
+    if (firstOrganizer.isNotEmpty &&
+        candidateOrganizer.isNotEmpty &&
+        firstOrganizer != candidateOrganizer) {
+      return false;
+    }
+
+    final firstSport = _normalizeText(first.sport);
+    final candidateSport = _normalizeText(candidate.sport);
+    if (firstSport.isNotEmpty &&
+        candidateSport.isNotEmpty &&
+        firstSport != candidateSport) {
+      return false;
+    }
+
+    return _titlesLookRelated(first.titolo, candidate.titolo);
+  }
+
+  bool _titlesLookRelated(String a, String b) {
+    final aTokens = _titleTokens(a);
+    final bTokens = _titleTokens(b);
+    if (aTokens.isEmpty || bTokens.isEmpty) return false;
+
+    final common = aTokens.intersection(bTokens);
+    if (common.length >= 2) return true;
+
+    final normalizedA = aTokens.join(' ');
+    final normalizedB = bTokens.join(' ');
+    return normalizedA.length >= 8 &&
+        normalizedB.length >= 8 &&
+        (normalizedA.contains(normalizedB) ||
+            normalizedB.contains(normalizedA));
+  }
+
+  Set<String> _titleTokens(String value) {
+    const ignored = {
+      'gara',
+      'giornata',
+      'giornate',
+      'sabato',
+      'domenica',
+      'venerdi',
+      'venerdì',
+      'lunedi',
+      'lunedì',
+      'martedi',
+      'martedì',
+      'mercoledi',
+      'mercoledì',
+      'giovedi',
+      'giovedì',
+      'prima',
+      'seconda',
+      'terza',
+      '1',
+      '2',
+      '3',
+    };
+    return _normalizeText(value)
+        .split(' ')
+        .map((token) => token.trim())
+        .where((token) => token.length > 2)
+        .where((token) => !ignored.contains(token))
+        .toSet();
+  }
+
+  String _normalizedPlace(Gara gara) {
+    final localita = _normalizeText(gara.localita);
+    if (localita.isNotEmpty) return localita;
+    return _normalizeText(gara.sitoGara);
+  }
+
+  String _normalizeText(String value) {
+    var text = value.toLowerCase().trim();
+    const replacements = {
+      'à': 'a',
+      'è': 'e',
+      'é': 'e',
+      'ì': 'i',
+      'ò': 'o',
+      'ù': 'u',
+    };
+    replacements.forEach((from, to) {
+      text = text.replaceAll(from, to);
+    });
+    text = text.replaceAll(RegExp(r'[^a-z0-9]+'), ' ');
+    return text.trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  List<Gara> _sortGareByDate(List<Gara> source) {
+    return List<Gara>.from(source)
+      ..sort((a, b) {
+        final da = _parseDate(a.dataGara);
+        final db = _parseDate(b.dataGara);
+        if (da != null && db != null) {
+          final cmp = da.compareTo(db);
+          if (cmp != 0) return cmp;
+        }
+        return a.titolo.toLowerCase().compareTo(b.titolo.toLowerCase());
+      });
+  }
+
+  int _compareCalendarEntries(_CalendarEntry a, _CalendarEntry b) {
+    final da = a.startDate;
+    final db = b.startDate;
+    if (da != null && db != null) {
+      final cmp = da.compareTo(db);
+      if (cmp != 0) return cmp;
+    } else if (da != null && db == null) {
+      return -1;
+    } else if (da == null && db != null) {
+      return 1;
+    }
+    return a.title.toLowerCase().compareTo(b.title.toLowerCase());
   }
 
   Future<void> _toggleDisponibilita(Gara gara, bool join) async {
@@ -804,7 +1014,7 @@ class _GarePageState extends State<GarePage> {
     );
   }
 
-  Widget _buildMonthSection(MapEntry<String, List<Gara>> entry) {
+  Widget _buildMonthSection(MapEntry<String, List<_CalendarEntry>> entry) {
     final isExpanded = expandedMonths.contains(entry.key);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -859,11 +1069,191 @@ class _GarePageState extends State<GarePage> {
             });
           },
           children: entry.value
-              .map((g) => Padding(
+              .map((calendarEntry) => Padding(
                     padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
-                    child: _buildRaceCard(g),
+                    child: _buildCalendarEntryCard(calendarEntry),
                   ))
               .toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCalendarEntryCard(_CalendarEntry entry) {
+    if (entry.isPackage) return _buildPackageCard(entry);
+    return _buildRaceCard(entry.gare.first);
+  }
+
+  Widget _buildPackageCard(_CalendarEntry entry) {
+    final gare = entry.gare;
+    final main = gare.first;
+    final packageLabel = entry.suggested ? 'Pacchetto suggerito' : 'Pacchetto';
+    final packageColor =
+        entry.suggested ? const Color(0xFF9D6400) : const Color(0xFF1F5FA8);
+    final packageSoft =
+        entry.suggested ? const Color(0xFFFFF3DE) : const Color(0xFFE4F0FF);
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Colors.white,
+        border: Border.all(
+          color: entry.suggested
+              ? const Color(0xFFF1D6A8)
+              : const Color(0xFFCFE2FA),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F0A66C2),
+            blurRadius: 12,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 62,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FCFF),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFDCE8F6)),
+                  ),
+                  child: _dateBadge(main),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: packageSoft,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              packageLabel,
+                              style: TextStyle(
+                                color: packageColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          if (!entry.suggested &&
+                              (entry.packageId ?? '').isNotEmpty)
+                            _metaPill(Icons.tag, entry.packageId!),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        entry.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          _metaPill(
+                              Icons.date_range, _formatEntryDateRange(entry)),
+                          _metaPill(
+                            Icons.view_day_outlined,
+                            '${gare.length} giornate',
+                          ),
+                          if (main.sport.isNotEmpty)
+                            _metaPill(Icons.sports, main.sport),
+                          if (main.localita.isNotEmpty)
+                            _metaPill(Icons.place, main.localita),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Column(
+              children: gare
+                  .map(
+                    (gara) => Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: _buildPackageDayRow(gara),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPackageDayRow(Gara gara) {
+    return Material(
+      color: const Color(0xFFF7FBFF),
+      borderRadius: BorderRadius.circular(13),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(13),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DettaglioGara(gara: gara),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 82,
+                child: Text(
+                  _fmtDate(gara.dataGara) ?? '-',
+                  style: const TextStyle(
+                    color: Color(0xFF27415F),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  gara.titolo,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _statusChip(gara.status),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.chevron_right,
+                color: Color(0xFF6D7E91),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1130,6 +1520,22 @@ class _GarePageState extends State<GarePage> {
     return start ?? end ?? '-';
   }
 
+  String _formatEntryDateRange(_CalendarEntry entry) {
+    final start = entry.startDate;
+    final end = entry.endDate ?? start;
+    if (start == null && end == null) return '-';
+    final formattedStart =
+        start == null ? null : DateFormat('dd/MM/yyyy').format(start);
+    final formattedEnd =
+        end == null ? null : DateFormat('dd/MM/yyyy').format(end);
+    if (formattedStart != null &&
+        formattedEnd != null &&
+        formattedStart != formattedEnd) {
+      return '$formattedStart - $formattedEnd';
+    }
+    return formattedStart ?? formattedEnd ?? '-';
+  }
+
   String? _fmtDate(String iso) {
     final d = DateTime.tryParse(iso);
     if (d == null) return null;
@@ -1198,6 +1604,107 @@ class _StatusStyle {
     required this.strong,
     required this.accent,
   });
+}
+
+class _CalendarEntry {
+  final List<Gara> gare;
+  final String? packageId;
+  final bool suggested;
+
+  _CalendarEntry._({
+    required this.gare,
+    required this.packageId,
+    required this.suggested,
+  });
+
+  factory _CalendarEntry.single(Gara gara) {
+    return _CalendarEntry._(
+      gare: [gara],
+      packageId: null,
+      suggested: false,
+    );
+  }
+
+  factory _CalendarEntry.package({
+    required List<Gara> gare,
+    String? packageId,
+    required bool suggested,
+  }) {
+    return _CalendarEntry._(
+      gare: gare,
+      packageId: packageId,
+      suggested: suggested,
+    );
+  }
+
+  bool get isPackage => gare.length > 1;
+
+  DateTime? get startDate {
+    for (final gara in gare) {
+      final date = DateTime.tryParse(gara.dataGara);
+      if (date != null) return date;
+    }
+    return null;
+  }
+
+  DateTime? get endDate {
+    for (final gara in gare.reversed) {
+      final end = DateTime.tryParse(gara.dataGaraFine);
+      if (end != null) return end;
+      final start = DateTime.tryParse(gara.dataGara);
+      if (start != null) return start;
+    }
+    return null;
+  }
+
+  String get title {
+    if (gare.isEmpty) return 'Pacchetto gare';
+    if (gare.length == 1) return gare.first.titolo;
+
+    final cleaned = gare
+        .map((gara) => _cleanTitle(gara.titolo))
+        .where((title) => title.isNotEmpty)
+        .toList();
+    if (cleaned.isEmpty) return gare.first.titolo;
+
+    final firstTokens = cleaned.first.split(' ');
+    var commonLength = firstTokens.length;
+    for (final title in cleaned.skip(1)) {
+      final tokens = title.split(' ');
+      var i = 0;
+      while (i < commonLength &&
+          i < tokens.length &&
+          firstTokens[i] == tokens[i]) {
+        i++;
+      }
+      commonLength = i;
+    }
+
+    if (commonLength >= 2) {
+      return firstTokens.take(commonLength).join(' ');
+    }
+    return cleaned.first;
+  }
+
+  static String _cleanTitle(String value) {
+    var title = value.trim();
+    final patterns = [
+      RegExp(r'\bSabato\b', caseSensitive: false),
+      RegExp(r'\bDomenica\b', caseSensitive: false),
+      RegExp(r'\bVenerd[iì]\b', caseSensitive: false),
+      RegExp(r'\b1a giornata\b', caseSensitive: false),
+      RegExp(r'\b2a giornata\b', caseSensitive: false),
+      RegExp(r'\b3a giornata\b', caseSensitive: false),
+      RegExp(r'\bprima giornata\b', caseSensitive: false),
+      RegExp(r'\bseconda giornata\b', caseSensitive: false),
+      RegExp(r'\bterza giornata\b', caseSensitive: false),
+    ];
+    for (final pattern in patterns) {
+      title = title.replaceAll(pattern, '');
+    }
+    title = title.replaceAll(RegExp(r'\s+[-–—]\s*$'), '');
+    return title.trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
 }
 
 enum _AssignmentFilter {

@@ -7,6 +7,7 @@ class Gara {
   final String localita;
   final String sitoGara;
   final String organizzatore;
+  final String idSicWin;
   final String dataRichiesta;
 
   final List<String> kronosIds;
@@ -26,6 +27,7 @@ class Gara {
     required this.localita,
     required this.sitoGara,
     required this.organizzatore,
+    required this.idSicWin,
     required this.dataRichiesta,
     required this.kronosIds,
     required this.dscIds,
@@ -44,6 +46,46 @@ class Gara {
       final rt = obj["rich_text"];
       if (rt == null || rt.isEmpty) return "";
       return rt[0]["plain_text"] ?? "";
+    }
+
+    String plainValue(Map? obj) {
+      if (obj == null) return "";
+
+      final richText = obj["rich_text"];
+      if (richText is List && richText.isNotEmpty) {
+        final first = richText.first;
+        if (first is Map && first["plain_text"] is String) {
+          return (first["plain_text"] as String).trim();
+        }
+      }
+
+      final titleValue = obj["title"];
+      if (titleValue is List && titleValue.isNotEmpty) {
+        final first = titleValue.first;
+        if (first is Map && first["plain_text"] is String) {
+          return (first["plain_text"] as String).trim();
+        }
+      }
+
+      final number = obj["number"];
+      if (number != null) return number.toString();
+
+      final select = obj["select"];
+      if (select is Map && select["name"] is String) {
+        return (select["name"] as String).trim();
+      }
+
+      final formula = obj["formula"];
+      if (formula is Map) {
+        final string = formula["string"];
+        if (string is String && string.trim().isNotEmpty) {
+          return string.trim();
+        }
+        final formulaNumber = formula["number"];
+        if (formulaNumber != null) return formulaNumber.toString();
+      }
+
+      return "";
     }
 
     String title(Map? obj) {
@@ -167,6 +209,7 @@ class Gara {
       localita: pickLocalita(p),
       sitoGara: text(p["SITO GARA"]),
       organizzatore: text(p["ORGANIZZATORE"]),
+      idSicWin: plainValue(p["ID SIC WIN"]),
       dataRichiesta: p["DATA RICHIESTA"]?["date"]?["start"] ?? "",
       kronosIds: relation(p["KRONOS DESIGNATI"]),
       dscIds: relation(p["DSC"]),
