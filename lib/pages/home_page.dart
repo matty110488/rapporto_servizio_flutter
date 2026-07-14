@@ -32,14 +32,18 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   static const _db2025 = '2afde089ef9580e2b0e7d19d44f3a3f6';
   static const _db2026 = '2b1de089ef9580729622ff9543046cbc';
-  static const _layoutVersion = 'Home layout 2026.07.13';
+  static const _layoutVersion = 'Home layout 2026.07.14';
+  // Cambia qui la frequenza di aggiornamento automatico del banner Home.
+  static const _dashboardAutoRefreshInterval = Duration(minutes: 5);
 
   late final NotionService _notion;
   bool _loadingDashboard = true;
+  bool _refreshingDashboard = false;
   String? _dashboardError;
   _DashboardData _dashboard = const _DashboardData();
   bool _registeringPasskey = false;
   int _unreadNotifications = 0;
+  Timer? _dashboardRefreshTimer;
   Timer? _notificationPollingTimer;
 
   @override
@@ -51,6 +55,9 @@ class _HomePageState extends State<HomePage> {
       PrankPopupService.maybeShow(context, widget.loggedUser);
     });
     _loadDashboard();
+    _dashboardRefreshTimer = Timer.periodic(_dashboardAutoRefreshInterval, (_) {
+      unawaited(_loadDashboard(showLoading: false));
+    });
     unawaited(_syncDesignationNotifications());
     unawaited(_loadNotificationBadge());
     _notificationPollingTimer =
@@ -69,6 +76,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _dashboardRefreshTimer?.cancel();
     _notificationPollingTimer?.cancel();
     super.dispose();
   }
@@ -177,9 +185,14 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _loadDashboard() async {
+  Future<void> _loadDashboard({bool showLoading = true}) async {
+    if (_refreshingDashboard || (!showLoading && _loadingDashboard)) return;
     setState(() {
-      _loadingDashboard = true;
+      if (showLoading) {
+        _loadingDashboard = true;
+      } else {
+        _refreshingDashboard = true;
+      }
       _dashboardError = null;
     });
 
@@ -190,6 +203,7 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           _dashboard = const _DashboardData();
           _loadingDashboard = false;
+          _refreshingDashboard = false;
         });
         return;
       }
@@ -215,12 +229,14 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _dashboard = _DashboardData(nextServices: prossimiDue);
         _loadingDashboard = false;
+        _refreshingDashboard = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _dashboardError = e.toString();
         _loadingDashboard = false;
+        _refreshingDashboard = false;
       });
     }
   }
@@ -462,6 +478,21 @@ class _HomePageState extends State<HomePage> {
     }
 
     final prossimi = _dashboard.nextServices;
+    final refreshButton = IconButton(
+      tooltip: 'Aggiorna servizi',
+      onPressed: _loadingDashboard || _refreshingDashboard
+          ? null
+          : () => unawaited(_loadDashboard(showLoading: false)),
+      icon: _refreshingDashboard
+          ? const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+          : const Icon(Icons.refresh, color: Colors.white),
+    );
 
     return Container(
       width: double.infinity,
@@ -503,10 +534,30 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: 12),
           if (_loadingDashboard)
-            const LinearProgressIndicator(
-              minHeight: 3,
-              backgroundColor: Colors.white24,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Prossimi servizi da svolgere',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    refreshButton,
+                  ],
+                ),
+                const LinearProgressIndicator(
+                  minHeight: 3,
+                  backgroundColor: Colors.white24,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ],
             )
           else if (_dashboardError != null)
             Row(
@@ -518,12 +569,15 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 TextButton(
-                  onPressed: _loadDashboard,
+                  onPressed: _refreshingDashboard
+                      ? null
+                      : () => unawaited(_loadDashboard(showLoading: false)),
                   child: const Text(
                     'Riprova',
                     style: TextStyle(color: Colors.white),
                   ),
                 ),
+                refreshButton,
               ],
             )
           else
@@ -537,13 +591,20 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Prossimi servizi da svolgere',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Prossimi servizi da svolgere',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      refreshButton,
+                    ],
                   ),
                   const SizedBox(height: 6),
                   if (prossimi.isEmpty)
