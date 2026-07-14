@@ -1087,7 +1087,7 @@ class _GarePageState extends State<GarePage> {
   Widget _buildPackageCard(_CalendarEntry entry) {
     final gare = entry.gare;
     final main = gare.first;
-    final packageLabel = entry.suggested ? 'Pacchetto suggerito' : 'Pacchetto';
+    final packageLabel = entry.suggested ? 'Gara in più giorni' : 'Pacchetto';
     final packageColor =
         entry.suggested ? const Color(0xFF9D6400) : const Color(0xFF1F5FA8);
     final packageSoft =
