@@ -322,8 +322,8 @@ class ApparecchiaturaFormState extends State<ApparecchiaturaForm> {
           onFieldChanged: (val) => tabelloneNumero = val,
         ),
         _buildToggleRow(
-          title: 'Segreteria',
-          subtitle: 'Indica se il servizio di segreteria era previsto.',
+          title: 'Elaborazione Dati',
+          subtitle: 'Indica se il servizio di elaborazione dati era previsto.',
           value: segreteria,
           onChanged: (val) => setState(() => segreteria = val),
           fieldLabel: 'Numero giorni',

@@ -552,7 +552,7 @@ class CronometristiFormState extends State<CronometristiForm> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Segreteria',
+                          'Elaborazione Dati',
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                         Row(

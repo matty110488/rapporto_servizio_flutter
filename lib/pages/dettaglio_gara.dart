@@ -100,7 +100,7 @@ class _DettaglioGaraState extends State<DettaglioGara> {
                   ),
                   const SizedBox(height: 10),
                   _buildPeopleCard(
-                    title: 'PC segreteria',
+                    title: 'Elaborazione Dati',
                     icon: Icons.computer,
                     values: pcSegreteria,
                     emptyText: 'Nessun nominativo',

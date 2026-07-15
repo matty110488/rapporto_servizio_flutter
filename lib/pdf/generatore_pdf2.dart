@@ -552,7 +552,7 @@ pw.Widget _sezioneApparecchiatura(List elenco, pw.Font base, pw.Font bold) {
       valueSuffix: 'unita',
     ),
     _equipmentRow(
-      'Segreteria',
+      'Elaborazione Dati',
       summary['segreteriaSi'],
       summary['segreteriaGiorni'],
       valueSuffix: 'giorni',
@@ -802,8 +802,8 @@ pw.Widget _tabellaRiepilogo(
             fontSize: 10,
             fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
           ),
-          maxLines: header ? 1 : 2,
-          softWrap: header ? false : true,
+          maxLines: 2,
+          softWrap: true,
         ),
       );
 
@@ -824,7 +824,7 @@ pw.Widget _tabellaRiepilogo(
           cell('Ore', header: true, center: true),
           cell('Km', header: true, center: true),
           cell('Spese', header: true, center: true),
-          cell('Segreteria', header: true, center: true),
+          cell('Elaborazione\nDati', header: true, center: true),
           cell('Note', header: true, center: true),
         ],
       ),
@@ -963,7 +963,7 @@ pw.TableRow _giornoHeaderRow(pw.Font bold) => pw.TableRow(
         _giornoCell('Ore', bold, header: true, center: true),
         _giornoCell('Km', bold, header: true, center: true),
         _giornoCell('Spese', bold, header: true, center: true),
-        _giornoCell('Segreteria', bold, header: true, center: true),
+        _giornoCell('Elaborazione\nDati', bold, header: true, center: true),
       ],
     );
 
@@ -986,8 +986,8 @@ pw.Widget _giornoCell(
           fontSize: 10,
           fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
         ),
-        maxLines: header ? 1 : null,
-        softWrap: header ? false : true,
+        maxLines: header ? 2 : null,
+        softWrap: true,
       ),
     );
 
