@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/app_preferences_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/stopwatch_loading.dart';
 
@@ -15,6 +16,7 @@ class _LoginPageState extends State<LoginPage> {
   final userCtrl = TextEditingController();
   final passCtrl = TextEditingController();
   bool loading = false;
+  bool biometricLoginEnabled = true;
   String? errorMsg;
 
   late AuthService auth;
@@ -23,6 +25,13 @@ class _LoginPageState extends State<LoginPage> {
   void initState() {
     super.initState();
     auth = AuthService();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final enabled = await AppPreferencesService.loadBiometricLoginEnabled();
+    if (!mounted) return;
+    setState(() => biometricLoginEnabled = enabled);
   }
 
   Future<void> doLogin() async {
@@ -242,12 +251,14 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: doLogin,
                       child: const Text('Accedi'),
                     ),
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: doPasskeyLogin,
-                      icon: const Icon(Icons.fingerprint),
-                      label: const Text('Accedi con Face ID o impronta'),
-                    ),
+                    if (biometricLoginEnabled) ...[
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: doPasskeyLogin,
+                        icon: const Icon(Icons.fingerprint),
+                        label: const Text('Accedi con Face ID o impronta'),
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     TextButton(
                       onPressed: _showFirstAccess,

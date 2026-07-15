@@ -47,6 +47,7 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
 
   Future<void> _registerPushTokenForUser(Map<String, dynamic> user) async {
     if (!_supportsPush) return;
+    if (!await pushNotificationsAppEnabled()) return;
 
     final userId = user['id'];
     if (userId is! String || userId.isEmpty) return;

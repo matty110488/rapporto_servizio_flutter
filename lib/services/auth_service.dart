@@ -130,6 +130,29 @@ class AuthService {
     );
   }
 
+  Future<bool> passkeysEnabled() async {
+    final sessionToken = globalSessionToken;
+    if (sessionToken == null || sessionToken.isEmpty) {
+      throw StateError('Sessione scaduta: effettua nuovamente il login.');
+    }
+    final result = await _post(
+      {'action': 'passkeyStatus'},
+      sessionToken: sessionToken,
+    );
+    return result['enabled'] == true;
+  }
+
+  Future<void> disablePasskeys() async {
+    final sessionToken = globalSessionToken;
+    if (sessionToken == null || sessionToken.isEmpty) {
+      throw StateError('Sessione scaduta: effettua nuovamente il login.');
+    }
+    await _post(
+      {'action': 'disablePasskeys'},
+      sessionToken: sessionToken,
+    );
+  }
+
   Future<Map<String, dynamic>> _post(
     Map<String, dynamic> payload, {
     String? sessionToken,

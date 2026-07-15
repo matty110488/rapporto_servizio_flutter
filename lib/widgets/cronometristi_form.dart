@@ -331,10 +331,7 @@ class CronometristiFormState extends State<CronometristiForm> {
     required ValueChanged<String> onChanged,
     required ColorScheme colorScheme,
   }) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final fill = isDark
-        ? colorScheme.surface.withOpacity(0.25)
-        : colorScheme.surface.withOpacity(0.9);
+    final fill = colorScheme.surface.withOpacity(0.9);
     final outline = colorScheme.outline.withOpacity(0.6);
 
     return TextFormField(

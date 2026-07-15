@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../models/gara.dart';
 import '../screens/archivio_screen.dart';
-import '../services/auth_service.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/push_notification_service.dart';
@@ -14,6 +13,7 @@ import 'designazioni_page.dart';
 import 'gare_page.dart';
 import 'notifications_page.dart';
 import 'root_screen.dart';
+import 'settings_page.dart';
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
@@ -41,7 +41,6 @@ class _HomePageState extends State<HomePage> {
   bool _refreshingDashboard = false;
   String? _dashboardError;
   _DashboardData _dashboard = const _DashboardData();
-  bool _registeringPasskey = false;
   int _unreadNotifications = 0;
   Timer? _dashboardRefreshTimer;
   Timer? _notificationPollingTimer;
@@ -86,55 +85,6 @@ class _HomePageState extends State<HomePage> {
       context,
       MaterialPageRoute(builder: (_) => page),
     );
-  }
-
-  Future<void> _enablePasskey() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Attiva accesso biometrico'),
-        content: const Text(
-          'Il telefono creerà una passkey protetta da Face ID, impronta '
-          'digitale o codice del dispositivo. Username e password resteranno '
-          'disponibili come metodo di recupero.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annulla'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Attiva'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _registeringPasskey = true);
-    try {
-      await AuthService().registerPasskey();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Accesso biometrico attivato. Dal prossimo login potrai usare Face ID o impronta.',
-          ),
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Non è stato possibile attivare l’accesso biometrico su questo dispositivo.',
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _registeringPasskey = false);
-    }
   }
 
   String _extractUserName() {
@@ -270,6 +220,28 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final userName = _extractUserName();
+    final notificationItem = _HomeNavData(
+      icon: Icons.mark_email_unread_outlined,
+      label: 'Notifiche',
+      subtitle: _unreadNotifications > 0
+          ? '$_unreadNotifications nuove notifiche'
+          : 'Visualizza le notifiche',
+      badgeCount: _unreadNotifications,
+      onTap: () => _openPage(
+        context,
+        NotificationsPage(
+          loggedUser: widget.loggedUser,
+          onNotificationsChanged: _loadNotificationBadge,
+        ),
+      ),
+    );
+    void openSettings() => _openPage(
+          context,
+          SettingsPage(
+            loggedUser: widget.loggedUser,
+            onNotificationsChanged: _loadNotificationBadge,
+          ),
+        );
     final navItems = [
       _HomeNavData(
         icon: Icons.flag,
@@ -303,20 +275,12 @@ class _HomePageState extends State<HomePage> {
           ArchivioScreen(loggedUser: widget.loggedUser),
         ),
       ),
+      notificationItem,
       _HomeNavData(
-        icon: Icons.mark_email_unread_outlined,
-        label: 'Notifiche',
-        subtitle: _unreadNotifications > 0
-            ? '$_unreadNotifications nuove notifiche'
-            : 'Visualizza le notifiche',
-        badgeCount: _unreadNotifications,
-        onTap: () => _openPage(
-          context,
-          NotificationsPage(
-            loggedUser: widget.loggedUser,
-            onNotificationsChanged: _loadNotificationBadge,
-          ),
-        ),
+        icon: Icons.settings_outlined,
+        label: 'Impostazioni',
+        subtitle: 'Notifiche, sicurezza e password',
+        onTap: openSettings,
       ),
     ];
 
@@ -336,7 +300,11 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   actions: [
-                    _passkeyButton(),
+                    IconButton(
+                      onPressed: openSettings,
+                      tooltip: 'Impostazioni',
+                      icon: const Icon(Icons.settings_outlined),
+                    ),
                     const SizedBox(width: 8),
                   ],
                 ),
@@ -359,14 +327,13 @@ class _HomePageState extends State<HomePage> {
                         _HomeSidebar(
                           userName: userName,
                           navItems: navItems,
-                          registeringPasskey: _registeringPasskey,
-                          onEnablePasskey: _enablePasskey,
                           onLogout: widget.onLogout,
                         ),
                         Expanded(
                           child: _homeContent(
                             userName: userName,
                             navItems: navItems,
+                            onOpenNotifications: notificationItem.onTap,
                             compact: false,
                           ),
                         ),
@@ -375,6 +342,7 @@ class _HomePageState extends State<HomePage> {
                   : _homeContent(
                       userName: userName,
                       navItems: navItems,
+                      onOpenNotifications: notificationItem.onTap,
                       compact: true,
                     ),
             ),
@@ -384,22 +352,10 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _passkeyButton() {
-    return IconButton(
-      onPressed: _registeringPasskey ? null : _enablePasskey,
-      tooltip: 'Attiva Face ID o impronta',
-      icon: _registeringPasskey
-          ? const SizedBox.square(
-              dimension: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.fingerprint),
-    );
-  }
-
   Widget _homeContent({
     required String userName,
     required List<_HomeNavData> navItems,
+    required VoidCallback onOpenNotifications,
     required bool compact,
   }) {
     return Align(
@@ -449,7 +405,7 @@ class _HomePageState extends State<HomePage> {
             ] else
               _DesktopSummaryCard(
                 notificationsCount: _unreadNotifications,
-                onOpenNotifications: navItems.last.onTap,
+                onOpenNotifications: onOpenNotifications,
               ),
             const SizedBox(height: 14),
             const Center(
@@ -689,15 +645,11 @@ class _HomeNavData {
 class _HomeSidebar extends StatelessWidget {
   final String userName;
   final List<_HomeNavData> navItems;
-  final bool registeringPasskey;
-  final VoidCallback onEnablePasskey;
   final VoidCallback onLogout;
 
   const _HomeSidebar({
     required this.userName,
     required this.navItems,
-    required this.registeringPasskey,
-    required this.onEnablePasskey,
     required this.onLogout,
   });
 
@@ -768,21 +720,6 @@ class _HomeSidebar extends StatelessWidget {
             ),
           ),
           const Divider(height: 24),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(46),
-              alignment: Alignment.centerLeft,
-            ),
-            onPressed: registeringPasskey ? null : onEnablePasskey,
-            icon: registeringPasskey
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.fingerprint),
-            label: const Text('Face ID / impronta'),
-          ),
-          const SizedBox(height: 10),
           FilledButton.icon(
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(46),

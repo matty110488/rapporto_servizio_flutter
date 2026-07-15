@@ -1135,6 +1135,21 @@ export default async function handler(req, res) {
       });
     }
 
+    if (action === 'passkeyStatus') {
+      const user = await notionRequest(
+        `https://api.notion.com/v1/pages/${session.sub}`,
+        'GET',
+      );
+      if (user.status !== 200) return res.status(user.status).json(user.data);
+      return res.status(200).json({ enabled: getPasskeys(user.data).length > 0 });
+    }
+
+    if (action === 'disablePasskeys') {
+      const saved = await savePasskeys(session.sub, []);
+      if (saved.status !== 200) return res.status(saved.status).json(saved.data);
+      return res.status(200).json({ ok: true });
+    }
+
     if (action === 'passkeyRegistrationVerify') {
       const challenge = verifyPayload(safeBody.challengeToken);
       const response = safeBody.response;
