@@ -278,8 +278,8 @@ class _HomePageState extends State<HomePage> {
       ),
       _HomeNavData(
         icon: Icons.insights,
-        label: 'Statistiche interessanti',
-        subtitle: 'Numeri personali su servizi, sport ed Elaborazione Dati',
+        label: 'Statistiche',
+        subtitle: 'Numeri personali su servizi',
         onTap: () => _openPage(
           context,
           StatistichePage(loggedUser: widget.loggedUser),
