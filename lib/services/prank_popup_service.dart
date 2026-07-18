@@ -7,6 +7,8 @@ class PrankPopupService {
   static DateTime? _lastShownAt;
 
   static const Duration _minInterval = Duration(seconds: 45);
+  static const Set<String> _targetUsernames = {};
+  static const List<String> _targetNameFragments = [];
   static const List<String> _phrases = [
     "Senti un po'...eh....ci siete su voi al Palu per la gara?",
     "Ueee ciao sono Valentino, sabato faccio na gara. Ci sei?",
@@ -20,7 +22,8 @@ class PrankPopupService {
   static bool isPrankUser(Map<String, dynamic> loggedUser) {
     final name = _extractName(loggedUser).toLowerCase().trim();
     final username = _extractUsername(loggedUser).toLowerCase().trim();
-    return name.contains('jacopo') || username == 'jacopo';
+    return _targetUsernames.contains(username) ||
+        _targetNameFragments.any(name.contains);
   }
 
   static void maybeShow(BuildContext context, Map<String, dynamic> loggedUser) {

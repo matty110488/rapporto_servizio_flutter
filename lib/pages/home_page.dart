@@ -14,6 +14,7 @@ import 'gare_page.dart';
 import 'notifications_page.dart';
 import 'root_screen.dart';
 import 'settings_page.dart';
+import 'statistiche_page.dart';
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
@@ -32,7 +33,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   static const _db2025 = '2afde089ef9580e2b0e7d19d44f3a3f6';
   static const _db2026 = '2b1de089ef9580729622ff9543046cbc';
-  static const _layoutVersion = 'Home layout 2026.07.14';
+  static const _layoutVersion = 'Home layout 2026.07.18';
   // Cambia qui la frequenza di aggiornamento automatico del banner Home.
   static const _dashboardAutoRefreshInterval = Duration(minutes: 5);
 
@@ -273,6 +274,15 @@ class _HomePageState extends State<HomePage> {
         onTap: () => _openPage(
           context,
           ArchivioScreen(loggedUser: widget.loggedUser),
+        ),
+      ),
+      _HomeNavData(
+        icon: Icons.insights,
+        label: 'Statistiche interessanti',
+        subtitle: 'Numeri personali su servizi, sport ed Elaborazione Dati',
+        onTap: () => _openPage(
+          context,
+          StatistichePage(loggedUser: widget.loggedUser),
         ),
       ),
       notificationItem,
