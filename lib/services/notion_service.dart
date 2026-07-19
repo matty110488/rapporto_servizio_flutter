@@ -5,6 +5,8 @@ import '../config/app_environment.dart';
 import '../state/session_state.dart';
 
 class NotionService {
+  static const int maxNotionPdfBytes = 4500000;
+
   final String databaseId;
 
   NotionService({required this.databaseId});
@@ -273,6 +275,46 @@ class NotionService {
     if (fallback.statusCode != 200) {
       throw Exception('Errore aggiornamento status gara: ${fallback.body}');
     }
+  }
+
+  /// Archives a completed report in the race pages' `Files & media` field.
+  /// Returns false when the PDF is deliberately skipped because it is too big.
+  Future<bool> archiveReportPdf({
+    required List<int> pdfBytes,
+    required List<String> pageIds,
+    required String filename,
+  }) async {
+    if (pdfBytes.length > maxNotionPdfBytes) return false;
+    final uniquePageIds = pageIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    if (uniquePageIds.isEmpty) return false;
+
+    final sessionToken = globalSessionToken;
+    if (sessionToken == null || sessionToken.isEmpty) {
+      throw StateError('Sessione scaduta: effettua nuovamente il login.');
+    }
+    final uploadUrl = apiUrl.endsWith('/notion-query')
+        ? '${apiUrl.substring(0, apiUrl.length - '/notion-query'.length)}/notion-file-upload'
+        : '$apiUrl/notion-file-upload';
+    final encodedFilename =
+        base64Url.encode(utf8.encode(filename)).replaceAll('=', '');
+    final response = await http.post(
+      Uri.parse(uploadUrl),
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Authorization': 'Bearer $sessionToken',
+        'X-Notion-Page-Ids': uniquePageIds.join(','),
+        'X-Report-Filename': encodedFilename,
+      },
+      body: pdfBytes,
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Errore archiviazione PDF: ${response.body}');
+    }
+    return true;
   }
 
   Future<http.Response> _patchPage(

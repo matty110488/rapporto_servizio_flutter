@@ -1286,8 +1286,14 @@ class _RootScreenState extends State<RootScreen> {
                   garaId: _draftKey,
                   payload: payload,
                 );
+                final reportFilename = _notionReportFilename(reportPackage);
                 if (kIsWeb) {
                   final pdfBytes = await generaPdfBytesConDati(payload);
+                  await _archiveReportSilently(
+                    pdfBytes: pdfBytes,
+                    gare: gareSelezionate,
+                    filename: reportFilename,
+                  );
                   await Printing.sharePdf(
                     bytes: pdfBytes,
                     filename: 'rapporto_servizio.pdf',
@@ -1296,6 +1302,11 @@ class _RootScreenState extends State<RootScreen> {
                   final file = await generaPdfConDati(
                     payload,
                     salvaLocalmente: true,
+                  );
+                  await _archiveReportSilently(
+                    pdfBytes: await file.readAsBytes(),
+                    gare: gareSelezionate,
+                    filename: reportFilename,
                   );
                   await SharePlus.instance.share(
                     ShareParams(
@@ -1332,6 +1343,31 @@ class _RootScreenState extends State<RootScreen> {
         ),
       ],
     );
+  }
+
+  String _notionReportFilename(GaraPackage reportPackage) {
+    final date = reportPackage.startDate == null
+        ? ''
+        : DateFormat('yyyy-MM-dd').format(reportPackage.startDate!);
+    final datedTitle =
+        date.isEmpty ? reportPackage.title : '$date - ${reportPackage.title}';
+    return 'Rapporto servizio - $datedTitle.pdf';
+  }
+
+  Future<void> _archiveReportSilently({
+    required List<int> pdfBytes,
+    required List<Gara> gare,
+    required String filename,
+  }) async {
+    try {
+      await notion.archiveReportPdf(
+        pdfBytes: pdfBytes,
+        pageIds: gare.map((gara) => gara.id).toList(),
+        filename: filename,
+      );
+    } catch (_) {
+      // The Notion archive is best-effort and must never block report delivery.
+    }
   }
 
   Widget _buildHeroCard() {

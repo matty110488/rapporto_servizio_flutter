@@ -56,7 +56,9 @@ jobs:
         run: npm ci
 
       - name: Validate backend syntax
-        run: node --check api/notion-query.js
+        run: |
+          node --check api/notion-query.js
+          node --check api/notion-file-upload.js
 
       - name: Test backend
         run: npm test
