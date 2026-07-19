@@ -1,5 +1,8 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
@@ -23,11 +26,15 @@ import '../widgets/stopwatch_loading.dart';
 class RootScreen extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
   final String? initialGaraId;
+  final bool? initialWholePackage;
+  final bool includeSentReports;
 
   const RootScreen({
     super.key,
     required this.loggedUser,
     this.initialGaraId,
+    this.initialWholePackage,
+    this.includeSentReports = false,
   });
 
   @override
@@ -55,6 +62,12 @@ class _RootScreenState extends State<RootScreen> {
   int formVersion = 0;
   bool prefilling = false;
   int _prefillTicket = 0;
+  Timer? _autosaveTimer;
+  bool _savingDraft = false;
+  DateTime? _lastDraftSavedAt;
+  String? _lastDraftFingerprint;
+  bool _initialScopeApplied = false;
+  bool _allowPop = false;
 
   String? get _loggedUserId {
     final id = widget.loggedUser['id'];
@@ -131,10 +144,10 @@ class _RootScreenState extends State<RootScreen> {
     const allowed = {
       'DESIGNAZIONE INVIATA',
       'GARA COMPLETATA',
-      'RAPPORTINO RICEVUTO',
     };
     final status = gara.status.trim().toUpperCase();
-    return allowed.contains(status);
+    return allowed.contains(status) ||
+        (widget.includeSentReports && status == 'RAPPORTINO RICEVUTO');
   }
 
   List<Gara> get _selectedReportGare {
@@ -171,7 +184,17 @@ class _RootScreenState extends State<RootScreen> {
       if (!mounted) return;
       PrankPopupService.maybeShow(context, widget.loggedUser);
     });
+    _autosaveTimer = Timer.periodic(
+      const Duration(seconds: 4),
+      (_) => unawaited(_autosaveIfChanged()),
+    );
     _loadGareDsc();
+  }
+
+  @override
+  void dispose() {
+    _autosaveTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadGareDsc() async {
@@ -236,7 +259,11 @@ class _RootScreenState extends State<RootScreen> {
         selectedPackage = nextPackage;
         selectedGara = nextSelection;
         if (selectionChanged) {
-          wholePackage = nextPackage?.isConfirmedPackage ?? false;
+          final initialScope =
+              _initialScopeApplied ? null : widget.initialWholePackage;
+          wholePackage =
+              initialScope ?? nextPackage?.isConfirmedPackage ?? false;
+          _initialScopeApplied = true;
           formVersion++;
         }
       });
@@ -256,7 +283,9 @@ class _RootScreenState extends State<RootScreen> {
     }
   }
 
-  void _selectPackage(GaraPackage package) {
+  Future<void> _selectPackage(GaraPackage package) async {
+    await _savePendingChangesIfAny();
+    if (!mounted) return;
     setState(() {
       selectedPackage = package;
       selectedGara = package.primary;
@@ -266,7 +295,9 @@ class _RootScreenState extends State<RootScreen> {
     _prefillFromSelection();
   }
 
-  void _selectSingleGara(Gara gara) {
+  Future<void> _selectSingleGara(Gara gara) async {
+    await _savePendingChangesIfAny();
+    if (!mounted) return;
     setState(() {
       selectedGara = gara;
       wholePackage = false;
@@ -275,9 +306,11 @@ class _RootScreenState extends State<RootScreen> {
     _prefillFromSelection();
   }
 
-  void _selectWholePackage() {
+  Future<void> _selectWholePackage() async {
     final package = selectedPackage;
     if (package == null) return;
+    await _savePendingChangesIfAny();
+    if (!mounted) return;
     setState(() {
       wholePackage = true;
       selectedGara = package.primary;
@@ -305,6 +338,8 @@ class _RootScreenState extends State<RootScreen> {
     final ticket = ++_prefillTicket;
     setState(() {
       prefilling = true;
+      _lastDraftSavedAt = null;
+      _lastDraftFingerprint = null;
     });
     try {
       String? dscName;
@@ -353,6 +388,7 @@ class _RootScreenState extends State<RootScreen> {
       if (applyDraft) {
         await _applySavedDraftIfAny(_draftKey);
       }
+      _lastDraftFingerprint = _draftFingerprint(_currentDraftPayload());
       return true;
     } catch (e) {
       if (!mounted || ticket != _prefillTicket) return false;
@@ -509,20 +545,104 @@ class _RootScreenState extends State<RootScreen> {
     required String garaId,
     required Map<String, dynamic> payload,
   }) async {
+    final package = _selectedReportPackage;
+    final savedAt = DateTime.now();
     final draft = {
       'gara': payload['gara'],
       'cronometristi': payload['cronometristi'],
       'orariGiornata': payload['orariGiornata'],
       'apparecchiature': payload['apparecchiature'],
       'danni': payload['danni'],
-      'updatedAt': DateTime.now().toIso8601String(),
+      'title': package?.title ?? 'Rapportino',
+      'dateLabel': package == null ? '' : _packageDatesLabel(package),
+      'primaryGaraId': selectedGara?.id ?? '',
+      'wholePackage': wholePackage && selectedPackage?.isPackage == true,
+      'userId': _loggedUserId ?? '',
+      'updatedAt': savedAt.toIso8601String(),
     };
     await _draftService.saveDraft(garaId, draft);
+    if (mounted) {
+      setState(() => _lastDraftSavedAt = savedAt);
+    }
+  }
+
+  Map<String, dynamic> _currentDraftPayload() => {
+        'gara': garaKey.currentState?.getData() ?? {},
+        'cronometristi': cronometristiKey.currentState?.getData() ?? [],
+        'orariGiornata': garaKey.currentState?.getOrariGiornata() ?? {},
+        'apparecchiature': apparecchiaturaKey.currentState?.getData() ?? [],
+        'danni': danniKey.currentState?.getData() ?? '',
+      };
+
+  String _draftFingerprint(Map<String, dynamic> payload) => jsonEncode(payload);
+
+  Future<bool> _saveCurrentDraft({bool showMessage = false}) async {
+    if (_draftKey.isEmpty || prefilling || _savingDraft) return false;
+    final payload = _currentDraftPayload();
+    setState(() => _savingDraft = true);
+    try {
+      await _saveDraft(garaId: _draftKey, payload: payload);
+      _lastDraftFingerprint = _draftFingerprint(payload);
+      if (showMessage && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bozza salvata su questo dispositivo'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return true;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Impossibile salvare la bozza: $e')),
+        );
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => _savingDraft = false);
+    }
+  }
+
+  Future<void> _autosaveIfChanged() async {
+    if (!mounted || selectedGara == null || prefilling || _savingDraft) return;
+    final payload = _currentDraftPayload();
+    final fingerprint = _draftFingerprint(payload);
+    if (_lastDraftFingerprint == null) {
+      _lastDraftFingerprint = fingerprint;
+      return;
+    }
+    if (fingerprint == _lastDraftFingerprint) return;
+    await _saveCurrentDraft();
+  }
+
+  Future<void> _savePendingChangesIfAny() async {
+    if (selectedGara == null || prefilling || _lastDraftFingerprint == null) {
+      return;
+    }
+    final fingerprint = _draftFingerprint(_currentDraftPayload());
+    if (fingerprint != _lastDraftFingerprint) {
+      await _saveCurrentDraft();
+    }
+  }
+
+  Future<void> _handlePop(bool didPop, Object? result) async {
+    if (didPop || _allowPop) return;
+    await _savePendingChangesIfAny();
+    if (!mounted) return;
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).pop(result);
+    });
   }
 
   Future<void> _applySavedDraftIfAny(String garaId) async {
     final saved = await _draftService.loadDraft(garaId);
     if (saved == null) return;
+
+    _lastDraftSavedAt = DateTime.tryParse(
+      (saved['updatedAt'] ?? '').toString(),
+    );
 
     final garaDataRaw = saved['gara'];
     final cronosRaw = saved['cronometristi'];
@@ -1048,6 +1168,72 @@ class _RootScreenState extends State<RootScreen> {
           child: AllegatiForm(key: allegatiKey),
         ),
         const SizedBox(height: 16),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF2F8FF),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFCFE2F7)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    _savingDraft
+                        ? Icons.sync_rounded
+                        : Icons.cloud_done_rounded,
+                    color: const Color(0xFF0A66C2),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _savingDraft
+                          ? 'Salvataggio della bozza...'
+                          : _lastDraftSavedAt == null
+                              ? 'Salvataggio automatico attivo'
+                              : 'Bozza salvata alle '
+                                  '${DateFormat('HH:mm').format(_lastDraftSavedAt!)}',
+                      style: const TextStyle(
+                        color: Color(0xFF24415F),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Gli allegati non vengono conservati nella bozza.',
+                style: TextStyle(color: Color(0xFF52657B), fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _savingDraft
+                ? null
+                : () => _saveCurrentDraft(showMessage: true),
+            icon: const Icon(Icons.save_rounded),
+            label: const Text('Salva bozza'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
@@ -1124,6 +1310,10 @@ class _RootScreenState extends State<RootScreen> {
                     'RAPPORTINO RICEVUTO',
                   );
                 }
+                await _draftService.deleteDraft(_draftKey);
+                if (mounted) {
+                  setState(() => _lastDraftSavedAt = null);
+                }
                 await _loadGareDsc();
               } catch (e) {
                 if (!mounted) return;
@@ -1198,79 +1388,94 @@ class _RootScreenState extends State<RootScreen> {
   Widget build(BuildContext context) {
     final canFillForm = selectedGara != null;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Crono Valtellinesi'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            tooltip: 'Aiuto',
-            onPressed: () => showHelpDialog(
-              context,
-              'Rapportini',
-              HelpContent.rapportini,
+    return PopScope<Object?>(
+      canPop: _allowPop,
+      onPopInvokedWithResult: _handlePop,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Crono Valtellinesi'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.help_outline),
+              tooltip: 'Aiuto',
+              onPressed: () => showHelpDialog(
+                context,
+                'Rapportini',
+                HelpContent.rapportini,
+              ),
             ),
-          ),
-          TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            },
-            icon: const Icon(Icons.home),
-            label: const Text('Home'),
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.primary,
+            TextButton.icon(
+              onPressed: () async {
+                await _savePendingChangesIfAny();
+                if (!context.mounted) return;
+                setState(() => _allowPop = true);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  }
+                });
+              },
+              icon: const Icon(Icons.home),
+              label: const Text('Home'),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.primary,
+              ),
             ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFEAF3FF), Color(0xFFF7FBFF), Color(0xFFFFFFFF)],
+          ],
+        ),
+        body: SafeArea(
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFEAF3FF),
+                  Color(0xFFF7FBFF),
+                  Color(0xFFFFFFFF)
+                ],
+              ),
             ),
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeroCard(),
-                const SizedBox(height: 12),
-                _buildGareSelectionCard(),
-                const SizedBox(height: 12),
-                _buildSelectedGaraInfo(),
-                if (prefilling)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: LinearProgressIndicator(),
-                  ),
-                if (!canFillForm &&
-                    !loadingGareList &&
-                    gareDisponibili.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      'Seleziona una gara per abilitare il rapportino.',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeroCard(),
+                  const SizedBox(height: 12),
+                  _buildGareSelectionCard(),
+                  const SizedBox(height: 12),
+                  _buildSelectedGaraInfo(),
+                  if (prefilling)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: LinearProgressIndicator(),
+                    ),
+                  if (!canFillForm &&
+                      !loadingGareList &&
+                      gareDisponibili.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'Seleziona una gara per abilitare il rapportino.',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  IgnorePointer(
+                    ignoring: !canFillForm,
+                    child: Opacity(
+                      opacity: canFillForm ? 1 : 0.35,
+                      child: KeyedSubtree(
+                        key: ValueKey(formVersion),
+                        child: _buildRapportoForm(),
                       ),
                     ),
                   ),
-                const SizedBox(height: 8),
-                IgnorePointer(
-                  ignoring: !canFillForm,
-                  child: Opacity(
-                    opacity: canFillForm ? 1 : 0.35,
-                    child: KeyedSubtree(
-                      key: ValueKey(formVersion),
-                      child: _buildRapportoForm(),
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
