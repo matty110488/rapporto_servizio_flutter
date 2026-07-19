@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../config/app_config.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../widgets/stopwatch_loading.dart';
@@ -14,9 +15,6 @@ class StatistichePage extends StatefulWidget {
 }
 
 class _StatistichePageState extends State<StatistichePage> {
-  static const _db2025 = '2afde089ef9580e2b0e7d19d44f3a3f6';
-  static const _db2026 = '2b1de089ef9580729622ff9543046cbc';
-
   late final NotionService _notion;
   bool _loading = true;
   String? _error;
@@ -95,7 +93,7 @@ class _StatistichePageState extends State<StatistichePage> {
   @override
   void initState() {
     super.initState();
-    _notion = NotionService(databaseId: _db2025);
+    _notion = NotionService(databaseId: AppConfig.primaryRaceDatabaseId);
     _loadStats();
   }
 
@@ -117,7 +115,7 @@ class _StatistichePageState extends State<StatistichePage> {
       }
 
       final results = await _notion.fetchGare(
-        additionalDatabaseIds: const [_db2026],
+        additionalDatabaseIds: AppConfig.additionalRaceDatabaseIds,
       );
       final gare = results.map((e) => Gara.fromNotion(e)).toList();
       final years = _extractYears(gare);

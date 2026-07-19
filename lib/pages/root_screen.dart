@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../config/app_config.dart';
 import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../models/gara_package.dart';
@@ -47,9 +48,6 @@ class _RootScreenState extends State<RootScreen> {
   final apparecchiaturaKey = GlobalKey<ApparecchiaturaFormState>();
   final danniKey = GlobalKey<DanniFormState>();
   final allegatiKey = GlobalKey<AllegatiFormState>();
-  static const _db2025 = "2afde089ef9580e2b0e7d19d44f3a3f6";
-  static const _db2026 = "2b1de089ef9580729622ff9543046cbc";
-
   late NotionService notion;
   final RapportinoDraftService _draftService = RapportinoDraftService();
   List<Gara> gareDisponibili = [];
@@ -141,13 +139,9 @@ class _RootScreenState extends State<RootScreen> {
   }
 
   bool _isStatusAbilitato(Gara gara) {
-    const allowed = {
-      'DESIGNAZIONE INVIATA',
-      'GARA COMPLETATA',
-    };
     final status = gara.status.trim().toUpperCase();
-    return allowed.contains(status) ||
-        (widget.includeSentReports && status == 'RAPPORTINO RICEVUTO');
+    return RaceStatuses.reportCompilationAllowed.contains(status) ||
+        (widget.includeSentReports && status == RaceStatuses.reportReceived);
   }
 
   List<Gara> get _selectedReportGare {
@@ -178,14 +172,14 @@ class _RootScreenState extends State<RootScreen> {
   void initState() {
     super.initState();
     notion = NotionService(
-      databaseId: _db2025,
+      databaseId: AppConfig.primaryRaceDatabaseId,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       PrankPopupService.maybeShow(context, widget.loggedUser);
     });
     _autosaveTimer = Timer.periodic(
-      const Duration(seconds: 4),
+      AppConfig.reportDraftAutosaveInterval,
       (_) => unawaited(_autosaveIfChanged()),
     );
     _loadGareDsc();
@@ -204,7 +198,7 @@ class _RootScreenState extends State<RootScreen> {
     });
     try {
       final results = await notion.fetchGare(
-        additionalDatabaseIds: const [_db2026],
+        additionalDatabaseIds: AppConfig.additionalRaceDatabaseIds,
       );
       final allGare =
           results.map((e) => Gara.fromNotion(e)).toList(growable: false);
@@ -1318,7 +1312,7 @@ class _RootScreenState extends State<RootScreen> {
                 for (final gara in gareSelezionate) {
                   await notion.updateGaraStatus(
                     gara.id,
-                    'RAPPORTINO RICEVUTO',
+                    RaceStatuses.reportReceived,
                   );
                 }
                 await _draftService.deleteDraft(_draftKey);

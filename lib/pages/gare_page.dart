@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../config/app_config.dart';
 import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../models/gara_package.dart';
@@ -19,13 +20,6 @@ class GarePage extends StatefulWidget {
 }
 
 class _GarePageState extends State<GarePage> {
-  static const _db2025 = '2afde089ef9580e2b0e7d19d44f3a3f6';
-  static const _db2026 = '2b1de089ef9580729622ff9543046cbc';
-  static const Map<int, String> _databaseByYear = {
-    2025: _db2025,
-    2026: _db2026,
-  };
-
   late NotionService notion;
   List<Gara> gare = [];
   bool loading = true;
@@ -40,10 +34,12 @@ class _GarePageState extends State<GarePage> {
   void initState() {
     super.initState();
 
-    if (!_databaseByYear.containsKey(selectedYear)) {
-      selectedYear = _databaseByYear.keys.reduce((a, b) => a > b ? a : b);
+    if (!AppConfig.raceDatabaseIds.containsKey(selectedYear)) {
+      selectedYear = AppConfig.latestRaceYear;
     }
-    notion = NotionService(databaseId: _databaseByYear[selectedYear]!);
+    notion = NotionService(
+      databaseId: AppConfig.raceDatabaseIds[selectedYear]!,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       PrankPopupService.maybeShow(context, widget.loggedUser);
@@ -58,7 +54,9 @@ class _GarePageState extends State<GarePage> {
         loading = true;
       });
     }
-    notion = NotionService(databaseId: _databaseByYear[selectedYear]!);
+    notion = NotionService(
+      databaseId: AppConfig.raceDatabaseIds[selectedYear]!,
+    );
     final results = await notion.fetchGare();
     final nextGare = results.map((e) => Gara.fromNotion(e)).toList();
 
@@ -717,7 +715,7 @@ class _GarePageState extends State<GarePage> {
                 label: 'Anno',
                 child: Wrap(
                   spacing: 6,
-                  children: _databaseByYear.keys
+                  children: AppConfig.configuredRaceYears
                       .toList()
                       .reversed
                       .map(
@@ -1482,14 +1480,14 @@ class _GarePageState extends State<GarePage> {
 
   _StatusStyle _statusStyle(String status) {
     final upper = status.trim().toUpperCase();
-    if (upper == 'DESIGNAZIONE INVIATA') {
+    if (upper == RaceStatuses.designationSent) {
       return const _StatusStyle(
         soft: Color(0xFFE4F0FF),
         strong: Color(0xFF1F5FA8),
         accent: Color(0xFF2D83D6),
       );
     }
-    if (upper == 'GARA COMPLETATA' || upper == 'SICWIN OK') {
+    if (upper == RaceStatuses.completed || upper == RaceStatuses.sicWinOk) {
       return const _StatusStyle(
         soft: Color(0xFFE8F7EF),
         strong: Color(0xFF1D7C4B),

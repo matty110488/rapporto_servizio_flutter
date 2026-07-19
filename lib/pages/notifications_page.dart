@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../config/app_config.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../services/push_notification_service.dart';
@@ -42,7 +43,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   void initState() {
     super.initState();
-    _notion = NotionService(databaseId: '2afde089ef9580e2b0e7d19d44f3a3f6');
+    _notion = NotionService(databaseId: AppConfig.primaryRaceDatabaseId);
     _foregroundSubscription = foregroundPushNotices.listen((notice) {
       if (!mounted) return;
       setState(() {
@@ -55,7 +56,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
       _loadNotifications(silent: true);
     });
     _loadAll();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    _pollingTimer =
+        Timer.periodic(AppConfig.notificationsPageRefreshInterval, (_) {
       unawaited(_syncAndLoadNotifications());
     });
   }

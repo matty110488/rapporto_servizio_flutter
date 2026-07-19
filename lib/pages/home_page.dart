@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../config/app_config.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
@@ -30,11 +31,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const _db2025 = '2afde089ef9580e2b0e7d19d44f3a3f6';
-  static const _db2026 = '2b1de089ef9580729622ff9543046cbc';
   static const _layoutVersion = 'Home layout 2026.07.18';
-  // Cambia qui la frequenza di aggiornamento automatico del banner Home.
-  static const _dashboardAutoRefreshInterval = Duration(minutes: 5);
 
   late final NotionService _notion;
   bool _loadingDashboard = true;
@@ -48,19 +45,20 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _notion = NotionService(databaseId: _db2025);
+    _notion = NotionService(databaseId: AppConfig.primaryRaceDatabaseId);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       PrankPopupService.maybeShow(context, widget.loggedUser);
     });
     _loadDashboard();
-    _dashboardRefreshTimer = Timer.periodic(_dashboardAutoRefreshInterval, (_) {
+    _dashboardRefreshTimer =
+        Timer.periodic(AppConfig.dashboardRefreshInterval, (_) {
       unawaited(_loadDashboard(showLoading: false));
     });
     unawaited(_syncDesignationNotifications());
     unawaited(_loadNotificationBadge());
     _notificationPollingTimer =
-        Timer.periodic(const Duration(seconds: 45), (_) {
+        Timer.periodic(AppConfig.notificationBadgeRefreshInterval, (_) {
       unawaited(_syncDesignationNotifications());
       unawaited(_loadNotificationBadge());
     });
@@ -158,19 +156,16 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
-      final rows =
-          await _notion.fetchGare(additionalDatabaseIds: const [_db2026]);
+      final rows = await _notion.fetchGare(
+        additionalDatabaseIds: AppConfig.additionalRaceDatabaseIds,
+      );
       final gare = rows.map((e) => Gara.fromNotion(e)).toList();
-
-      const prossimiServiziStatuses = {
-        'DESIGNAZIONE INVIATA',
-      };
 
       final conUtente =
           gare.where((g) => g.kronosIds.contains(userId)).toList();
       final prossimiServizi = conUtente
           .where((g) =>
-              prossimiServiziStatuses.contains(g.status.trim().toUpperCase()))
+              g.status.trim().toUpperCase() == RaceStatuses.designationSent)
           .toList();
 
       final prossimiDue = _pickNextServices(prossimiServizi, limit: 2);

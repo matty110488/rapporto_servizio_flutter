@@ -5,6 +5,11 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from '@simplewebauthn/server';
+import {
+  allowedRaceDatabaseIds,
+  NOTION_RACE_PROPERTIES,
+  RACE_STATUSES,
+} from './notion-config.js';
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://matty110488.github.io',
@@ -1198,15 +1203,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    const allowedDataDatabaseIds = new Set([
-      '2afde089ef9580e2b0e7d19d44f3a3f6',
-      '2b1de089ef9580729622ff9543046cbc',
-      
-      ...(process.env.ALLOWED_DATABASE_IDS || '')
-        .split(',')
-        .map((id) => id.trim())
-        .filter(Boolean),
-    ]);
+    const allowedDataDatabaseIds = new Set(
+      allowedRaceDatabaseIds(process.env.ALLOWED_DATABASE_IDS),
+    );
     const isAllowedPage = (page) => {
       const parent = page && typeof page === 'object' ? page.parent : null;
       const databaseId =
@@ -1279,7 +1278,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Only property updates are supported' });
       }
       const allowedProperties = new Set([
-        'STATUS',
+        NOTION_RACE_PROPERTIES.status,
         'KRONOS DESIGNATI',
         'DISPONIBILITA_VIA_APP',
       ]);
@@ -1295,8 +1294,8 @@ export default async function handler(req, res) {
       );
       if (
         response.status === 200 &&
-        targetStatus === 'DESIGNAZIONE INVIATA' &&
-        previousStatus !== 'DESIGNAZIONE INVIATA'
+        targetStatus === RACE_STATUSES.designationSent &&
+        previousStatus !== RACE_STATUSES.designationSent
       ) {
         try {
           const notificationResult = await notifyDesignatedCronos(response.data);
@@ -1335,7 +1334,7 @@ export default async function handler(req, res) {
               : {};
           const statusKey = findKeyByCandidates(props, ['STATUS', 'STATO']);
           const status = statusKey ? extractStatusName(props[statusKey]).toUpperCase() : '';
-          if (status !== 'DESIGNAZIONE INVIATA') continue;
+          if (status !== RACE_STATUSES.designationSent) continue;
           try {
             const notificationResult = await notifyDesignatedCronos(garaPage);
             results.push({

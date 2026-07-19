@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../config/app_config.dart';
 import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
@@ -18,9 +19,6 @@ class DesignazioniPage extends StatefulWidget {
 }
 
 class _DesignazioniPageState extends State<DesignazioniPage> {
-  static const _db2025 = '2afde089ef9580e2b0e7d19d44f3a3f6';
-  static const _db2026 = '2b1de089ef9580729622ff9543046cbc';
-
   late NotionService notion;
   List<Gara> gareDaSvolgere = [];
   List<Gara> gareConcluse = [];
@@ -37,7 +35,7 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
   void initState() {
     super.initState();
     notion = NotionService(
-      databaseId: _db2025,
+      databaseId: AppConfig.primaryRaceDatabaseId,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -53,21 +51,16 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
     });
     try {
       final results = await notion.fetchGare(
-        additionalDatabaseIds: const [_db2026],
+        additionalDatabaseIds: AppConfig.additionalRaceDatabaseIds,
       );
       final all = results.map((e) => Gara.fromNotion(e)).toList();
       final userId = _loggedUserId;
 
-      final allowedStatuses = {
-        'DESIGNAZIONE INVIATA',
-        'GARA COMPLETATA',
-        'SICWIN OK',
-      };
-
       final filtered = all.where((g) {
         if (userId == null) return false;
         final status = g.status.trim().toUpperCase();
-        final statoValido = allowedStatuses.contains(status);
+        final statoValido =
+            RaceStatuses.designationListAllowed.contains(status);
         final assegnato = g.kronosIds.contains(userId);
         return statoValido && assegnato;
       }).toList();
@@ -76,7 +69,8 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
       final concluse = <Gara>[];
       for (final g in filtered) {
         final status = g.status.trim().toUpperCase();
-        if (status == 'GARA COMPLETATA' || status == 'SICWIN OK') {
+        if (status == RaceStatuses.completed ||
+            status == RaceStatuses.sicWinOk) {
           concluse.add(g);
         } else {
           daSvolgere.add(g);
@@ -389,7 +383,7 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
 
   _StatusStyle _statusStyle(String status) {
     final upper = status.trim().toUpperCase();
-    if (upper == 'DESIGNAZIONE INVIATA') {
+    if (upper == RaceStatuses.designationSent) {
       return const _StatusStyle(
         soft: Color(0xFFE4F0FF),
         strong: Color(0xFF1F5FA8),
