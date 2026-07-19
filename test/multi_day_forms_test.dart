@@ -59,5 +59,19 @@ void main() {
     };
     expect(datesByName['Mario Rossi'], ['2026-08-12']);
     expect(datesByName['Luigi Bianchi'], ['2026-08-14']);
+
+    key.currentState!.rimuoviRiga(1);
+    expect(key.currentState!.getData(), hasLength(1));
+
+    key.currentState!.setCronometristiPerDate({
+      'Mario Rossi': [DateTime(2026, 8, 12)],
+      'Luigi Bianchi': [DateTime(2026, 8, 14)],
+    });
+    await tester.pump();
+
+    expect(
+      key.currentState!.getData().map((row) => row['nome']),
+      containsAll(['Mario Rossi', 'Luigi Bianchi']),
+    );
   });
 }
