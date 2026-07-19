@@ -457,7 +457,7 @@ class _HeroCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Hai ${stats.cronoCount} designazioni da crono $yearLabel. Lo sport piu frequente e $favoriteSport.',
+            'Hai ${stats.cronoCount} designazioni da crono $yearLabel. Lo sport più frequente è $favoriteSport.',
             style: const TextStyle(color: Colors.white, fontSize: 14),
           ),
         ],

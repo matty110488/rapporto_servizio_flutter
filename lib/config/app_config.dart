@@ -30,7 +30,7 @@ abstract final class AppConfig {
   static const dashboardRefreshInterval = Duration(minutes: 5);
   static const notificationBadgeRefreshInterval = Duration(seconds: 45);
   static const notificationsPageRefreshInterval = Duration(seconds: 30);
-  static const reportDraftAutosaveInterval = Duration(seconds: 4);
+  static const reportDraftAutosaveInterval = Duration(seconds: 10);
 
   /// Vercel accepts request bodies up to 4.5 MB for this upload flow.
   static const int maxNotionPdfBytes = 4500000;
