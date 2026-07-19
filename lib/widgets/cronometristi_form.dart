@@ -14,6 +14,7 @@ class CronometristiFormState extends State<CronometristiForm> {
   int _revision = 0;
   DateTime? _rangeDa;
   DateTime? _rangeA;
+  List<DateTime> _activeDates = [];
   final List<String> cronometristiDisponibili =
       List<String>.from(availableCronometristi);
   Map<String, Map<String, String>> orariPerData = {};
@@ -43,11 +44,23 @@ class CronometristiFormState extends State<CronometristiForm> {
     if (da == null || a == null) return;
     if (a.isBefore(da)) return;
     final total = a.difference(da).inDays + 1;
+    final dates = List.generate(
+      total,
+      (index) => DateTime(da.year, da.month, da.day).add(Duration(days: index)),
+    );
+    syncDaysWithDates(dates);
+  }
+
+  void syncDaysWithDates(List<DateTime> dates) {
+    final uniqueDates = <String, DateTime>{};
+    for (final rawDate in dates) {
+      final date = DateTime(rawDate.year, rawDate.month, rawDate.day);
+      uniqueDates[_isoDate(date)] = date;
+    }
+    final orderedDates = uniqueDates.values.toList()..sort();
     final Map<String, Map<String, String>> nuoviOrari = {};
-    for (int i = 0; i < total; i++) {
-      final date = DateTime(da.year, da.month, da.day).add(Duration(days: i));
-      final iso =
-          "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+    for (final date in orderedDates) {
+      final iso = _isoDate(date);
       final esistente = orariPerData[iso] ?? {};
       nuoviOrari[iso] = {
         'oraDa': (esistente['oraDa'] ?? '').toString(),
@@ -55,18 +68,23 @@ class CronometristiFormState extends State<CronometristiForm> {
       };
     }
     setState(() {
-      _rangeDa = da;
-      _rangeA = a;
+      _activeDates = orderedDates;
+      _rangeDa = orderedDates.isEmpty ? null : orderedDates.first;
+      _rangeA = orderedDates.isEmpty ? null : orderedDates.last;
       orariPerData = nuoviOrari;
       for (final riga in righe) {
         final List<dynamic> cur = List<dynamic>.from(riga['giorni'] ?? []);
+        final existingByDate = <String, Map>{};
+        for (final raw in cur.whereType<Map>()) {
+          final date = (raw['data'] ?? '').toString();
+          if (date.isNotEmpty) existingByDate[date] = raw;
+        }
         final List<Map<String, dynamic>> nuovo = [];
-        for (int i = 0; i < total; i++) {
-          final date =
-              DateTime(da.year, da.month, da.day).add(Duration(days: i));
-          final iso =
-              "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
-          final existing = (i < cur.length) ? cur[i] : <String, dynamic>{};
+        for (var index = 0; index < orderedDates.length; index++) {
+          final iso = _isoDate(orderedDates[index]);
+          final indexed = index < cur.length ? cur[index] : null;
+          final existing =
+              existingByDate[iso] ?? (indexed is Map ? indexed : const {});
           nuovo.add({
             'data': iso,
             'ore': existing['ore'] ?? '',
@@ -96,13 +114,9 @@ class CronometristiFormState extends State<CronometristiForm> {
   }
 
   List<Map<String, dynamic>> _giorniPerRange() {
-    if (_rangeDa != null && _rangeA != null && !_rangeA!.isBefore(_rangeDa!)) {
-      final total = _rangeA!.difference(_rangeDa!).inDays + 1;
-      return List.generate(total, (index) {
-        final d = DateTime(_rangeDa!.year, _rangeDa!.month, _rangeDa!.day)
-            .add(Duration(days: index));
-        final iso =
-            "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
+    if (_activeDates.isNotEmpty) {
+      return _activeDates.map((date) {
+        final iso = _isoDate(date);
         final orari = orariPerData[iso] ?? {};
         return {
           'data': iso,
@@ -112,7 +126,7 @@ class CronometristiFormState extends State<CronometristiForm> {
           'oraDa': (orari['oraDa'] ?? '').toString(),
           'oraA': (orari['oraA'] ?? '').toString(),
         };
-      });
+      }).toList();
     }
     return [
       {'ore': '', 'km': '', 'spese': '', 'oraDa': '', 'oraA': ''}
@@ -140,6 +154,53 @@ class CronometristiFormState extends State<CronometristiForm> {
                 })
             .toList();
       }
+    });
+    _notifyDataChanged();
+  }
+
+  void setCronometristiPerDate(Map<String, List<DateTime>> datesByName) {
+    Map<String, dynamic> dayData(DateTime date) {
+      final iso = _isoDate(date);
+      final orari = orariPerData[iso] ?? const {};
+      return {
+        'data': iso,
+        'ore': '',
+        'km': '',
+        'spese': '',
+        'oraDa': (orari['oraDa'] ?? '').toString(),
+        'oraA': (orari['oraA'] ?? '').toString(),
+      };
+    }
+
+    setState(() {
+      if (datesByName.isEmpty) {
+        righe = [
+          {
+            'nome': null,
+            'giorni': _giorniPerRange(),
+            'segreteria': null,
+            'note': '',
+          }
+        ];
+      } else {
+        final names = datesByName.keys.toList()
+          ..sort((first, second) =>
+              first.toLowerCase().compareTo(second.toLowerCase()));
+        righe = names.map((name) {
+          final dates = datesByName[name]!
+              .map((date) => DateTime(date.year, date.month, date.day))
+              .toSet()
+              .toList()
+            ..sort();
+          return {
+            'nome': name,
+            'giorni': dates.map(dayData).toList(),
+            'segreteria': null,
+            'note': '',
+          };
+        }).toList();
+      }
+      _revision++;
     });
     _notifyDataChanged();
   }
@@ -424,6 +485,9 @@ class CronometristiFormState extends State<CronometristiForm> {
     return d;
   }
 
+  String _isoDate(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -545,44 +609,47 @@ class CronometristiFormState extends State<CronometristiForm> {
                       border: Border.all(
                           color: colorScheme.outline.withOpacity(0.25)),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Elaborazione Dati',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: RadioListTile<String>(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text('SI'),
-                                value: 'SI',
-                                groupValue: riga['segreteria'],
-                                onChanged: (val) => setState(() {
-                                  riga['segreteria'] = val;
-                                  _notifyDataChanged();
-                                }),
-                                dense: true,
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Elaborazione Dati',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: RadioListTile<String>(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('SI'),
+                                  value: 'SI',
+                                  groupValue: riga['segreteria'],
+                                  onChanged: (val) => setState(() {
+                                    riga['segreteria'] = val;
+                                    _notifyDataChanged();
+                                  }),
+                                  dense: true,
+                                ),
                               ),
-                            ),
-                            Expanded(
-                              child: RadioListTile<String>(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text('NO'),
-                                value: 'NO',
-                                groupValue: riga['segreteria'],
-                                onChanged: (val) => setState(() {
-                                  riga['segreteria'] = val;
-                                  _notifyDataChanged();
-                                }),
-                                dense: true,
+                              Expanded(
+                                child: RadioListTile<String>(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('NO'),
+                                  value: 'NO',
+                                  groupValue: riga['segreteria'],
+                                  onChanged: (val) => setState(() {
+                                    riga['segreteria'] = val;
+                                    _notifyDataChanged();
+                                  }),
+                                  dense: true,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),

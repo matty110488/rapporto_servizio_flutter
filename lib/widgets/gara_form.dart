@@ -107,6 +107,26 @@ class GaraFormState extends State<GaraForm> {
     _pruneTimeControllers();
   }
 
+  void _syncOrariWithDates(List<DateTime> dates) {
+    final normalized = <String, DateTime>{};
+    for (final date in dates) {
+      final day = DateTime(date.year, date.month, date.day);
+      normalized['${day.year}-${_2(day.month)}-${_2(day.day)}'] = day;
+    }
+    final ordered = normalized.entries.toList()
+      ..sort((first, second) => first.value.compareTo(second.value));
+    final updated = <String, Map<String, String>>{};
+    for (final entry in ordered) {
+      final existing = orariPerData[entry.key] ?? const {};
+      updated[entry.key] = {
+        'oraDa': (existing['oraDa'] ?? '').toString(),
+        'oraA': (existing['oraA'] ?? '').toString(),
+      };
+    }
+    orariPerData = updated;
+    _pruneTimeControllers();
+  }
+
   void _aggiornaOrarioPerData(String data, String campo, String valore) {
     setState(() {
       final corrente = Map<String, String>.from(orariPerData[data] ?? {});
@@ -232,6 +252,34 @@ class GaraFormState extends State<GaraForm> {
       if (dsc != null) {
         dscController.text = dsc;
       }
+    });
+    widget.onSportChanged?.call(sport);
+    widget.onDateRangeChanged?.call(dataDa, dataA);
+    widget.onOrariChanged?.call(getOrariGiornata());
+  }
+
+  void applyPackageData({
+    required String nome,
+    required String organizzatore,
+    required String sportValue,
+    required String luogo,
+    required List<DateTime> dates,
+    String? dsc,
+  }) {
+    final ordered = dates
+        .map((date) => DateTime(date.year, date.month, date.day))
+        .toSet()
+        .toList()
+      ..sort();
+    setState(() {
+      nomeController.text = nome;
+      organizzatoreController.text = organizzatore;
+      luogoController.text = luogo;
+      sport = sportValue;
+      dataDa = ordered.isEmpty ? null : ordered.first;
+      dataA = ordered.isEmpty ? null : ordered.last;
+      dscController.text = dsc ?? '';
+      _syncOrariWithDates(ordered);
     });
     widget.onSportChanged?.call(sport);
     widget.onDateRangeChanged?.call(dataDa, dataA);
