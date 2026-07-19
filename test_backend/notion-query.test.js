@@ -47,6 +47,21 @@ test('creates passkey authentication options for the production web origin', asy
   assert.equal(typeof res.body.challengeToken, 'string');
 });
 
+test('creates passkey authentication options for the TEST web origin', async () => {
+  const req = {
+    method: 'POST',
+    headers: { origin: 'https://appkronos-1d181.web.app' },
+    body: { action: 'passkeyAuthenticationOptions' },
+  };
+  const res = responseRecorder();
+
+  await handler(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.options.rpId, 'appkronos-1d181.web.app');
+  assert.equal(res.headers['Access-Control-Allow-Origin'], req.headers.origin);
+});
+
 test('keeps data actions unavailable without a signed session', async () => {
   const req = {
     method: 'POST',

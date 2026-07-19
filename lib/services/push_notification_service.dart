@@ -7,10 +7,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/app_environment.dart';
 import '../state/session_state.dart';
 
-const _webProxyUrl =
-    'https://rapporto-servizio-flutter.vercel.app/api/notion-query';
 const _webVapidKey = String.fromEnvironment('FIREBASE_WEB_VAPID_KEY');
 const _webMessagingServiceWorker =
     'firebase-cloud-messaging-push-scope/firebase-messaging-sw.js';
@@ -216,7 +215,7 @@ Future<void> disableNotificationsForUser(String userId) async {
   });
 
   final res = await http.post(
-    Uri.parse(_webProxyUrl),
+    Uri.parse(apiUrl),
     headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $sessionToken',
@@ -296,7 +295,7 @@ Future<void> sendTokenToBackend(String userId, String token) async {
   });
 
   final res = await http.post(
-    Uri.parse(_webProxyUrl),
+    Uri.parse(apiUrl),
     headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $sessionToken',
@@ -328,7 +327,7 @@ Future<PushSendResult> _sendPushTestToBackend(
   });
 
   final res = await http.post(
-    Uri.parse(_webProxyUrl),
+    Uri.parse(apiUrl),
     headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $sessionToken',
@@ -356,7 +355,7 @@ Future<List<PushNotice>> fetchPushNotifications(String userId) async {
   }
 
   final res = await http.post(
-    Uri.parse(_webProxyUrl),
+    Uri.parse(apiUrl),
     headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $sessionToken',
@@ -392,7 +391,7 @@ Future<void> clearPushNotifications(String userId) async {
   }
 
   final res = await http.post(
-    Uri.parse(_webProxyUrl),
+    Uri.parse(apiUrl),
     headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $sessionToken',
@@ -420,7 +419,7 @@ Future<void> markPushNotificationsRead(String userId) async {
   }
 
   final res = await http.post(
-    Uri.parse(_webProxyUrl),
+    Uri.parse(apiUrl),
     headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $sessionToken',
@@ -451,7 +450,7 @@ Future<void> deletePushNotification(
   }
 
   final res = await http.post(
-    Uri.parse(_webProxyUrl),
+    Uri.parse(apiUrl),
     headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $sessionToken',
