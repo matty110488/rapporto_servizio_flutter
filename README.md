@@ -127,6 +127,10 @@ parametri modificabili sono descritti in
 [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md). Le modifiche architetturali
 sono registrate in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
+Il funzionamento del Cockpit gara, del Pass designazione e della futura
+integrazione Wallet e descritto in
+[`docs/COCKPIT_AND_PASS.md`](docs/COCKPIT_AND_PASS.md).
+
 ## Rollback
 
 Il punto precedente agli interventi di sicurezza è disponibile localmente e su

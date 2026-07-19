@@ -247,7 +247,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
       if (!mounted) return;
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => DettaglioGara(gara: gara)),
+        MaterialPageRoute(
+          builder: (_) => DettaglioGara(
+            gara: gara,
+            loggedUser: widget.loggedUser,
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;

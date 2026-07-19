@@ -125,7 +125,12 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => DettaglioGara(gara: gara)),
+        MaterialPageRoute(
+          builder: (_) => DettaglioGara(
+            gara: gara,
+            loggedUser: widget.loggedUser,
+          ),
+        ),
       );
     } catch (_) {
       if (!mounted) return;

@@ -4,6 +4,16 @@ Questo documento registra le modifiche che cambiano il modo in cui il progetto
 e configurato o gestito. Le modifiche funzionali dettagliate restano disponibili
 anche nella cronologia Git e nelle pull request GitHub.
 
+## 2026-07-19 - Cockpit gara e Pass universale
+
+- Trasformato il dettaglio gara in un cockpit operativo.
+- Aggiunti avanzamento del servizio, azioni rapide, squadra e materiale.
+- Aggiunto un Pass designazione multipiattaforma con QR e ruolo personale.
+- Aggiunta esportazione del pass come immagine PNG tramite condivisione nativa.
+- Il QR usa un deep link autenticato e non contiene credenziali.
+- Documentata la separazione tra Pass universale gratuito e futura integrazione
+  ufficiale Apple/Google Wallet.
+
 ## 2026-07-19 - Configurazione centrale
 
 - Creato `lib/config/app_config.dart` come sorgente unica Flutter per database

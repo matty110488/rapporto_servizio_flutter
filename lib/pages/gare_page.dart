@@ -1154,7 +1154,10 @@ class _GarePageState extends State<GarePage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => DettaglioGara(gara: gara),
+              builder: (_) => DettaglioGara(
+                gara: gara,
+                loggedUser: widget.loggedUser,
+              ),
             ),
           );
         },
@@ -1209,7 +1212,10 @@ class _GarePageState extends State<GarePage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => DettaglioGara(gara: g),
+              builder: (_) => DettaglioGara(
+                gara: g,
+                loggedUser: widget.loggedUser,
+              ),
             ),
           );
         },

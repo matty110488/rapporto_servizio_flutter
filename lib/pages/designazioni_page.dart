@@ -295,7 +295,10 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => DettaglioGara(gara: g),
+                builder: (_) => DettaglioGara(
+                  gara: g,
+                  loggedUser: widget.loggedUser,
+                ),
               ),
             );
           },
