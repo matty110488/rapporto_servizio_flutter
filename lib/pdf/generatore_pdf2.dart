@@ -81,6 +81,10 @@ Future<pw.Document> _buildPdfDocument(Map<String, dynamic> dati) async {
   final base = pw.Font.helvetica();
   final bold = pw.Font.helveticaBold();
   final gara = (dati['gara'] ?? {}) as Map<String, dynamic>;
+  final pacchettoRaw = dati['pacchetto'];
+  final pacchetto = pacchettoRaw is Map
+      ? Map<String, dynamic>.from(pacchettoRaw)
+      : <String, dynamic>{};
 
   // Load logo from assets if available
   final Uint8List? logoBytes = await _loadAssetSafe('assets/logo.png');
@@ -105,9 +109,9 @@ Future<pw.Document> _buildPdfDocument(Map<String, dynamic> dati) async {
       }
     });
   }
-  final mostraRiepilogo = _isMultiDay(gara);
+  final mostraRiepilogo = pacchetto['attivo'] == true || _isMultiDay(gara);
   final contenuto = <pw.Widget>[
-    _sezioneGara(gara, base, bold),
+    _sezioneGara(gara, pacchetto, base, bold),
     pw.SizedBox(height: 12),
     _sezioneCronometristi(
       cronos,
@@ -150,7 +154,12 @@ Future<pw.Document> _buildPdfDocument(Map<String, dynamic> dati) async {
 }
 
 // ===== Sezioni =====
-pw.Widget _sezioneGara(Map<String, dynamic> gara, pw.Font base, pw.Font bold) {
+pw.Widget _sezioneGara(
+  Map<String, dynamic> gara,
+  Map<String, dynamic> pacchetto,
+  pw.Font base,
+  pw.Font bold,
+) {
   String fmt(String? iso) {
     iso = _txt(iso);
     if (iso.isEmpty) return '';
@@ -169,6 +178,11 @@ pw.Widget _sezioneGara(Map<String, dynamic> gara, pw.Font base, pw.Font bold) {
   final dataDa = fmt(gara['dataDa']?.toString());
   final dataA = fmt(gara['dataA']?.toString());
   final dsc = _txt(gara['dsc']);
+  final packageDays = (pacchetto['giornate'] as List? ?? const [])
+      .map((value) => fmt(value?.toString()))
+      .where((value) => value.isNotEmpty)
+      .join(', ');
+  final isPackage = pacchetto['attivo'] == true;
 
   pw.Widget infoRow(String label, String value) => pw.Padding(
         padding: const pw.EdgeInsets.symmetric(vertical: 4),
@@ -199,8 +213,9 @@ pw.Widget _sezioneGara(Map<String, dynamic> gara, pw.Font base, pw.Font bold) {
     MapEntry('Organizzatore', organizzatore),
     MapEntry('Sport', sport),
     MapEntry('Luogo', luogo),
-    MapEntry('Data da', dataDa),
-    MapEntry('Data a', dataA),
+    if (isPackage) MapEntry('Giornate incluse', packageDays),
+    if (!isPackage) MapEntry('Data da', dataDa),
+    if (!isPackage) MapEntry('Data a', dataA),
     if (dsc.isNotEmpty) MapEntry('DSC', dsc),
   ];
 
