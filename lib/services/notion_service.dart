@@ -1,12 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import '../config/app_config.dart';
 import '../config/app_environment.dart';
 import '../state/session_state.dart';
 
 class NotionService {
-  static const int maxNotionPdfBytes = 4500000;
-
   final String databaseId;
 
   NotionService({required this.databaseId});
@@ -254,7 +253,7 @@ class NotionService {
   Future<void> updateGaraStatus(String pageId, String statusName) async {
     final statusPayload = {
       'properties': {
-        'STATUS': {
+        NotionRaceProperties.status: {
           'status': {'name': statusName}
         }
       }
@@ -262,7 +261,7 @@ class NotionService {
 
     final selectPayload = {
       'properties': {
-        'STATUS': {
+        NotionRaceProperties.status: {
           'select': {'name': statusName}
         }
       }
@@ -284,7 +283,7 @@ class NotionService {
     required List<String> pageIds,
     required String filename,
   }) async {
-    if (pdfBytes.length > maxNotionPdfBytes) return false;
+    if (pdfBytes.length > AppConfig.maxNotionPdfBytes) return false;
     final uniquePageIds = pageIds
         .map((id) => id.trim())
         .where((id) => id.isNotEmpty)

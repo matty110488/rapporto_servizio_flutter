@@ -1,4 +1,8 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import {
+  allowedRaceDatabaseIds,
+  NOTION_RACE_PROPERTIES,
+} from './notion-config.js';
 
 export const config = {
   api: {
@@ -7,17 +11,12 @@ export const config = {
 };
 
 const NOTION_VERSION = '2026-03-11';
-const FILES_PROPERTY_LABEL = 'files & media';
 const MAX_PDF_BYTES = 4_500_000;
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://matty110488.github.io',
   'https://rapporto-servizio-flutter.vercel.app',
   'https://appkronos-1d181.web.app',
   'https://appkronos-1d181.firebaseapp.com',
-];
-const DEFAULT_ALLOWED_DATABASE_IDS = [
-  '2afde089ef9580e2b0e7d19d44f3a3f6',
-  '2b1de089ef9580729622ff9543046cbc',
 ];
 
 function normalizedId(value) {
@@ -187,10 +186,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid PDF file' });
     }
 
-    const allowedDatabaseIds = new Set([
-      ...DEFAULT_ALLOWED_DATABASE_IDS,
-      ...(process.env.ALLOWED_DATABASE_IDS || '').split(',').map((id) => id.trim()),
-    ].filter(Boolean).map(normalizedId));
+    const allowedDatabaseIds = new Set(
+      allowedRaceDatabaseIds(process.env.ALLOWED_DATABASE_IDS).map(normalizedId),
+    );
     const pages = [];
     for (const pageId of [...new Set(pageIds)]) {
       const page = await notionJsonRequest(
@@ -203,7 +201,7 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'Race page not allowed' });
       }
       const propertyName = Object.keys(page.data?.properties || {}).find(
-        (key) => key.trim().toLowerCase() === FILES_PROPERTY_LABEL,
+        (key) => key.trim().toLowerCase() === NOTION_RACE_PROPERTIES.files.toLowerCase(),
       );
       if (!propertyName || page.data.properties[propertyName]?.type !== 'files') {
         return res.status(422).json({ error: 'Files & media property not found' });

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../config/app_config.dart';
 import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../pages/root_screen.dart';
@@ -17,8 +18,6 @@ class ArchivioScreen extends StatefulWidget {
 }
 
 class _ArchivioScreenState extends State<ArchivioScreen> {
-  static const _db2025 = '2afde089ef9580e2b0e7d19d44f3a3f6';
-  static const _db2026 = '2b1de089ef9580729622ff9543046cbc';
   late NotionService notion;
   List<Gara> gareCompletate = [];
   bool loading = true;
@@ -28,7 +27,7 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
   void initState() {
     super.initState();
     notion = NotionService(
-      databaseId: _db2025,
+      databaseId: AppConfig.primaryRaceDatabaseId,
     );
     _caricaArchivio();
   }
@@ -112,16 +111,15 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
 
     try {
       final results = await notion.fetchGare(
-        additionalDatabaseIds: const [_db2026],
+        additionalDatabaseIds: AppConfig.additionalRaceDatabaseIds,
       );
       final all = results.map((e) => Gara.fromNotion(e)).toList();
 
-      const statiCompletati = {'RAPPORTINO RICEVUTO', 'RAPPORTINO INVIATO'};
       final userId = _loggedUserId;
 
       final filtered = all.where((g) {
-        final isCompleted =
-            statiCompletati.contains(g.status.trim().toUpperCase());
+        final isCompleted = RaceStatuses.archivedReports
+            .contains(g.status.trim().toUpperCase());
         if (!isCompleted) return false;
         if (_isAdmin) return true;
         if (userId == null) return false;

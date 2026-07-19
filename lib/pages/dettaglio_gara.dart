@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../config/app_config.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../widgets/stopwatch_loading.dart';
@@ -27,7 +28,7 @@ class _DettaglioGaraState extends State<DettaglioGara> {
   void initState() {
     super.initState();
     notion = NotionService(
-      databaseId: '2afde089ef9580e2b0e7d19d44f3a3f6',
+      databaseId: AppConfig.primaryRaceDatabaseId,
     );
     loadPeople();
   }
@@ -286,13 +287,13 @@ class _DettaglioGaraState extends State<DettaglioGara> {
 
   _StatusStyle _statusStyle(String status) {
     final upper = status.trim().toUpperCase();
-    if (upper == 'DESIGNAZIONE INVIATA') {
+    if (upper == RaceStatuses.designationSent) {
       return const _StatusStyle(
         soft: Color(0xFFE4F0FF),
         strong: Color(0xFF1F5FA8),
       );
     }
-    if (upper == 'GARA COMPLETATA' || upper == 'SICWIN OK') {
+    if (upper == RaceStatuses.completed || upper == RaceStatuses.sicWinOk) {
       return const _StatusStyle(
         soft: Color(0xFFE8F7EF),
         strong: Color(0xFF1D7C4B),
