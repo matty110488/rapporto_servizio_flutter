@@ -9,6 +9,8 @@ import {
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://matty110488.github.io',
   'https://rapporto-servizio-flutter.vercel.app',
+  'https://appkronos-1d181.web.app',
+  'https://appkronos-1d181.firebaseapp.com',
 ];
 
 const ALLOWED_ORIGINS = [
@@ -868,8 +870,9 @@ export default async function handler(req, res) {
 
     const relyingPartyForRequest = () => {
       const requestOrigin = typeof req.headers.origin === 'string' ? req.headers.origin : '';
-      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(requestOrigin)) {
-        return { rpID: new URL(requestOrigin).hostname, origin: requestOrigin };
+      if (requestOrigin && isAllowedOrigin(requestOrigin)) {
+        const parsedOrigin = new URL(requestOrigin);
+        return { rpID: parsedOrigin.hostname, origin: parsedOrigin.origin };
       }
       return {
         rpID: 'matty110488.github.io',

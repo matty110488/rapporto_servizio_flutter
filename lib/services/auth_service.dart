@@ -5,11 +5,10 @@ import 'package:http/http.dart' as http;
 import 'package:passkeys/authenticator.dart';
 import 'package:passkeys/types.dart';
 
+import '../config/app_environment.dart';
 import '../state/session_state.dart';
 
 class AuthService {
-  static const _webProxyUrl =
-      'https://rapporto-servizio-flutter.vercel.app/api/notion-query';
   AuthService({PasskeyAuthenticator? passkeyAuthenticator})
       : _passkeyAuthenticator =
             passkeyAuthenticator ?? PasskeyAuthenticator(debugMode: false);
@@ -60,7 +59,7 @@ class AuthService {
 
     try {
       final res = await http.post(
-        Uri.parse(_webProxyUrl),
+        Uri.parse(apiUrl),
         headers: const {"Content-Type": "application/json"},
         body: jsonEncode(body),
       );
@@ -158,7 +157,7 @@ class AuthService {
     String? sessionToken,
   }) async {
     final res = await http.post(
-      Uri.parse(_webProxyUrl),
+      Uri.parse(apiUrl),
       headers: {
         'Content-Type': 'application/json',
         if (sessionToken != null) 'Authorization': 'Bearer $sessionToken',

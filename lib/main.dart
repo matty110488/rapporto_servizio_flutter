@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'config/app_environment.dart';
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
 import 'services/push_notification_service.dart';
@@ -222,14 +223,33 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
     );
   }
 
+  Widget _environmentBanner(BuildContext context, Widget? child) {
+    final app = child ?? const SizedBox.shrink();
+    if (!isTestEnvironment) return app;
+
+    return Banner(
+      message: 'TEST',
+      location: BannerLocation.topEnd,
+      color: Colors.deepOrange,
+      textStyle: const TextStyle(
+        color: Colors.white,
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+      ),
+      child: app,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = _buildPremiumTheme();
 
     if (restoringSession) {
       return MaterialApp(
+        title: appDisplayName,
         debugShowCheckedModeBanner: false,
         theme: theme,
+        builder: _environmentBanner,
         home: const Scaffold(
           body: Center(child: CircularProgressIndicator()),
         ),
@@ -238,16 +258,19 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
 
     if (loggedUser == null) {
       return MaterialApp(
+        title: appDisplayName,
         debugShowCheckedModeBanner: false,
         theme: theme,
+        builder: _environmentBanner,
         home: LoginPage(onLogin: _handleLogin),
       );
     }
 
     return MaterialApp(
-      title: 'Crono Valtellinesi',
+      title: appDisplayName,
       debugShowCheckedModeBanner: false,
       theme: theme,
+      builder: _environmentBanner,
       home: HomePage(
         loggedUser: loggedUser!,
         onLogout: _handleLogout,

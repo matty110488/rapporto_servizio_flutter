@@ -109,6 +109,16 @@ pubblica su GitHub Pages. Il workflow usa il base path
 Il backend `api/` viene pubblicato separatamente da Vercel tramite
 l'integrazione del repository.
 
+## Ambiente TEST
+
+Il branch `develop` puo essere pubblicato come PWA TEST separata su Firebase
+Hosting, mentre `main` continua a pubblicare la produzione su GitHub Pages. Il
+backend TEST e separato su Vercel, ma usa intenzionalmente lo stesso database
+Notion della produzione.
+
+La configurazione iniziale e il flusso di promozione sono descritti in
+[`TEST_ENVIRONMENT.md`](TEST_ENVIRONMENT.md).
+
 ## Rollback
 
 Il punto precedente agli interventi di sicurezza è disponibile localmente e su

@@ -1,0 +1,60 @@
+name: Deploy TEST
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.3'
+          cache: true
+
+      - name: Verifica configurazione TEST
+        env:
+          TEST_API_URL: ${{ vars.TEST_API_URL }}
+        run: test -n "$TEST_API_URL"
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-pub --no-fatal-infos
+
+      - name: Test
+        run: flutter test --no-pub
+
+      - name: Build web TEST
+        env:
+          FIREBASE_WEB_VAPID_KEY: ${{ secrets.FIREBASE_WEB_VAPID_KEY }}
+          TEST_API_URL: ${{ vars.TEST_API_URL }}
+        run: >-
+          flutter build web --release --base-href /
+          --dart-define=APP_ENV=test
+          --dart-define=API_URL=$TEST_API_URL
+          --dart-define=FIREBASE_WEB_VAPID_KEY=$FIREBASE_WEB_VAPID_KEY
+
+      - name: Applica nome e colori TEST alla PWA
+        run: |
+          cp web/manifest_test.json build/web/manifest.json
+          sed -i 's/apple-mobile-web-app-title" content="Rapporto Servizio/apple-mobile-web-app-title" content="Crono TEST/' build/web/index.html
+          sed -i 's#<title>Rapporto Servizio</title>#<title>Crono TEST</title>#' build/web/index.html
+
+      - name: Deploy Firebase Hosting TEST
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_APPKRONOS_1D181 }}
+          projectId: appkronos-1d181
+          channelId: live

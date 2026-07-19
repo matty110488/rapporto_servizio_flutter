@@ -37,6 +37,7 @@ jobs:
         run: |
           flutter build web --release \
             --base-href /rapporto_servizio_flutter/ \
+            --dart-define=APP_ENV=prod \
             --dart-define=FIREBASE_WEB_VAPID_KEY=$FIREBASE_WEB_VAPID_KEY
 
       - name: Deploy to GitHub Pages

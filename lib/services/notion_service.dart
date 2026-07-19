@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import '../config/app_environment.dart';
 import '../state/session_state.dart';
 
 class NotionService {
-  static const _webProxyUrl =
-      'https://rapporto-servizio-flutter.vercel.app/api/notion-query';
   final String databaseId;
 
   NotionService({required this.databaseId});
@@ -294,7 +293,7 @@ class NotionService {
       throw StateError('Sessione scaduta: effettua nuovamente il login.');
     }
     final res = await http.post(
-      Uri.parse(_webProxyUrl),
+      Uri.parse(apiUrl),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $sessionToken',
