@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/gara.dart';
-import '../screens/archivio_screen.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/push_notification_service.dart';
@@ -12,7 +11,7 @@ import 'dettaglio_gara.dart';
 import 'designazioni_page.dart';
 import 'gare_page.dart';
 import 'notifications_page.dart';
-import 'root_screen.dart';
+import 'service_reports_page.dart';
 import 'settings_page.dart';
 import 'statistiche_page.dart';
 
@@ -263,17 +262,10 @@ class _HomePageState extends State<HomePage> {
       _HomeNavData(
         icon: Icons.assignment,
         label: 'Rapporti di Servizio',
-        subtitle: 'Compila e invia il Rapporto di Servizio',
-        onTap: () =>
-            _openPage(context, RootScreen(loggedUser: widget.loggedUser)),
-      ),
-      _HomeNavData(
-        icon: Icons.folder,
-        label: 'Rapportini completati',
-        subtitle: 'Apri e modifica Rapporti di Servizio già inviati',
+        subtitle: 'Nuovi rapportini, bozze e archivio inviati',
         onTap: () => _openPage(
           context,
-          ArchivioScreen(loggedUser: widget.loggedUser),
+          ServiceReportsPage(loggedUser: widget.loggedUser),
         ),
       ),
       _HomeNavData(

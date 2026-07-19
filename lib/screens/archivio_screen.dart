@@ -170,6 +170,7 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
         builder: (_) => RootScreen(
           loggedUser: widget.loggedUser,
           initialGaraId: gara.id,
+          includeSentReports: true,
         ),
       ),
     );
@@ -179,7 +180,7 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Rapportini completati'),
+        title: const Text('Archivio rapportini inviati'),
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
@@ -218,7 +219,7 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
                 )
               : gareCompletate.isEmpty
                   ? const Center(
-                      child: Text('Nessuna gara con rapportino completato.'),
+                      child: Text('Nessun rapportino inviato in archivio.'),
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.all(12),
@@ -255,8 +256,8 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
                                   alignment: Alignment.centerRight,
                                   child: FilledButton.icon(
                                     onPressed: () => _apriModifica(gara),
-                                    icon: const Icon(Icons.edit),
-                                    label: const Text('Modifica rapportino'),
+                                    icon: const Icon(Icons.open_in_new_rounded),
+                                    label: const Text('Apri rapportino'),
                                   ),
                                 ),
                               ],

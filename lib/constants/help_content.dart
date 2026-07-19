@@ -17,15 +17,18 @@ class HelpContent {
   ];
 
   static const rapportini = [
+    "L'area Rapporti di servizio contiene Nuovo rapportino, Le mie bozze e Archivio inviati.",
     "La Segreteria puo' compilare rapportini per tutte le gare.",
     "Gli altri utenti possono compilare rapportini solo se sono DSC della gara e lo stato e' DESIGNAZIONE INVIATA o GARA COMPLETATA.",
     "Dal menu a tendina, selezionare la gara della quale si intende compilare il rapportino. Le informazioni della gara vengono compilate automaticamente, cosi' come l'elenco dei cronometristi designati. In caso di gare di piu' giorni, il sistema propone in automatico l'elenco dei cronometristi designati per ogni giornata.",
+    "La compilazione viene salvata automaticamente sul dispositivo. Puoi anche usare il pulsante Salva bozza e riprendere il lavoro dalla sezione Le mie bozze.",
+    "Gli allegati non vengono conservati nella bozza e devono essere aggiunti prima dell'invio.",
     "Il rapportino viene generato in formato PDF dopo la pressione dell'apposito pulsante, e puo' essere inviato alla segreteria via email oppure Whatsapp.",
   ];
 
   static const archivio = [
-    "Mostra le gare con rapportino completato.",
-    "Da questa sezione puoi riaprire una gara e modificare il rapportino gia' inviato.",
+    "Mostra le gare con rapportino gia' inviato.",
+    "Da questa sezione puoi riaprire i dati di un rapportino inviato.",
   ];
 
   static const noteUtili = [
