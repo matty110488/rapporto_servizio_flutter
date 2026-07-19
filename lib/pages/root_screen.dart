@@ -296,9 +296,9 @@ class _RootScreenState extends State<RootScreen> {
     }
   }
 
-  Future<void> _prefillFromSelection() async {
+  Future<bool> _prefillFromSelection({bool applyDraft = true}) async {
     final package = _selectedReportPackage;
-    if (package == null) return;
+    if (package == null) return false;
     final gara = package.primary;
     final selectedGare = package.gare;
     final activeDates = package.activeDates;
@@ -332,7 +332,7 @@ class _RootScreenState extends State<RootScreen> {
             .addAll(datesByKronosId[entry.key] ?? const {});
       }
 
-      if (!mounted || ticket != _prefillTicket) return;
+      if (!mounted || ticket != _prefillTicket) return false;
       garaKey.currentState?.applyPackageData(
         nome: package.title,
         organizzatore: gara.organizzatore,
@@ -342,7 +342,7 @@ class _RootScreenState extends State<RootScreen> {
         dsc: dscName,
       );
       await Future<void>.microtask(() {});
-      if (!mounted || ticket != _prefillTicket) return;
+      if (!mounted || ticket != _prefillTicket) return false;
       cronometristiKey.currentState?.syncDaysWithDates(activeDates);
       cronometristiKey.currentState?.setCronometristiPerDate(
         datesByName.map(
@@ -350,12 +350,16 @@ class _RootScreenState extends State<RootScreen> {
         ),
       );
       setState(() {});
-      await _applySavedDraftIfAny(_draftKey);
+      if (applyDraft) {
+        await _applySavedDraftIfAny(_draftKey);
+      }
+      return true;
     } catch (e) {
-      if (!mounted || ticket != _prefillTicket) return;
+      if (!mounted || ticket != _prefillTicket) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Errore nel precompilare la gara: $e')),
       );
+      return false;
     } finally {
       if (mounted && ticket == _prefillTicket) {
         setState(() {
@@ -363,6 +367,65 @@ class _RootScreenState extends State<RootScreen> {
         });
       }
     }
+  }
+
+  Future<void> _restoreOriginalData() async {
+    if (_selectedReportPackage == null || prefilling) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.restore_rounded, size: 38),
+        title: const Text('Ripristinare i dati della gara?'),
+        content: const Text(
+          'Dati gara, date e cronometristi verranno ricaricati dal '
+          'calendario. Ore, km, spese e note inseriti nella sezione '
+          'cronometristi saranno sostituiti. Orari della gara, '
+          'apparecchiature, danni e allegati resteranno invariati. '
+          'Anche la bozza locale verrà aggiornata.',
+          style: TextStyle(fontSize: 16, height: 1.35),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.restore_rounded),
+            label: const Text('Ripristina'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final restored = await _prefillFromSelection(applyDraft: false);
+    if (!mounted || !restored) return;
+    try {
+      await _saveDraft(
+        garaId: _draftKey,
+        payload: {
+          'gara': garaKey.currentState?.getData() ?? {},
+          'cronometristi': cronometristiKey.currentState?.getData() ?? [],
+          'orariGiornata': garaKey.currentState?.getOrariGiornata() ?? {},
+          'apparecchiature': apparecchiaturaKey.currentState?.getData() ?? [],
+          'danni': danniKey.currentState?.getData() ?? '',
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Dati ripristinati, ma bozza non salvata: $e')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Dati originari ripristinati'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Map<String, dynamic> _buildRapportinoPayload({
@@ -857,6 +920,25 @@ class _RootScreenState extends State<RootScreen> {
           if (gara.organizzatore.isNotEmpty)
             Text("Organizzatore: ${gara.organizzatore}"),
           if (gara.sport.isNotEmpty) Text("Sport: ${gara.sport}"),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: prefilling ? null : _restoreOriginalData,
+              icon: const Icon(Icons.restore_rounded),
+              label: const Text('Ripristina dati gara'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
