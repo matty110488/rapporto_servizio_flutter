@@ -1,8 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
+import '../config/app_environment.dart';
 import '../services/app_preferences_service.dart';
+import '../services/app_update_service.dart';
 import '../services/auth_service.dart';
 import '../services/push_notification_service.dart';
 
@@ -26,6 +29,8 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _biometricEnabled = false;
   bool _notificationBusy = false;
   bool _biometricBusy = false;
+  bool _appUpdateBusy = false;
+  String _appVersion = '';
 
   String? get _userId {
     final id = widget.loggedUser['id'];
@@ -42,6 +47,20 @@ class _SettingsPageState extends State<SettingsPage> {
     var notificationsEnabled = false;
     var biometricEnabled =
         await AppPreferencesService.loadBiometricLoginEnabled();
+    var appVersion = '';
+    try {
+      if (appUpdateSupported) {
+        appVersion = currentAppVersionLabel;
+      } else {
+        final packageInfo = await PackageInfo.fromPlatform();
+        appVersion = packageInfo.version;
+        if (packageInfo.buildNumber.trim().isNotEmpty) {
+          appVersion += ' (${packageInfo.buildNumber})';
+        }
+      }
+    } catch (_) {
+      appVersion = '';
+    }
     try {
       notificationsEnabled = await pushNotificationsAppEnabled() &&
           await notificationsAreEnabled();
@@ -60,8 +79,21 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _notificationsEnabled = notificationsEnabled;
       _biometricEnabled = biometricEnabled;
+      _appVersion = appVersion;
       _loading = false;
     });
+  }
+
+  Future<void> _updateApp() async {
+    if (_appUpdateBusy) return;
+    setState(() => _appUpdateBusy = true);
+    try {
+      await forceAppUpdate();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _appUpdateBusy = false);
+      _showMessage('Non è stato possibile aggiornare l’app. Riprova tra poco.');
+    }
   }
 
   Future<void> _setNotifications(bool enabled) async {
@@ -274,6 +306,46 @@ class _SettingsPageState extends State<SettingsPage> {
                       color: scheme.onSurfaceVariant,
                     ),
                     onTap: _changePassword,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _sectionTitle('Applicazione'),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.info_outline_rounded),
+                          title: Text(appDisplayName),
+                          subtitle: Text(
+                            _appVersion.isEmpty
+                                ? 'Versione non disponibile'
+                                : 'Versione $_appVersion',
+                          ),
+                        ),
+                        if (appUpdateSupported)
+                          FilledButton.icon(
+                            key: const ValueKey('update-app-button'),
+                            onPressed: _appUpdateBusy ? null : _updateApp,
+                            icon: _appUpdateBusy
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.system_update_alt_rounded),
+                            label: Text(
+                              _appUpdateBusy
+                                  ? 'Aggiornamento…'
+                                  : 'Aggiorna app',
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ],

@@ -53,6 +53,15 @@
             "value": "no-cache, no-store, must-revalidate"
           }
         ]
+      },
+      {
+        "source": "**/*.@(mjs|js|wasm)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=0, s-maxage=604800"
+          }
+        ]
       }
     ],
     "rewrites": [

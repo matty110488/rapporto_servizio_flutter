@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../config/app_config.dart';
 import '../models/gara.dart';
+import '../services/app_update_service.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/push_notification_service.dart';
@@ -49,6 +50,7 @@ class _HomePageState extends State<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       PrankPopupService.maybeShow(context, widget.loggedUser);
+      unawaited(_showAvailableAppUpdate());
     });
     _loadDashboard();
     _dashboardRefreshTimer =
@@ -93,6 +95,55 @@ class _HomePageState extends State<HomePage> {
     final id = widget.loggedUser['id'];
     if (id is String && id.isNotEmpty) return id;
     return null;
+  }
+
+  Future<void> _showAvailableAppUpdate() async {
+    final AppUpdateInfo? update;
+    try {
+      update = await checkForAppUpdate();
+    } catch (_) {
+      return;
+    }
+    final availableUpdate = update;
+    if (availableUpdate == null || !mounted) return;
+
+    final shouldUpdate = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.system_update_alt_rounded),
+        title: const Text('Aggiornamento disponibile'),
+        content: Text(
+          'È disponibile la versione ${availableUpdate.latestVersionLabel}. '
+          'L’aggiornamento richiede solo pochi secondi.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Più tardi'),
+          ),
+          FilledButton.icon(
+            key: const ValueKey('confirm-app-update'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.download_rounded),
+            label: const Text('AGGIORNA'),
+          ),
+        ],
+      ),
+    );
+    if (shouldUpdate != true || !mounted) return;
+
+    try {
+      await forceAppUpdate();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Non è stato possibile aggiornare l’app. Riprova da Impostazioni.',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _syncDesignationNotifications() async {

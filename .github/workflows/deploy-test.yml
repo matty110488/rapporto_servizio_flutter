@@ -36,6 +36,9 @@ jobs:
       - name: Test
         run: flutter test --no-pub
 
+      - name: Leggi versione app
+        run: echo "APP_VERSION=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml)" >> "$GITHUB_ENV"
+
       - name: Build web TEST
         env:
           FIREBASE_WEB_VAPID_KEY: ${{ secrets.FIREBASE_WEB_VAPID_KEY }}
@@ -43,6 +46,7 @@ jobs:
         run: >-
           flutter build web --release --base-href /
           --dart-define=APP_ENV=test
+          --dart-define=APP_VERSION=$APP_VERSION
           --dart-define=API_URL=$TEST_API_URL
           --dart-define=FIREBASE_WEB_VAPID_KEY=$FIREBASE_WEB_VAPID_KEY
 
