@@ -61,7 +61,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('30').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Conferma'));
+    await tester.tap(
+      find.byKey(const ValueKey('confirm-time-selection')),
+    );
     await tester.pumpAndSettle();
 
     expect(
@@ -77,7 +79,9 @@ void main() {
       find.text('Scegli la durata a intervalli di 5 minuti.'),
       findsOneWidget,
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'Conferma'));
+    await tester.tap(
+      find.byKey(const ValueKey('confirm-time-selection')),
+    );
     await tester.pumpAndSettle();
 
     final schedule = key.currentState!.getOrariGiornata()['2026-08-12']!;

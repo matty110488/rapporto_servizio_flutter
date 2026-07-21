@@ -773,6 +773,7 @@ class GaraFormState extends State<GaraForm> {
               child: const Text('Annulla'),
             ),
             FilledButton.icon(
+              key: const ValueKey('confirm-time-selection'),
               onPressed: () => Navigator.pop(
                 dialogContext,
                 _TimeSelection(selectedHour, selectedMinute),
