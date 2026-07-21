@@ -32,7 +32,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const _layoutVersion = 'Home layout 2026.07.18';
+  static const _layoutVersion = 'App version 2.1.0 - MT88';
 
   late final NotionService _notion;
   bool _loadingDashboard = true;
