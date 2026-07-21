@@ -2,8 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../config/app_config.dart';
 import '../models/gara.dart';
-import '../screens/archivio_screen.dart';
+import '../services/app_update_service.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/push_notification_service.dart';
@@ -12,7 +13,7 @@ import 'dettaglio_gara.dart';
 import 'designazioni_page.dart';
 import 'gare_page.dart';
 import 'notifications_page.dart';
-import 'root_screen.dart';
+import 'service_reports_page.dart';
 import 'settings_page.dart';
 import 'statistiche_page.dart';
 
@@ -31,11 +32,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const _db2025 = '2afde089ef9580e2b0e7d19d44f3a3f6';
-  static const _db2026 = '2b1de089ef9580729622ff9543046cbc';
-  static const _layoutVersion = 'Home layout 2026.07.18';
-  // Cambia qui la frequenza di aggiornamento automatico del banner Home.
-  static const _dashboardAutoRefreshInterval = Duration(minutes: 5);
+  static const _layoutVersion = 'App version 2.1.0 - MT88';
 
   late final NotionService _notion;
   bool _loadingDashboard = true;
@@ -43,26 +40,29 @@ class _HomePageState extends State<HomePage> {
   String? _dashboardError;
   _DashboardData _dashboard = const _DashboardData();
   int _unreadNotifications = 0;
+  late final PageController _raceControlController;
+  int _raceControlIndex = 0;
   Timer? _dashboardRefreshTimer;
   Timer? _notificationPollingTimer;
 
   @override
   void initState() {
     super.initState();
-    _notion = NotionService(databaseId: _db2025);
+    _raceControlController = PageController(viewportFraction: 0.92);
+    _notion = NotionService(databaseId: AppConfig.primaryRaceDatabaseId);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       PrankPopupService.maybeShow(context, widget.loggedUser);
+      unawaited(_showAvailableAppUpdate());
     });
     _loadDashboard();
-    _dashboardRefreshTimer = Timer.periodic(_dashboardAutoRefreshInterval, (_) {
+    _dashboardRefreshTimer =
+        Timer.periodic(AppConfig.dashboardRefreshInterval, (_) {
       unawaited(_loadDashboard(showLoading: false));
     });
-    unawaited(_syncDesignationNotifications());
     unawaited(_loadNotificationBadge());
     _notificationPollingTimer =
-        Timer.periodic(const Duration(seconds: 45), (_) {
-      unawaited(_syncDesignationNotifications());
+        Timer.periodic(AppConfig.notificationBadgeRefreshInterval, (_) {
       unawaited(_loadNotificationBadge());
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -78,6 +78,7 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     _dashboardRefreshTimer?.cancel();
     _notificationPollingTimer?.cancel();
+    _raceControlController.dispose();
     super.dispose();
   }
 
@@ -98,11 +99,52 @@ class _HomePageState extends State<HomePage> {
     return null;
   }
 
-  Future<void> _syncDesignationNotifications() async {
+  Future<void> _showAvailableAppUpdate() async {
+    final AppUpdateInfo? update;
     try {
-      await _notion.notifyDesignationsForSentStatus();
+      update = await checkForAppUpdate();
     } catch (_) {
-      // Silent by design: notification sync must not block the home page.
+      return;
+    }
+    final availableUpdate = update;
+    if (availableUpdate == null || !mounted) return;
+
+    final shouldUpdate = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.system_update_alt_rounded),
+        title: const Text('Aggiornamento disponibile'),
+        content: Text(
+          'È disponibile la versione ${availableUpdate.latestVersionLabel}. '
+          'L’aggiornamento richiede solo pochi secondi.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Più tardi'),
+          ),
+          FilledButton.icon(
+            key: const ValueKey('confirm-app-update'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.download_rounded),
+            label: const Text('AGGIORNA'),
+          ),
+        ],
+      ),
+    );
+    if (shouldUpdate != true || !mounted) return;
+
+    try {
+      await forceAppUpdate();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Non è stato possibile aggiornare l’app. Riprova da Impostazioni.',
+          ),
+        ),
+      );
     }
   }
 
@@ -128,7 +170,12 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => DettaglioGara(gara: gara)),
+        MaterialPageRoute(
+          builder: (_) => DettaglioGara(
+            gara: gara,
+            loggedUser: widget.loggedUser,
+          ),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
@@ -159,28 +206,40 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
-      final rows =
-          await _notion.fetchGare(additionalDatabaseIds: const [_db2026]);
+      final rows = await _notion.fetchGare(
+        additionalDatabaseIds: AppConfig.additionalRaceDatabaseIds,
+      );
       final gare = rows.map((e) => Gara.fromNotion(e)).toList();
 
-      const prossimiServiziStatuses = {
-        'DESIGNAZIONE INVIATA',
-      };
-
-      final conUtente =
-          gare.where((g) => g.kronosIds.contains(userId)).toList();
+      final conUtente = gare
+          .where(
+            (g) =>
+                g.kronosIds.contains(userId) ||
+                g.dscIds.contains(userId) ||
+                g.pcSegreteriaIds.contains(userId),
+          )
+          .toList();
       final prossimiServizi = conUtente
           .where((g) =>
-              prossimiServiziStatuses.contains(g.status.trim().toUpperCase()))
+              g.status.trim().toUpperCase() == RaceStatuses.designationSent)
           .toList();
 
-      final prossimiDue = _pickNextServices(prossimiServizi, limit: 2);
+      final raceControls = _pickNextServices(
+        prossimiServizi,
+        limit: prossimiServizi.length,
+      );
 
       if (!mounted) return;
       setState(() {
-        _dashboard = _DashboardData(nextServices: prossimiDue);
+        _dashboard = _DashboardData(nextServices: raceControls);
+        _raceControlIndex = 0;
         _loadingDashboard = false;
         _refreshingDashboard = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _raceControlController.hasClients) {
+          _raceControlController.jumpToPage(0);
+        }
       });
     } catch (e) {
       if (!mounted) return;
@@ -213,9 +272,13 @@ class _HomePageState extends State<HomePage> {
       final start = parseStart(g)!;
       return start.isAfter(today) || isSameDay(start, today);
     }).toList();
-    if (upcoming.isNotEmpty) return upcoming.take(limit).toList();
-    if (withDate.isNotEmpty) return withDate.take(limit).toList();
-    return services.take(limit).toList();
+    final past = withDate.where((g) {
+      final start = parseStart(g)!;
+      return start.isBefore(today);
+    }).toList()
+      ..sort((a, b) => parseStart(b)!.compareTo(parseStart(a)!));
+    final withoutDate = services.where((g) => parseStart(g) == null);
+    return [...upcoming, ...past, ...withoutDate].take(limit).toList();
   }
 
   @override
@@ -263,17 +326,10 @@ class _HomePageState extends State<HomePage> {
       _HomeNavData(
         icon: Icons.assignment,
         label: 'Rapporti di Servizio',
-        subtitle: 'Compila e invia il Rapporto di Servizio',
-        onTap: () =>
-            _openPage(context, RootScreen(loggedUser: widget.loggedUser)),
-      ),
-      _HomeNavData(
-        icon: Icons.folder,
-        label: 'Rapportini completati',
-        subtitle: 'Apri e modifica Rapporti di Servizio già inviati',
+        subtitle: 'Nuovi rapportini, bozze e archivio inviati',
         onTap: () => _openPage(
           context,
-          ArchivioScreen(loggedUser: widget.loggedUser),
+          ServiceReportsPage(loggedUser: widget.loggedUser),
         ),
       ),
       _HomeNavData(
@@ -444,21 +500,21 @@ class _HomePageState extends State<HomePage> {
     }
 
     final prossimi = _dashboard.nextServices;
-    final refreshButton = IconButton(
-      tooltip: 'Aggiorna servizi',
-      onPressed: _loadingDashboard || _refreshingDashboard
-          ? null
-          : () => unawaited(_loadDashboard(showLoading: false)),
-      icon: _refreshingDashboard
-          ? const SizedBox.square(
-              dimension: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            )
-          : const Icon(Icons.refresh, color: Colors.white),
-    );
+    Widget refreshButton(Color color) => IconButton(
+          tooltip: 'Aggiorna servizi',
+          onPressed: _loadingDashboard || _refreshingDashboard
+              ? null
+              : () => unawaited(_loadDashboard(showLoading: false)),
+          icon: _refreshingDashboard
+              ? SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
+                  ),
+                )
+              : Icon(Icons.refresh, color: color),
+        );
 
     return Container(
       width: double.infinity,
@@ -507,7 +563,7 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     const Expanded(
                       child: Text(
-                        'Prossimi servizi da svolgere',
+                        'RACE CONTROL',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 12,
@@ -515,7 +571,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
-                    refreshButton,
+                    refreshButton(Colors.white),
                   ],
                 ),
                 const LinearProgressIndicator(
@@ -543,16 +599,24 @@ class _HomePageState extends State<HomePage> {
                     style: TextStyle(color: Colors.white),
                   ),
                 ),
-                refreshButton,
+                refreshButton(Colors.white),
               ],
             )
           else
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.14),
-                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFFF1F6FB),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFD4E2EF)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x24031324),
+                    blurRadius: 14,
+                    offset: Offset(0, 6),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -561,67 +625,175 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       const Expanded(
                         child: Text(
-                          'Prossimi servizi da svolgere',
+                          'RACE CONTROL',
                           style: TextStyle(
-                            color: Colors.white70,
+                            color: Color(0xFF0A66C2),
                             fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
                           ),
                         ),
                       ),
-                      refreshButton,
+                      refreshButton(const Color(0xFF0A66C2)),
                     ],
                   ),
                   const SizedBox(height: 6),
                   if (prossimi.isEmpty)
                     const Text(
-                      'Nessun servizio',
+                      'Non ci sono designazioni. Consultare il calendario gare per dare disponibilità a svolgere nuovi servizi.',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: Color(0xFF0A66C2),
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     )
-                  else
-                    ...prossimi.map((g) {
-                      final statusLabel = Gara.statusLabel(g.status);
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${formatDate(g.dataGara)} - ${g.titolo}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            Text(
-                              'Stato: $statusLabel',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
+                  else if (prossimi.length == 1)
+                    _raceControlCard(prossimi.first, formatDate)
+                  else ...[
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.swipe_rounded,
+                          color: Color(0xFF0A66C2),
+                          size: 17,
                         ),
-                      );
-                    }),
-                  if (prossimi.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    const Text(
-                      'Mostrati i prossimi 2 servizi',
-                      style: TextStyle(
-                        color: Colors.white60,
-                        fontSize: 11,
+                        const SizedBox(width: 6),
+                        const Expanded(
+                          child: Text(
+                            'Scorri per vedere le altre gare',
+                            style: TextStyle(
+                              color: Color(0xFF0A66C2),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${_raceControlIndex + 1}/${prossimi.length}',
+                          style: const TextStyle(
+                            color: Color(0xFF0A66C2),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 180,
+                      child: PageView.builder(
+                        key: const ValueKey('race-control-carousel'),
+                        controller: _raceControlController,
+                        padEnds: false,
+                        itemCount: prossimi.length,
+                        onPageChanged: (index) {
+                          setState(() => _raceControlIndex = index);
+                        },
+                        itemBuilder: (context, index) => Padding(
+                          padding: EdgeInsets.only(
+                            right: index == prossimi.length - 1 ? 0 : 10,
+                          ),
+                          child: _raceControlCard(
+                            prossimi[index],
+                            formatDate,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 9),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        prossimi.length,
+                        (index) => AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          width: index == _raceControlIndex ? 18 : 6,
+                          height: 6,
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          decoration: BoxDecoration(
+                            color: index == _raceControlIndex
+                                ? const Color(0xFF0A66C2)
+                                : const Color(0xFFBBD8F1),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _raceControlCard(Gara gara, String Function(String) formatDate) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFC9DBE9)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x180B2942),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            formatDate(gara.dataGara),
+            style: const TextStyle(
+              color: Color(0xFF334E68),
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            gara.titolo,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF102A43),
+              fontSize: 17,
+              height: 1.12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            [
+              if (gara.localita.trim().isNotEmpty) gara.localita.trim(),
+              if (gara.sport.trim().isNotEmpty) gara.sport.trim(),
+            ].join(' · '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Color(0xFF334E68), fontSize: 12),
+          ),
+          const Spacer(),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF0A66C2),
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(40),
+            ),
+            onPressed: () => _openPage(
+              context,
+              DettaglioGara(
+                gara: gara,
+                loggedUser: widget.loggedUser,
+                notionService: _notion,
+              ),
+            ),
+            icon: const Icon(Icons.sports_score_rounded),
+            label: const Text('APRI DETTAGLI GARA'),
+          ),
         ],
       ),
     );

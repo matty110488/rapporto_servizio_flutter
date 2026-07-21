@@ -22,4 +22,35 @@ void main() {
 
     expect(extractNotionUserName(user), 'Mario Rossi');
   });
+
+  test('recognizes admin profiles from supported Notion fields', () {
+    expect(
+      isNotionAdmin({
+        'properties': {
+          'ADMIN': {'checkbox': true},
+        },
+      }),
+      isTrue,
+    );
+    expect(
+      isNotionAdmin({
+        'properties': {
+          'RUOLO': {
+            'select': {'name': 'Amministratore'},
+          },
+        },
+      }),
+      isTrue,
+    );
+    expect(
+      isNotionAdmin({
+        'properties': {
+          'RUOLO': {
+            'select': {'name': 'Cronometrista'},
+          },
+        },
+      }),
+      isFalse,
+    );
+  });
 }

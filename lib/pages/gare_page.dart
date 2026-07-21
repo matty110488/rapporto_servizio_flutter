@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../config/app_config.dart';
 import '../constants/help_content.dart';
 import '../models/gara.dart';
+import '../models/gara_package.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../widgets/help_dialog.dart';
@@ -18,13 +20,6 @@ class GarePage extends StatefulWidget {
 }
 
 class _GarePageState extends State<GarePage> {
-  static const _db2025 = '2afde089ef9580e2b0e7d19d44f3a3f6';
-  static const _db2026 = '2b1de089ef9580729622ff9543046cbc';
-  static const Map<int, String> _databaseByYear = {
-    2025: _db2025,
-    2026: _db2026,
-  };
-
   late NotionService notion;
   List<Gara> gare = [];
   bool loading = true;
@@ -39,10 +34,12 @@ class _GarePageState extends State<GarePage> {
   void initState() {
     super.initState();
 
-    if (!_databaseByYear.containsKey(selectedYear)) {
-      selectedYear = _databaseByYear.keys.reduce((a, b) => a > b ? a : b);
+    if (!AppConfig.raceDatabaseIds.containsKey(selectedYear)) {
+      selectedYear = AppConfig.latestRaceYear;
     }
-    notion = NotionService(databaseId: _databaseByYear[selectedYear]!);
+    notion = NotionService(
+      databaseId: AppConfig.raceDatabaseIds[selectedYear]!,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       PrankPopupService.maybeShow(context, widget.loggedUser);
@@ -57,7 +54,9 @@ class _GarePageState extends State<GarePage> {
         loading = true;
       });
     }
-    notion = NotionService(databaseId: _databaseByYear[selectedYear]!);
+    notion = NotionService(
+      databaseId: AppConfig.raceDatabaseIds[selectedYear]!,
+    );
     final results = await notion.fetchGare();
     final nextGare = results.map((e) => Gara.fromNotion(e)).toList();
 
@@ -272,7 +271,7 @@ class _GarePageState extends State<GarePage> {
     return sports;
   }
 
-  Map<String, List<_CalendarEntry>> _garePerMese(List<Gara> source) {
+  Map<String, List<GaraPackage>> _garePerMese(List<Gara> source) {
     final sorted = List<Gara>.from(source)
       ..sort((a, b) {
         final da = _parseDate(a.dataGara);
@@ -291,7 +290,7 @@ class _GarePageState extends State<GarePage> {
       });
 
     final entries = _calendarEntries(sorted);
-    final Map<String, List<_CalendarEntry>> grouped = {};
+    final Map<String, List<GaraPackage>> grouped = {};
     for (final entry in entries) {
       final date = entry.startDate;
       final label = date == null ? 'Senza data' : _meseAnno(date);
@@ -301,76 +300,11 @@ class _GarePageState extends State<GarePage> {
     return grouped;
   }
 
-  List<_CalendarEntry> _calendarEntries(List<Gara> sorted) {
-    final manualGroups = <String, List<Gara>>{};
-    final withoutManualGroup = <Gara>[];
+  List<GaraPackage> _calendarEntries(List<Gara> sorted) =>
+      buildGaraPackages(sorted);
 
-    for (final gara in sorted) {
-      final packageId = gara.idSicWin.trim();
-      if (packageId.isEmpty) {
-        withoutManualGroup.add(gara);
-      } else {
-        manualGroups.putIfAbsent(packageId, () => []).add(gara);
-      }
-    }
-
-    final entries = <_CalendarEntry>[];
-    for (final group in manualGroups.entries) {
-      final gare = _sortGareByDate(group.value);
-      if (gare.length > 1) {
-        entries.add(
-          _CalendarEntry.package(
-            gare: gare,
-            packageId: group.key,
-            suggested: false,
-          ),
-        );
-      } else {
-        withoutManualGroup.addAll(gare);
-      }
-    }
-
-    entries
-        .addAll(_suggestedPackageEntries(_sortGareByDate(withoutManualGroup)));
-    entries.sort(_compareCalendarEntries);
-    return entries;
-  }
-
-  List<_CalendarEntry> _suggestedPackageEntries(List<Gara> source) {
-    final entries = <_CalendarEntry>[];
-    final used = <String>{};
-
-    for (final gara in source) {
-      if (used.contains(gara.id)) continue;
-
-      final group = <Gara>[gara];
-      used.add(gara.id);
-      var last = gara;
-
-      for (final candidate in source) {
-        if (used.contains(candidate.id)) continue;
-        if (_canSuggestSamePackage(last, candidate, group.first)) {
-          group.add(candidate);
-          used.add(candidate.id);
-          last = candidate;
-        }
-      }
-
-      if (group.length > 1) {
-        entries.add(
-          _CalendarEntry.package(
-            gare: _sortGareByDate(group),
-            suggested: true,
-          ),
-        );
-      } else {
-        entries.add(_CalendarEntry.single(gara));
-      }
-    }
-
-    return entries;
-  }
-
+  // Kept temporarily for compatibility with older calendar hot-reload states.
+  // ignore: unused_element
   bool _canSuggestSamePackage(Gara previous, Gara candidate, Gara first) {
     final previousDate = _parseDate(previous.dataGara);
     final candidateDate = _parseDate(candidate.dataGara);
@@ -483,6 +417,7 @@ class _GarePageState extends State<GarePage> {
     return text.trim().replaceAll(RegExp(r'\s+'), ' ');
   }
 
+  // ignore: unused_element
   List<Gara> _sortGareByDate(List<Gara> source) {
     return List<Gara>.from(source)
       ..sort((a, b) {
@@ -496,6 +431,7 @@ class _GarePageState extends State<GarePage> {
       });
   }
 
+  // ignore: unused_element
   int _compareCalendarEntries(_CalendarEntry a, _CalendarEntry b) {
     final da = a.startDate;
     final db = b.startDate;
@@ -779,7 +715,7 @@ class _GarePageState extends State<GarePage> {
                 label: 'Anno',
                 child: Wrap(
                   spacing: 6,
-                  children: _databaseByYear.keys
+                  children: AppConfig.configuredRaceYears
                       .toList()
                       .reversed
                       .map(
@@ -1014,7 +950,7 @@ class _GarePageState extends State<GarePage> {
     );
   }
 
-  Widget _buildMonthSection(MapEntry<String, List<_CalendarEntry>> entry) {
+  Widget _buildMonthSection(MapEntry<String, List<GaraPackage>> entry) {
     final isExpanded = expandedMonths.contains(entry.key);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1079,12 +1015,12 @@ class _GarePageState extends State<GarePage> {
     );
   }
 
-  Widget _buildCalendarEntryCard(_CalendarEntry entry) {
+  Widget _buildCalendarEntryCard(GaraPackage entry) {
     if (entry.isPackage) return _buildPackageCard(entry);
     return _buildRaceCard(entry.gare.first);
   }
 
-  Widget _buildPackageCard(_CalendarEntry entry) {
+  Widget _buildPackageCard(GaraPackage entry) {
     final gare = entry.gare;
     final main = gare.first;
     final packageLabel = entry.suggested ? 'Gara in più giorni' : 'Pacchetto';
@@ -1218,7 +1154,10 @@ class _GarePageState extends State<GarePage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => DettaglioGara(gara: gara),
+              builder: (_) => DettaglioGara(
+                gara: gara,
+                loggedUser: widget.loggedUser,
+              ),
             ),
           );
         },
@@ -1273,7 +1212,10 @@ class _GarePageState extends State<GarePage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => DettaglioGara(gara: g),
+              builder: (_) => DettaglioGara(
+                gara: g,
+                loggedUser: widget.loggedUser,
+              ),
             ),
           );
         },
@@ -1520,7 +1462,7 @@ class _GarePageState extends State<GarePage> {
     return start ?? end ?? '-';
   }
 
-  String _formatEntryDateRange(_CalendarEntry entry) {
+  String _formatEntryDateRange(GaraPackage entry) {
     final start = entry.startDate;
     final end = entry.endDate ?? start;
     if (start == null && end == null) return '-';
@@ -1544,14 +1486,14 @@ class _GarePageState extends State<GarePage> {
 
   _StatusStyle _statusStyle(String status) {
     final upper = status.trim().toUpperCase();
-    if (upper == 'DESIGNAZIONE INVIATA') {
+    if (upper == RaceStatuses.designationSent) {
       return const _StatusStyle(
         soft: Color(0xFFE4F0FF),
         strong: Color(0xFF1F5FA8),
         accent: Color(0xFF2D83D6),
       );
     }
-    if (upper == 'GARA COMPLETATA' || upper == 'SICWIN OK') {
+    if (upper == RaceStatuses.completed || upper == RaceStatuses.sicWinOk) {
       return const _StatusStyle(
         soft: Color(0xFFE8F7EF),
         strong: Color(0xFF1D7C4B),
@@ -1617,6 +1559,7 @@ class _CalendarEntry {
     required this.suggested,
   });
 
+  // ignore: unused_element
   factory _CalendarEntry.single(Gara gara) {
     return _CalendarEntry._(
       gare: [gara],
@@ -1625,6 +1568,7 @@ class _CalendarEntry {
     );
   }
 
+  // ignore: unused_element
   factory _CalendarEntry.package({
     required List<Gara> gare,
     String? packageId,

@@ -7,6 +7,9 @@ servizio, generare PDF e inviare notifiche agli amministratori.
 
 - `lib/`: applicazione Flutter per web, Android e altre piattaforme.
 - `api/notion-query.js`: backend Vercel che accede a Notion e Firebase.
+- `lib/config/app_config.dart`: database annuali e parametri non segreti.
+- `api/notion-config.js`: allowlist database gare del backend.
+- `docs/`: configurazione, procedure operative e registro architetturale.
 - `web/`: manifest PWA, icone e service worker Firebase.
 - `.github/workflows/`: controlli automatici e pubblicazione GitHub Pages.
 
@@ -118,6 +121,15 @@ Notion della produzione.
 
 La configurazione iniziale e il flusso di promozione sono descritti in
 [`TEST_ENVIRONMENT.md`](TEST_ENVIRONMENT.md).
+
+La gestione dei database annuali, il contratto delle proprietà Notion e i
+parametri modificabili sono descritti in
+[`docs/CONFIGURATION.md`](docs/CONFIGURATION.md). Le modifiche architetturali
+sono registrate in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+
+Il funzionamento del Cockpit gara, del Pass designazione e della futura
+integrazione Wallet e descritto in
+[`docs/COCKPIT_AND_PASS.md`](docs/COCKPIT_AND_PASS.md).
 
 ## Rollback
 

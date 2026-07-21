@@ -5,6 +5,11 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from '@simplewebauthn/server';
+import {
+  allowedRaceDatabaseIds,
+  NOTION_RACE_PROPERTIES,
+  RACE_STATUSES,
+} from './notion-config.js';
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://matty110488.github.io',
@@ -20,6 +25,35 @@ const ALLOWED_ORIGINS = [
     .map((origin) => origin.trim())
     .filter(Boolean),
 ];
+
+export function visibleNotificationRecords(records) {
+  return records.filter((entry) => entry?.hidden !== true);
+}
+
+export function hideNotificationRecord(records, notificationId) {
+  return records.map((entry) =>
+    entry.id === notificationId
+      ? { ...entry, read: true, hidden: true }
+      : entry,
+  );
+}
+
+export function hideAllNotificationRecords(records) {
+  return records.map((entry) => ({ ...entry, read: true, hidden: true }));
+}
+
+export function notificationAlreadyRecorded(records, notification) {
+  if (notification.eventKey) {
+    return records.some((entry) => entry.eventKey === notification.eventKey);
+  }
+  if (notification.type === 'designation' && notification.garaId) {
+    return records.some(
+      (entry) =>
+        entry.type === notification.type && entry.garaId === notification.garaId,
+    );
+  }
+  return false;
+}
 
 function isAllowedOrigin(origin) {
   // Requests from mobile/non-browser clients may not have Origin.
@@ -260,6 +294,7 @@ export default async function handler(req, res) {
                   ? entry.createdAt
                   : new Date().toISOString(),
               read: entry.read === true,
+              hidden: entry.hidden === true,
             };
           })
           .filter(Boolean);
@@ -716,22 +751,8 @@ export default async function handler(req, res) {
       const existingRecords = notificationKey
         ? extractNotificationRecords(props[notificationKey])
         : [];
-      if (notification.eventKey) {
-        const alreadyExists = existingRecords.some(
-          (entry) => entry.eventKey === notification.eventKey,
-        );
-        if (alreadyExists) {
-          return { status: 200, data: { ok: true, deduped: true } };
-        }
-      } else if (notification.type === 'designation' && notification.garaId) {
-        const alreadyExists = existingRecords.some(
-          (entry) =>
-            entry.type === notification.type &&
-            entry.garaId === notification.garaId,
-        );
-        if (alreadyExists) {
-          return { status: 200, data: { ok: true, deduped: true } };
-        }
+      if (notificationAlreadyRecorded(existingRecords, notification)) {
+        return { status: 200, data: { ok: true, deduped: true } };
       }
       const record = {
         id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -774,7 +795,7 @@ export default async function handler(req, res) {
         garaId,
         typeof garaPage.last_edited_time === 'string' ? garaPage.last_edited_time : '',
       ].join(':');
-      const title = 'Designazione inviata';
+      const title = 'Nuova designazione';
       const body = designationBodyForGara(garaPage);
       const tokenCandidates = ['FCM_TOKEN', 'PUSH_TOKEN', 'TOKEN_PUSH'];
       const tokens = new Set();
@@ -1198,15 +1219,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    const allowedDataDatabaseIds = new Set([
-      '2afde089ef9580e2b0e7d19d44f3a3f6',
-      '2b1de089ef9580729622ff9543046cbc',
-      
-      ...(process.env.ALLOWED_DATABASE_IDS || '')
-        .split(',')
-        .map((id) => id.trim())
-        .filter(Boolean),
-    ]);
+    const allowedDataDatabaseIds = new Set(
+      allowedRaceDatabaseIds(process.env.ALLOWED_DATABASE_IDS),
+    );
     const isAllowedPage = (page) => {
       const parent = page && typeof page === 'object' ? page.parent : null;
       const databaseId =
@@ -1279,7 +1294,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Only property updates are supported' });
       }
       const allowedProperties = new Set([
-        'STATUS',
+        NOTION_RACE_PROPERTIES.status,
         'KRONOS DESIGNATI',
         'DISPONIBILITA_VIA_APP',
       ]);
@@ -1295,8 +1310,8 @@ export default async function handler(req, res) {
       );
       if (
         response.status === 200 &&
-        targetStatus === 'DESIGNAZIONE INVIATA' &&
-        previousStatus !== 'DESIGNAZIONE INVIATA'
+        targetStatus === RACE_STATUSES.designationSent &&
+        previousStatus !== RACE_STATUSES.designationSent
       ) {
         try {
           const notificationResult = await notifyDesignatedCronos(response.data);
@@ -1335,7 +1350,7 @@ export default async function handler(req, res) {
               : {};
           const statusKey = findKeyByCandidates(props, ['STATUS', 'STATO']);
           const status = statusKey ? extractStatusName(props[statusKey]).toUpperCase() : '';
-          if (status !== 'DESIGNAZIONE INVIATA') continue;
+          if (status !== RACE_STATUSES.designationSent) continue;
           try {
             const notificationResult = await notifyDesignatedCronos(garaPage);
             results.push({
@@ -1502,7 +1517,10 @@ export default async function handler(req, res) {
       const notifications = notificationKey
         ? extractNotificationRecords(props[notificationKey])
         : [];
-      return res.status(200).json({ ok: true, notifications });
+      return res.status(200).json({
+        ok: true,
+        notifications: visibleNotificationRecords(notifications),
+      });
     }
 
     if (action === 'markPushNotificationsRead') {
@@ -1551,7 +1569,7 @@ export default async function handler(req, res) {
       const notifications = notificationKey
         ? extractNotificationRecords(props[notificationKey])
         : [];
-      const nextNotifications = notifications.filter((entry) => entry.id !== notificationId);
+      const nextNotifications = hideNotificationRecord(notifications, notificationId);
       const saved = await saveNotificationRecords(userId, nextNotifications);
       if (saved.status !== 200) return res.status(saved.status).json(saved.data);
       return res.status(200).json({ ok: true, notifications: nextNotifications });
@@ -1564,7 +1582,19 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'Cannot clear notifications for another user' });
       }
 
-      const saved = await saveNotificationRecords(userId, []);
+      const page = await notionRequest(`https://api.notion.com/v1/pages/${userId}`, 'GET');
+      if (page.status !== 200) return res.status(page.status).json(page.data);
+      const props = page.data && typeof page.data === 'object' ? page.data.properties : {};
+      const notificationKey = findKeyByCandidates(props, [
+        'FCM_NOTIFICATIONS',
+        'PUSH_NOTIFICATIONS',
+        'NOTIFICHE_PUSH',
+      ]);
+      const notifications = notificationKey
+        ? extractNotificationRecords(props[notificationKey])
+        : [];
+      const nextNotifications = hideAllNotificationRecords(notifications);
+      const saved = await saveNotificationRecords(userId, nextNotifications);
       if (saved.status !== 200) return res.status(saved.status).json(saved.data);
       return res.status(200).json({ ok: true, notifications: [] });
     }

@@ -35,7 +35,6 @@ flutter_export_environment.sh
 # Web
 **/web/.dart_tool/
 **/web/.flutter-plugins
-docs/
 
 # Windows
 **/windows/flutter/ephemeral/

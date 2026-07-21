@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:cross_file/cross_file.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -81,6 +82,10 @@ Future<pw.Document> _buildPdfDocument(Map<String, dynamic> dati) async {
   final base = pw.Font.helvetica();
   final bold = pw.Font.helveticaBold();
   final gara = (dati['gara'] ?? {}) as Map<String, dynamic>;
+  final pacchettoRaw = dati['pacchetto'];
+  final pacchetto = pacchettoRaw is Map
+      ? Map<String, dynamic>.from(pacchettoRaw)
+      : <String, dynamic>{};
 
   // Load logo from assets if available
   final Uint8List? logoBytes = await _loadAssetSafe('assets/logo.png');
@@ -93,21 +98,10 @@ Future<pw.Document> _buildPdfDocument(Map<String, dynamic> dati) async {
   final allegati = (dati['allegati'] ?? []) as List;
   final allegatiBytes = await _loadAllegatiBytes(allegati);
   final direttore = _txt(gara['dsc']).trim();
-  final Map<String, dynamic> orariGiornata = {};
-  final rawOrari = dati['orariGiornata'];
-  if (rawOrari is Map) {
-    rawOrari.forEach((key, value) {
-      if (value is Map) {
-        orariGiornata[key.toString()] = {
-          'oraDa': _txt(value['oraDa']),
-          'oraA': _txt(value['oraA']),
-        };
-      }
-    });
-  }
-  final mostraRiepilogo = _isMultiDay(gara);
+  final orariGiornata = normalizzaOrariGiornataPdf(dati['orariGiornata']);
+  final mostraRiepilogo = pacchetto['attivo'] == true || _isMultiDay(gara);
   final contenuto = <pw.Widget>[
-    _sezioneGara(gara, base, bold),
+    _sezioneGara(gara, pacchetto, base, bold),
     pw.SizedBox(height: 12),
     _sezioneCronometristi(
       cronos,
@@ -150,7 +144,12 @@ Future<pw.Document> _buildPdfDocument(Map<String, dynamic> dati) async {
 }
 
 // ===== Sezioni =====
-pw.Widget _sezioneGara(Map<String, dynamic> gara, pw.Font base, pw.Font bold) {
+pw.Widget _sezioneGara(
+  Map<String, dynamic> gara,
+  Map<String, dynamic> pacchetto,
+  pw.Font base,
+  pw.Font bold,
+) {
   String fmt(String? iso) {
     iso = _txt(iso);
     if (iso.isEmpty) return '';
@@ -169,6 +168,11 @@ pw.Widget _sezioneGara(Map<String, dynamic> gara, pw.Font base, pw.Font bold) {
   final dataDa = fmt(gara['dataDa']?.toString());
   final dataA = fmt(gara['dataA']?.toString());
   final dsc = _txt(gara['dsc']);
+  final packageDays = (pacchetto['giornate'] as List? ?? const [])
+      .map((value) => fmt(value?.toString()))
+      .where((value) => value.isNotEmpty)
+      .join(', ');
+  final isPackage = pacchetto['attivo'] == true;
 
   pw.Widget infoRow(String label, String value) => pw.Padding(
         padding: const pw.EdgeInsets.symmetric(vertical: 4),
@@ -199,8 +203,9 @@ pw.Widget _sezioneGara(Map<String, dynamic> gara, pw.Font base, pw.Font bold) {
     MapEntry('Organizzatore', organizzatore),
     MapEntry('Sport', sport),
     MapEntry('Luogo', luogo),
-    MapEntry('Data da', dataDa),
-    MapEntry('Data a', dataA),
+    if (isPackage) MapEntry('Giornate incluse', packageDays),
+    if (!isPackage) MapEntry('Data da', dataDa),
+    if (!isPackage) MapEntry('Data a', dataA),
     if (dsc.isNotEmpty) MapEntry('DSC', dsc),
   ];
 
@@ -399,6 +404,9 @@ pw.Widget _sezioneGiornate(
       orariPerData[key.toString()] = {
         'oraDa': (value['oraDa'] ?? '').toString(),
         'oraA': (value['oraA'] ?? '').toString(),
+        'pausa': (value['pausa'] ?? 'false').toString(),
+        'pausaOre': (value['pausaOre'] ?? '').toString(),
+        'pausaMinuti': (value['pausaMinuti'] ?? '').toString(),
       };
     }
   });
@@ -416,9 +424,18 @@ pw.Widget _sezioneGiornate(
       final spese = _txt(g['spese']);
       final oraDa = _txt(g['oraDa']);
       final oraA = _txt(g['oraA']);
+      final pausa = _txt(g['pausa']);
+      final pausaOre = _txt(g['pausaOre']);
+      final pausaMinuti = _txt(g['pausaMinuti']);
       if (!orariPerData.containsKey(dIso) &&
           (oraDa.isNotEmpty || oraA.isNotEmpty)) {
-        orariPerData[dIso] = {'oraDa': oraDa, 'oraA': oraA};
+        orariPerData[dIso] = {
+          'oraDa': oraDa,
+          'oraA': oraA,
+          'pausa': pausa,
+          'pausaOre': pausaOre,
+          'pausaMinuti': pausaMinuti,
+        };
       }
       perData.putIfAbsent(dIso, () => []);
       perData[dIso]!.add({
@@ -445,6 +462,7 @@ pw.Widget _sezioneGiornate(
     final rows = perData[d]!..sort((a, b) => a['nome']!.compareTo(b['nome']!));
     final orari = _orariForDate(orariPerData, d);
     final orarioLabel = _formatOrarioRange(orari['oraDa'], orari['oraA']);
+    final pausaLabel = _formatPausa(orari);
     widgets.add(
       pw.Container(
         margin: const pw.EdgeInsets.only(bottom: 8),
@@ -480,6 +498,11 @@ pw.Widget _sezioneGiornate(
                   pw.SizedBox(height: 2),
                   pw.Text(
                     'Orario: $orarioLabel',
+                    style: pw.TextStyle(font: base, fontSize: 9),
+                  ),
+                  pw.SizedBox(height: 1),
+                  pw.Text(
+                    'Pausa: $pausaLabel',
                     style: pw.TextStyle(font: base, fontSize: 9),
                   ),
                 ],
@@ -745,7 +768,7 @@ Future<List<Uint8List>> _loadAllegatiBytes(List allegati) async {
     if (item is XFile) {
       try {
         final bytes = await item.readAsBytes();
-        if (bytes.isNotEmpty) out.add(bytes);
+        if (bytes.isNotEmpty) out.add(ottimizzaAllegatoPdf(bytes));
       } catch (_) {}
       continue;
     }
@@ -753,7 +776,7 @@ Future<List<Uint8List>> _loadAllegatiBytes(List allegati) async {
     if (!kIsWeb && item is File) {
       try {
         final bytes = item.readAsBytesSync();
-        if (bytes.isNotEmpty) out.add(bytes);
+        if (bytes.isNotEmpty) out.add(ottimizzaAllegatoPdf(bytes));
       } catch (_) {}
       continue;
     }
@@ -766,13 +789,27 @@ Future<List<Uint8List>> _loadAllegatiBytes(List allegati) async {
           final file = File(path);
           if (file.existsSync()) {
             final bytes = file.readAsBytesSync();
-            if (bytes.isNotEmpty) out.add(bytes);
+            if (bytes.isNotEmpty) out.add(ottimizzaAllegatoPdf(bytes));
           }
         }
       } catch (_) {}
     }
   }
   return out;
+}
+
+Uint8List ottimizzaAllegatoPdf(Uint8List bytes) {
+  final decoded = img.decodeImage(bytes);
+  if (decoded == null) return bytes;
+
+  final oriented = img.bakeOrientation(decoded);
+  const maxSide = 1280;
+  final resized = oriented.width <= maxSide && oriented.height <= maxSide
+      ? oriented
+      : oriented.width >= oriented.height
+          ? img.copyResize(oriented, width: maxSide)
+          : img.copyResize(oriented, height: maxSide);
+  return Uint8List.fromList(img.encodeJpg(resized, quality: 65));
 }
 
 pw.Widget _tabellaRiepilogo(
@@ -1011,10 +1048,21 @@ Map<String, String> _orariForDate(
   String iso,
 ) {
   final raw = orariPerData[iso];
-  if (raw == null) return {'oraDa': '', 'oraA': ''};
+  if (raw == null) {
+    return {
+      'oraDa': '',
+      'oraA': '',
+      'pausa': 'false',
+      'pausaOre': '',
+      'pausaMinuti': '',
+    };
+  }
   return {
     'oraDa': _txt(raw['oraDa']),
     'oraA': _txt(raw['oraA']),
+    'pausa': _txt(raw['pausa']),
+    'pausaOre': _txt(raw['pausaOre']),
+    'pausaMinuti': _txt(raw['pausaMinuti']),
   };
 }
 
@@ -1025,6 +1073,35 @@ String _formatOrarioRange(String? da, String? a) {
   final startLabel = start.isEmpty ? '-' : start;
   final endLabel = end.isEmpty ? '-' : end;
   return '$startLabel - $endLabel';
+}
+
+String _formatPausa(Map<String, String> orari) {
+  final ore = int.tryParse(orari['pausaOre'] ?? '') ?? 0;
+  final minuti = int.tryParse(orari['pausaMinuti'] ?? '') ?? 0;
+  final flag = (orari['pausa'] ?? '').trim().toLowerCase();
+  final pausaDichiarata = const {'true', '1', 'si', 'sì', 'yes'}.contains(flag);
+  final haDurata = ore > 0 || minuti > 0;
+  if (!pausaDichiarata && !haDurata) return 'No';
+  final parts = <String>[];
+  if (ore > 0) parts.add('$ore h');
+  if (minuti > 0) parts.add('$minuti min');
+  return parts.isEmpty ? 'Sì' : 'Sì, ${parts.join(' ')}';
+}
+
+Map<String, dynamic> normalizzaOrariGiornataPdf(dynamic rawOrari) {
+  final result = <String, dynamic>{};
+  if (rawOrari is! Map) return result;
+  rawOrari.forEach((key, value) {
+    if (value is! Map) return;
+    result[key.toString()] = {
+      'oraDa': _txt(value['oraDa']),
+      'oraA': _txt(value['oraA']),
+      'pausa': _txt(value['pausa']),
+      'pausaOre': _txt(value['pausaOre']),
+      'pausaMinuti': _txt(value['pausaMinuti']),
+    };
+  });
+  return result;
 }
 
 // ===== Header & Footer =====

@@ -1,3 +1,5 @@
+import '../config/app_config.dart';
+
 class Gara {
   final String id;
   final String titolo;
@@ -158,7 +160,7 @@ class Gara {
     String pickLocalita(Map? props) {
       if (props == null) return "";
       const candidateKeys = [
-        "LOCALITA'",
+        NotionRaceProperties.location,
         "LOCALITA\u2019",
         "LOCALIT\u00c0",
         "LOCALITA",
@@ -175,7 +177,7 @@ class Gara {
     String pickStatus(Map<String, dynamic>? props) {
       if (props == null) return "";
       const candidateKeys = [
-        "STATUS",
+        NotionRaceProperties.status,
         "STATUS GARA",
         "STATO",
         "STATO GARA",
@@ -202,28 +204,29 @@ class Gara {
 
     return Gara(
       id: json["id"],
-      titolo: title(p["GARA"]),
+      titolo: title(p[NotionRaceProperties.title]),
       sport: pickSport(p),
-      dataGara: p["DATA GARA"]?["date"]?["start"] ?? "",
-      dataGaraFine: p["DATA GARA"]?["date"]?["end"] ?? "",
+      dataGara: p[NotionRaceProperties.date]?["date"]?["start"] ?? "",
+      dataGaraFine: p[NotionRaceProperties.date]?["date"]?["end"] ?? "",
       localita: pickLocalita(p),
-      sitoGara: text(p["SITO GARA"]),
-      organizzatore: text(p["ORGANIZZATORE"]),
-      idSicWin: plainValue(p["ID SIC WIN"]),
-      dataRichiesta: p["DATA RICHIESTA"]?["date"]?["start"] ?? "",
-      kronosIds: relation(p["KRONOS DESIGNATI"]),
-      dscIds: relation(p["DSC"]),
-      pcSegreteriaIds: relation(p["PC SEGRETERIA"]),
-      apparecchiature: multiSelect(p["APPARECCHIATURA"]),
-      tipologia: p["TIPOLOGIA"]?["select"]?["name"] ?? "",
+      sitoGara: text(p[NotionRaceProperties.venue]),
+      organizzatore: text(p[NotionRaceProperties.organizer]),
+      idSicWin: plainValue(p[NotionRaceProperties.packageId]),
+      dataRichiesta:
+          p[NotionRaceProperties.requestDate]?["date"]?["start"] ?? "",
+      kronosIds: relation(p[NotionRaceProperties.designatedTimekeepers]),
+      dscIds: relation(p[NotionRaceProperties.serviceManager]),
+      pcSegreteriaIds: relation(p[NotionRaceProperties.secretaryPc]),
+      apparecchiature: multiSelect(p[NotionRaceProperties.equipment]),
+      tipologia: p[NotionRaceProperties.type]?["select"]?["name"] ?? "",
       status: pickStatus(p),
     );
   }
 
   static String statusLabel(String rawStatus) {
     final normalized = rawStatus.trim().toUpperCase();
-    if (normalized == 'RAPPORTINO RICEVUTO') {
-      return 'RAPPORTINO INVIATO';
+    if (normalized == RaceStatuses.reportReceived) {
+      return RaceStatuses.reportSentLabel;
     }
     return rawStatus;
   }

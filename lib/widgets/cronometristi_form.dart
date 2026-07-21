@@ -14,6 +14,7 @@ class CronometristiFormState extends State<CronometristiForm> {
   int _revision = 0;
   DateTime? _rangeDa;
   DateTime? _rangeA;
+  List<DateTime> _activeDates = [];
   final List<String> cronometristiDisponibili =
       List<String>.from(availableCronometristi);
   Map<String, Map<String, String>> orariPerData = {};
@@ -43,38 +44,65 @@ class CronometristiFormState extends State<CronometristiForm> {
     if (da == null || a == null) return;
     if (a.isBefore(da)) return;
     final total = a.difference(da).inDays + 1;
+    final dates = List.generate(
+      total,
+      (index) => DateTime(da.year, da.month, da.day).add(Duration(days: index)),
+    );
+    syncDaysWithDates(dates);
+  }
+
+  void syncDaysWithDates(List<DateTime> dates) {
+    final uniqueDates = <String, DateTime>{};
+    for (final rawDate in dates) {
+      final date = DateTime(rawDate.year, rawDate.month, rawDate.day);
+      uniqueDates[_isoDate(date)] = date;
+    }
+    final orderedDates = uniqueDates.values.toList()..sort();
     final Map<String, Map<String, String>> nuoviOrari = {};
-    for (int i = 0; i < total; i++) {
-      final date = DateTime(da.year, da.month, da.day).add(Duration(days: i));
-      final iso =
-          "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+    for (final date in orderedDates) {
+      final iso = _isoDate(date);
       final esistente = orariPerData[iso] ?? {};
       nuoviOrari[iso] = {
         'oraDa': (esistente['oraDa'] ?? '').toString(),
         'oraA': (esistente['oraA'] ?? '').toString(),
+        'pausa': (esistente['pausa'] ?? 'false').toString(),
+        'pausaOre': (esistente['pausaOre'] ?? '').toString(),
+        'pausaMinuti': (esistente['pausaMinuti'] ?? '').toString(),
       };
     }
     setState(() {
-      _rangeDa = da;
-      _rangeA = a;
+      _activeDates = orderedDates;
+      _rangeDa = orderedDates.isEmpty ? null : orderedDates.first;
+      _rangeA = orderedDates.isEmpty ? null : orderedDates.last;
       orariPerData = nuoviOrari;
       for (final riga in righe) {
         final List<dynamic> cur = List<dynamic>.from(riga['giorni'] ?? []);
+        final existingByDate = <String, Map>{};
+        for (final raw in cur.whereType<Map>()) {
+          final date = (raw['data'] ?? '').toString();
+          if (date.isNotEmpty) existingByDate[date] = raw;
+        }
         final List<Map<String, dynamic>> nuovo = [];
-        for (int i = 0; i < total; i++) {
-          final date =
-              DateTime(da.year, da.month, da.day).add(Duration(days: i));
-          final iso =
-              "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
-          final existing = (i < cur.length) ? cur[i] : <String, dynamic>{};
-          nuovo.add({
+        for (var index = 0; index < orderedDates.length; index++) {
+          final iso = _isoDate(orderedDates[index]);
+          final indexed = index < cur.length ? cur[index] : null;
+          final existing =
+              existingByDate[iso] ?? (indexed is Map ? indexed : const {});
+          final giorno = {
             'data': iso,
             'ore': existing['ore'] ?? '',
             'km': existing['km'] ?? '',
             'spese': existing['spese'] ?? '',
             'oraDa': orariPerData[iso]?['oraDa'] ?? '',
             'oraA': orariPerData[iso]?['oraA'] ?? '',
-          });
+            'pausa': orariPerData[iso]?['pausa'] ?? 'false',
+            'pausaOre': orariPerData[iso]?['pausaOre'] ?? '',
+            'pausaMinuti': orariPerData[iso]?['pausaMinuti'] ?? '',
+          };
+          if ((giorno['ore'] ?? '').toString().isEmpty) {
+            giorno['ore'] = _calcolaOre(orariPerData[iso] ?? const {}) ?? '';
+          }
+          nuovo.add(giorno);
         }
         riga['giorni'] = nuovo;
       }
@@ -96,23 +124,23 @@ class CronometristiFormState extends State<CronometristiForm> {
   }
 
   List<Map<String, dynamic>> _giorniPerRange() {
-    if (_rangeDa != null && _rangeA != null && !_rangeA!.isBefore(_rangeDa!)) {
-      final total = _rangeA!.difference(_rangeDa!).inDays + 1;
-      return List.generate(total, (index) {
-        final d = DateTime(_rangeDa!.year, _rangeDa!.month, _rangeDa!.day)
-            .add(Duration(days: index));
-        final iso =
-            "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
+    if (_activeDates.isNotEmpty) {
+      return _activeDates.map((date) {
+        final iso = _isoDate(date);
         final orari = orariPerData[iso] ?? {};
-        return {
+        final giorno = <String, dynamic>{
           'data': iso,
-          'ore': '',
           'km': '',
           'spese': '',
           'oraDa': (orari['oraDa'] ?? '').toString(),
           'oraA': (orari['oraA'] ?? '').toString(),
+          'pausa': (orari['pausa'] ?? 'false').toString(),
+          'pausaOre': (orari['pausaOre'] ?? '').toString(),
+          'pausaMinuti': (orari['pausaMinuti'] ?? '').toString(),
         };
-      });
+        giorno['ore'] = _calcolaOre(orari) ?? '';
+        return giorno;
+      }).toList();
     }
     return [
       {'ore': '', 'km': '', 'spese': '', 'oraDa': '', 'oraA': ''}
@@ -144,20 +172,105 @@ class CronometristiFormState extends State<CronometristiForm> {
     _notifyDataChanged();
   }
 
-  void setOrari(Map<String, Map<String, String>> orari) {
+  void setCronometristiPerDate(Map<String, List<DateTime>> datesByName) {
+    Map<String, dynamic> dayData(DateTime date) {
+      final iso = _isoDate(date);
+      final orari = orariPerData[iso] ?? const {};
+      final giorno = <String, dynamic>{
+        'data': iso,
+        'km': '',
+        'spese': '',
+        'oraDa': (orari['oraDa'] ?? '').toString(),
+        'oraA': (orari['oraA'] ?? '').toString(),
+        'pausa': (orari['pausa'] ?? 'false').toString(),
+        'pausaOre': (orari['pausaOre'] ?? '').toString(),
+        'pausaMinuti': (orari['pausaMinuti'] ?? '').toString(),
+      };
+      giorno['ore'] = _calcolaOre(orari) ?? '';
+      return giorno;
+    }
+
     setState(() {
-      orariPerData = Map<String, Map<String, String>>.from(orari);
+      if (datesByName.isEmpty) {
+        righe = [
+          {
+            'nome': null,
+            'giorni': _giorniPerRange(),
+            'segreteria': null,
+            'note': '',
+          }
+        ];
+      } else {
+        final names = datesByName.keys.toList()
+          ..sort((first, second) =>
+              first.toLowerCase().compareTo(second.toLowerCase()));
+        righe = names.map((name) {
+          final dates = datesByName[name]!
+              .map((date) => DateTime(date.year, date.month, date.day))
+              .toSet()
+              .toList()
+            ..sort();
+          return {
+            'nome': name,
+            'giorni': dates.map(dayData).toList(),
+            'segreteria': null,
+            'note': '',
+          };
+        }).toList();
+      }
+      _revision++;
+    });
+    _notifyDataChanged();
+  }
+
+  void setOrari(Map<String, Map<String, String>> orari) {
+    final normalizzati = orari.map(
+      (data, value) => MapEntry(data, {
+        'oraDa': (value['oraDa'] ?? '').toString(),
+        'oraA': (value['oraA'] ?? '').toString(),
+        'pausa': (value['pausa'] ?? 'false').toString(),
+        'pausaOre': (value['pausaOre'] ?? '').toString(),
+        'pausaMinuti': (value['pausaMinuti'] ?? '').toString(),
+      }),
+    );
+    final dateCambiate = <String>{
+      ...orariPerData.keys,
+      ...normalizzati.keys,
+    }
+        .where(
+          (data) => !_stessoOrario(orariPerData[data], normalizzati[data]),
+        )
+        .toSet();
+
+    setState(() {
+      orariPerData = normalizzati;
       for (final riga in righe) {
         final giorni = (riga['giorni'] as List?) ?? [];
         for (final g in giorni) {
           final data = (g['data'] ?? '').toString();
+          if (!dateCambiate.contains(data)) continue;
           final orariData = orariPerData[data] ?? {};
           g['oraDa'] = (orariData['oraDa'] ?? '').toString();
           g['oraA'] = (orariData['oraA'] ?? '').toString();
+          g['pausa'] = (orariData['pausa'] ?? 'false').toString();
+          g['pausaOre'] = (orariData['pausaOre'] ?? '').toString();
+          g['pausaMinuti'] = (orariData['pausaMinuti'] ?? '').toString();
+          final oreCalcolate = _calcolaOre(orariData);
+          if (oreCalcolate != null) g['ore'] = oreCalcolate;
         }
       }
+      _revision++;
     });
     _notifyDataChanged();
+  }
+
+  bool _stessoOrario(
+    Map<String, String>? primo,
+    Map<String, String>? secondo,
+  ) {
+    if (primo == null || secondo == null) return primo == secondo;
+    const campi = ['oraDa', 'oraA', 'pausa', 'pausaOre', 'pausaMinuti'];
+    return campi.every((campo) => primo[campo] == secondo[campo]);
   }
 
   void applySavedData(List<dynamic> savedRows) {
@@ -170,6 +283,9 @@ class CronometristiFormState extends State<CronometristiForm> {
           'spese': '',
           'oraDa': '',
           'oraA': '',
+          'pausa': 'false',
+          'pausaOre': '',
+          'pausaMinuti': '',
         };
       }
       return {
@@ -179,6 +295,9 @@ class CronometristiFormState extends State<CronometristiForm> {
         'spese': (raw['spese'] ?? '').toString(),
         'oraDa': (raw['oraDa'] ?? '').toString(),
         'oraA': (raw['oraA'] ?? '').toString(),
+        'pausa': (raw['pausa'] ?? 'false').toString(),
+        'pausaOre': (raw['pausaOre'] ?? '').toString(),
+        'pausaMinuti': (raw['pausaMinuti'] ?? '').toString(),
       };
     }
 
@@ -411,6 +530,37 @@ class CronometristiFormState extends State<CronometristiForm> {
     return {'ore': oreTot, 'km': kmTot, 'spese': speseTot};
   }
 
+  int? _minutiDaOrario(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return null;
+    final match = RegExp(r'^(\d{1,2})(?::?(\d{2}))?$').firstMatch(value);
+    if (match == null) return null;
+    final ore = int.tryParse(match.group(1)!);
+    final minuti = int.tryParse(match.group(2) ?? '0');
+    if (ore == null || minuti == null || ore > 23 || minuti > 59) return null;
+    return ore * 60 + minuti;
+  }
+
+  String? _calcolaOre(Map<String, String> orari) {
+    final inizio = _minutiDaOrario(orari['oraDa'] ?? '');
+    final fine = _minutiDaOrario(orari['oraA'] ?? '');
+    if (inizio == null || fine == null) return null;
+
+    var minutiLavorati = fine - inizio;
+    if (minutiLavorati < 0) minutiLavorati += 24 * 60;
+    if ((orari['pausa'] ?? 'false') == 'true') {
+      final oreInserite = int.tryParse(orari['pausaOre'] ?? '') ?? 0;
+      final minutiInseriti = int.tryParse(orari['pausaMinuti'] ?? '') ?? 0;
+      final orePausa = oreInserite < 0 ? 0 : oreInserite;
+      final minutiPausa = minutiInseriti < 0 ? 0 : minutiInseriti;
+      minutiLavorati -= orePausa * 60 + minutiPausa;
+    }
+    if (minutiLavorati < 0) minutiLavorati = 0;
+
+    final value = (minutiLavorati / 60).toStringAsFixed(2);
+    return value.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
   String _formatDateLabel(dynamic value, {int? index}) {
     final d = value?.toString() ?? '';
     if (d.isEmpty) return index != null ? "Giorno ${index + 1}: " : '';
@@ -423,6 +573,9 @@ class CronometristiFormState extends State<CronometristiForm> {
     }
     return d;
   }
+
+  String _isoDate(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
@@ -545,44 +698,47 @@ class CronometristiFormState extends State<CronometristiForm> {
                       border: Border.all(
                           color: colorScheme.outline.withOpacity(0.25)),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Elaborazione Dati',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: RadioListTile<String>(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text('SI'),
-                                value: 'SI',
-                                groupValue: riga['segreteria'],
-                                onChanged: (val) => setState(() {
-                                  riga['segreteria'] = val;
-                                  _notifyDataChanged();
-                                }),
-                                dense: true,
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Elaborazione Dati',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: RadioListTile<String>(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('SI'),
+                                  value: 'SI',
+                                  groupValue: riga['segreteria'],
+                                  onChanged: (val) => setState(() {
+                                    riga['segreteria'] = val;
+                                    _notifyDataChanged();
+                                  }),
+                                  dense: true,
+                                ),
                               ),
-                            ),
-                            Expanded(
-                              child: RadioListTile<String>(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text('NO'),
-                                value: 'NO',
-                                groupValue: riga['segreteria'],
-                                onChanged: (val) => setState(() {
-                                  riga['segreteria'] = val;
-                                  _notifyDataChanged();
-                                }),
-                                dense: true,
+                              Expanded(
+                                child: RadioListTile<String>(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('NO'),
+                                  value: 'NO',
+                                  groupValue: riga['segreteria'],
+                                  onChanged: (val) => setState(() {
+                                    riga['segreteria'] = val;
+                                    _notifyDataChanged();
+                                  }),
+                                  dense: true,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),

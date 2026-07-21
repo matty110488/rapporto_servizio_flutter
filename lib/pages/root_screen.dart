@@ -1,11 +1,16 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../config/app_config.dart';
 import '../constants/help_content.dart';
 import '../models/gara.dart';
+import '../models/gara_package.dart';
 import '../pdf/generatore_pdf2.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
@@ -22,11 +27,15 @@ import '../widgets/stopwatch_loading.dart';
 class RootScreen extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
   final String? initialGaraId;
+  final bool? initialWholePackage;
+  final bool includeSentReports;
 
   const RootScreen({
     super.key,
     required this.loggedUser,
     this.initialGaraId,
+    this.initialWholePackage,
+    this.includeSentReports = false,
   });
 
   @override
@@ -39,18 +48,24 @@ class _RootScreenState extends State<RootScreen> {
   final apparecchiaturaKey = GlobalKey<ApparecchiaturaFormState>();
   final danniKey = GlobalKey<DanniFormState>();
   final allegatiKey = GlobalKey<AllegatiFormState>();
-  static const _db2025 = "2afde089ef9580e2b0e7d19d44f3a3f6";
-  static const _db2026 = "2b1de089ef9580729622ff9543046cbc";
-
   late NotionService notion;
   final RapportinoDraftService _draftService = RapportinoDraftService();
   List<Gara> gareDisponibili = [];
+  List<GaraPackage> pacchettiDisponibili = [];
   bool loadingGareList = true;
   String? gareError;
   Gara? selectedGara;
+  GaraPackage? selectedPackage;
+  bool wholePackage = false;
   int formVersion = 0;
   bool prefilling = false;
   int _prefillTicket = 0;
+  Timer? _autosaveTimer;
+  bool _savingDraft = false;
+  DateTime? _lastDraftSavedAt;
+  String? _lastDraftFingerprint;
+  bool _initialScopeApplied = false;
+  bool _allowPop = false;
 
   String? get _loggedUserId {
     final id = widget.loggedUser['id'];
@@ -124,26 +139,56 @@ class _RootScreenState extends State<RootScreen> {
   }
 
   bool _isStatusAbilitato(Gara gara) {
-    const allowed = {
-      'DESIGNAZIONE INVIATA',
-      'GARA COMPLETATA',
-      'RAPPORTINO RICEVUTO',
-    };
     final status = gara.status.trim().toUpperCase();
-    return allowed.contains(status);
+    return RaceStatuses.reportCompilationAllowed.contains(status) ||
+        (widget.includeSentReports && status == RaceStatuses.reportReceived);
   }
+
+  List<Gara> get _selectedReportGare {
+    final package = selectedPackage;
+    final gara = selectedGara;
+    if (package != null && package.isPackage && wholePackage) {
+      return package.gare;
+    }
+    return gara == null ? const [] : [gara];
+  }
+
+  GaraPackage? get _selectedReportPackage {
+    final gare = _selectedReportGare;
+    if (gare.isEmpty) return null;
+    if (gare.length == 1) return GaraPackage.single(gare.first);
+    return GaraPackage.group(
+      gare: gare,
+      packageId: selectedPackage?.packageId,
+      suggested: selectedPackage?.suggested ?? true,
+    );
+  }
+
+  String get _draftKey => wholePackage && selectedPackage?.isPackage == true
+      ? selectedPackage!.stableKey
+      : selectedGara?.id ?? '';
 
   @override
   void initState() {
     super.initState();
     notion = NotionService(
-      databaseId: _db2025,
+      databaseId: AppConfig.primaryRaceDatabaseId,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       PrankPopupService.maybeShow(context, widget.loggedUser);
     });
+    _autosaveTimer = Timer.periodic(
+      AppConfig.reportDraftAutosaveInterval,
+      (_) => unawaited(_autosaveIfChanged()),
+    );
     _loadGareDsc();
+  }
+
+  @override
+  void dispose() {
+    _autosaveTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadGareDsc() async {
@@ -153,7 +198,7 @@ class _RootScreenState extends State<RootScreen> {
     });
     try {
       final results = await notion.fetchGare(
-        additionalDatabaseIds: const [_db2026],
+        additionalDatabaseIds: AppConfig.additionalRaceDatabaseIds,
       );
       final allGare =
           results.map((e) => Gara.fromNotion(e)).toList(growable: false);
@@ -165,40 +210,61 @@ class _RootScreenState extends State<RootScreen> {
               : allGare.where((g) => g.dscIds.contains(userId)).toList();
       final gareValide = filtered.where(_isStatusAbilitato).toList();
 
+      final packages = buildGaraPackages(gareValide);
+      final previousPackageKey = selectedPackage?.stableKey;
       final previousId = selectedGara?.id;
+      GaraPackage? nextPackage;
+      if (previousPackageKey != null) {
+        for (final package in packages) {
+          if (package.stableKey == previousPackageKey) {
+            nextPackage = package;
+            break;
+          }
+        }
+      }
+      final requestedId = previousId ?? widget.initialGaraId;
+      if (nextPackage == null && requestedId != null) {
+        for (final package in packages) {
+          if (package.gare.any((gara) => gara.id == requestedId)) {
+            nextPackage = package;
+            break;
+          }
+        }
+      }
+      nextPackage ??= packages.length == 1 ? packages.first : null;
       Gara? nextSelection;
-      if (previousId != null) {
-        for (final gara in gareValide) {
+      if (nextPackage != null) {
+        for (final gara in nextPackage.gare) {
           if (gara.id == previousId) {
             nextSelection = gara;
             break;
           }
         }
+        nextSelection ??= nextPackage.primary;
       }
-      if (nextSelection == null && widget.initialGaraId != null) {
-        for (final gara in gareValide) {
-          if (gara.id == widget.initialGaraId) {
-            nextSelection = gara;
-            break;
-          }
-        }
-      }
-      nextSelection ??= gareValide.length == 1 ? gareValide.first : null;
-      final selectionChanged = (previousId ?? '') != (nextSelection?.id ?? '');
+      final selectionChanged =
+          (selectedPackage?.stableKey ?? '') != (nextPackage?.stableKey ?? '');
 
       if (!mounted) return;
       setState(() {
         gareDisponibili = gareValide;
+        pacchettiDisponibili = packages;
         loadingGareList = false;
+        selectedPackage = nextPackage;
         selectedGara = nextSelection;
         if (selectionChanged) {
+          final initialScope =
+              _initialScopeApplied ? null : widget.initialWholePackage;
+          wholePackage =
+              initialScope ?? nextPackage?.isConfirmedPackage ?? false;
+          _initialScopeApplied = true;
           formVersion++;
         }
       });
       if (nextSelection != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            _prefillFromSelectedGara();
+            _prefillFromSelection();
           }
         });
       }
@@ -211,12 +277,40 @@ class _RootScreenState extends State<RootScreen> {
     }
   }
 
-  void _selectGara(Gara gara) {
+  Future<void> _selectPackage(GaraPackage package) async {
+    await _savePendingChangesIfAny();
+    if (!mounted) return;
     setState(() {
-      selectedGara = gara;
+      selectedPackage = package;
+      selectedGara = package.primary;
+      wholePackage = package.isConfirmedPackage;
       formVersion++;
     });
-    _prefillFromSelectedGara();
+    _prefillFromSelection();
+  }
+
+  Future<void> _selectSingleGara(Gara gara) async {
+    await _savePendingChangesIfAny();
+    if (!mounted) return;
+    setState(() {
+      selectedGara = gara;
+      wholePackage = false;
+      formVersion++;
+    });
+    _prefillFromSelection();
+  }
+
+  Future<void> _selectWholePackage() async {
+    final package = selectedPackage;
+    if (package == null) return;
+    await _savePendingChangesIfAny();
+    if (!mounted) return;
+    setState(() {
+      wholePackage = true;
+      selectedGara = package.primary;
+      formVersion++;
+    });
+    _prefillFromSelection();
   }
 
   Future<String?> _resolveName(String id) async {
@@ -229,47 +323,73 @@ class _RootScreenState extends State<RootScreen> {
     }
   }
 
-  Future<List<String>> _resolveNames(List<String> ids) async {
-    if (ids.isEmpty) return [];
-    final results = await Future.wait(ids.map(_resolveName));
-    return results.whereType<String>().toList();
-  }
-
-  Future<void> _prefillFromSelectedGara() async {
-    final gara = selectedGara;
-    if (gara == null) return;
+  Future<bool> _prefillFromSelection({bool applyDraft = true}) async {
+    final package = _selectedReportPackage;
+    if (package == null) return false;
+    final gara = package.primary;
+    final selectedGare = package.gare;
+    final activeDates = package.activeDates;
     final ticket = ++_prefillTicket;
     setState(() {
       prefilling = true;
+      _lastDraftSavedAt = null;
+      _lastDraftFingerprint = null;
     });
     try {
       String? dscName;
       if (gara.dscIds.isNotEmpty) {
         dscName = await _resolveName(gara.dscIds.first);
       }
-      final kronosNames = await _resolveNames(gara.kronosIds);
+      final datesByKronosId = <String, Set<DateTime>>{};
+      for (final selected in selectedGare) {
+        final dates = GaraPackage.single(selected).activeDates;
+        for (final id in selected.kronosIds) {
+          datesByKronosId.putIfAbsent(id, () => <DateTime>{}).addAll(dates);
+        }
+      }
+      final resolvedNames = await Future.wait(
+        datesByKronosId.keys.map(
+          (id) async => MapEntry(id, await _resolveName(id)),
+        ),
+      );
+      final datesByName = <String, Set<DateTime>>{};
+      for (final entry in resolvedNames) {
+        final name = entry.value;
+        if (name == null || name.isEmpty) continue;
+        datesByName
+            .putIfAbsent(name, () => <DateTime>{})
+            .addAll(datesByKronosId[entry.key] ?? const {});
+      }
 
-      if (!mounted || ticket != _prefillTicket) return;
-      garaKey.currentState?.applyNotionData(
-        nome: gara.titolo,
+      if (!mounted || ticket != _prefillTicket) return false;
+      garaKey.currentState?.applyPackageData(
+        nome: package.title,
         organizzatore: gara.organizzatore,
         sportValue: gara.sport,
         luogo: gara.localita,
-        dataInizio: gara.dataGara,
-        dataFine:
-            gara.dataGaraFine.isNotEmpty ? gara.dataGaraFine : gara.dataGara,
+        dates: activeDates,
         dsc: dscName,
       );
       await Future<void>.microtask(() {});
-      if (!mounted || ticket != _prefillTicket) return;
-      cronometristiKey.currentState?.setCronometristi(kronosNames);
+      if (!mounted || ticket != _prefillTicket) return false;
+      cronometristiKey.currentState?.syncDaysWithDates(activeDates);
+      cronometristiKey.currentState?.setCronometristiPerDate(
+        datesByName.map(
+          (name, dates) => MapEntry(name, dates.toList()..sort()),
+        ),
+      );
       setState(() {});
-      await _applySavedDraftIfAny(gara.id);
+      if (applyDraft) {
+        await _applySavedDraftIfAny(_draftKey);
+      }
+      _lastDraftFingerprint = _draftFingerprint(_currentDraftPayload());
+      return true;
     } catch (e) {
-      if (!mounted || ticket != _prefillTicket) return;
+      if (!mounted || ticket != _prefillTicket) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Errore nel precompilare la gara: $e')),
       );
+      return false;
     } finally {
       if (mounted && ticket == _prefillTicket) {
         setState(() {
@@ -279,8 +399,68 @@ class _RootScreenState extends State<RootScreen> {
     }
   }
 
+  Future<void> _restoreOriginalData() async {
+    if (_selectedReportPackage == null || prefilling) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.restore_rounded, size: 38),
+        title: const Text('Ripristinare i dati della gara?'),
+        content: const Text(
+          'Dati gara, date e cronometristi verranno ricaricati dal '
+          'calendario. Ore, km, spese e note inseriti nella sezione '
+          'cronometristi saranno sostituiti. Orari della gara, '
+          'apparecchiature, danni e allegati resteranno invariati. '
+          'Anche la bozza locale verrà aggiornata.',
+          style: TextStyle(fontSize: 16, height: 1.35),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.restore_rounded),
+            label: const Text('Ripristina'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final restored = await _prefillFromSelection(applyDraft: false);
+    if (!mounted || !restored) return;
+    try {
+      await _saveDraft(
+        garaId: _draftKey,
+        payload: {
+          'gara': garaKey.currentState?.getData() ?? {},
+          'cronometristi': cronometristiKey.currentState?.getData() ?? [],
+          'orariGiornata': garaKey.currentState?.getOrariGiornata() ?? {},
+          'apparecchiature': apparecchiaturaKey.currentState?.getData() ?? [],
+          'danni': danniKey.currentState?.getData() ?? '',
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Dati ripristinati, ma bozza non salvata: $e')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Dati originari ripristinati'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Map<String, dynamic> _buildRapportinoPayload({
-    required Gara garaSelezionata,
+    required List<Gara> gareSelezionate,
+    required GaraPackage reportPackage,
     required Map<String, dynamic> gara,
     required List<dynamic> cronos,
     required Map<String, dynamic> orariGiornata,
@@ -288,6 +468,7 @@ class _RootScreenState extends State<RootScreen> {
     required String danni,
     required List<dynamic> immagini,
   }) {
+    final garaSelezionata = gareSelezionate.first;
     return {
       'gara': gara,
       'cronometristi': cronos,
@@ -302,27 +483,160 @@ class _RootScreenState extends State<RootScreen> {
         'dataFine': garaSelezionata.dataGaraFine,
         'luogo': garaSelezionata.localita,
       },
+      'gareSelezionate': gareSelezionate
+          .map(
+            (gara) => {
+              'id': gara.id,
+              'titolo': gara.titolo,
+              'data': gara.dataGara,
+              'dataFine': gara.dataGaraFine,
+              'luogo': gara.localita,
+            },
+          )
+          .toList(),
+      'pacchetto': {
+        'attivo': gareSelezionate.length > 1,
+        'id': reportPackage.packageId ?? '',
+        'titolo': reportPackage.title,
+        'suggerito': reportPackage.suggested,
+        'giornate': reportPackage.activeDates
+            .map((date) => DateFormat('yyyy-MM-dd').format(date))
+            .toList(),
+      },
     };
+  }
+
+  Future<bool> _confirmPackageGeneration(GaraPackage package) async {
+    if (!package.isPackage) return true;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.fact_check_outlined, size: 38),
+        title: const Text('Generare un unico rapportino?'),
+        content: Text(
+          'Il PDF comprenderà ${package.gare.length} gare e '
+          '${package.activeDates.length} giornate. Al termine, tutte le gare '
+          'incluse saranno segnate come “Rapportino ricevuto”.',
+          style: const TextStyle(fontSize: 16, height: 1.35),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Torna alla compilazione'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.picture_as_pdf),
+            label: const Text('Sì, genera il PDF'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   Future<void> _saveDraft({
     required String garaId,
     required Map<String, dynamic> payload,
   }) async {
+    final package = _selectedReportPackage;
+    final savedAt = DateTime.now();
     final draft = {
       'gara': payload['gara'],
       'cronometristi': payload['cronometristi'],
       'orariGiornata': payload['orariGiornata'],
       'apparecchiature': payload['apparecchiature'],
       'danni': payload['danni'],
-      'updatedAt': DateTime.now().toIso8601String(),
+      'title': package?.title ?? 'Rapportino',
+      'dateLabel': package == null ? '' : _packageDatesLabel(package),
+      'primaryGaraId': selectedGara?.id ?? '',
+      'wholePackage': wholePackage && selectedPackage?.isPackage == true,
+      'userId': _loggedUserId ?? '',
+      'updatedAt': savedAt.toIso8601String(),
     };
     await _draftService.saveDraft(garaId, draft);
+    if (mounted) {
+      setState(() => _lastDraftSavedAt = savedAt);
+    }
+  }
+
+  Map<String, dynamic> _currentDraftPayload() => {
+        'gara': garaKey.currentState?.getData() ?? {},
+        'cronometristi': cronometristiKey.currentState?.getData() ?? [],
+        'orariGiornata': garaKey.currentState?.getOrariGiornata() ?? {},
+        'apparecchiature': apparecchiaturaKey.currentState?.getData() ?? [],
+        'danni': danniKey.currentState?.getData() ?? '',
+      };
+
+  String _draftFingerprint(Map<String, dynamic> payload) => jsonEncode(payload);
+
+  Future<bool> _saveCurrentDraft({bool showMessage = false}) async {
+    if (_draftKey.isEmpty || prefilling || _savingDraft) return false;
+    final payload = _currentDraftPayload();
+    setState(() => _savingDraft = true);
+    try {
+      await _saveDraft(garaId: _draftKey, payload: payload);
+      _lastDraftFingerprint = _draftFingerprint(payload);
+      if (showMessage && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bozza salvata su questo dispositivo'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return true;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Impossibile salvare la bozza: $e')),
+        );
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => _savingDraft = false);
+    }
+  }
+
+  Future<void> _autosaveIfChanged() async {
+    if (!mounted || selectedGara == null || prefilling || _savingDraft) return;
+    final payload = _currentDraftPayload();
+    final fingerprint = _draftFingerprint(payload);
+    if (_lastDraftFingerprint == null) {
+      _lastDraftFingerprint = fingerprint;
+      return;
+    }
+    if (fingerprint == _lastDraftFingerprint) return;
+    await _saveCurrentDraft();
+  }
+
+  Future<void> _savePendingChangesIfAny() async {
+    if (selectedGara == null || prefilling || _lastDraftFingerprint == null) {
+      return;
+    }
+    final fingerprint = _draftFingerprint(_currentDraftPayload());
+    if (fingerprint != _lastDraftFingerprint) {
+      await _saveCurrentDraft();
+    }
+  }
+
+  Future<void> _handlePop(bool didPop, Object? result) async {
+    if (didPop || _allowPop) return;
+    await _savePendingChangesIfAny();
+    if (!mounted) return;
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).pop(result);
+    });
   }
 
   Future<void> _applySavedDraftIfAny(String garaId) async {
     final saved = await _draftService.loadDraft(garaId);
     if (saved == null) return;
+
+    _lastDraftSavedAt = DateTime.tryParse(
+      (saved['updatedAt'] ?? '').toString(),
+    );
 
     final garaDataRaw = saved['gara'];
     final cronosRaw = saved['cronometristi'];
@@ -367,12 +681,122 @@ class _RootScreenState extends State<RootScreen> {
     return "$dateLabel - ${gara.titolo} - $luogo";
   }
 
-  String _garaDateRange(Gara gara) {
-    final start = _formatDateLabel(gara.dataGara);
-    final end = gara.dataGaraFine.isNotEmpty
-        ? _formatDateLabel(gara.dataGaraFine)
-        : start;
-    return end != start ? "$start - $end" : start;
+  String _packageDisplayLabel(GaraPackage package) {
+    if (!package.isPackage) return _garaDisplayLabel(package.primary);
+    final dates = package.activeDates;
+    final dateLabel = dates.isEmpty
+        ? 'Senza data'
+        : dates.length == 1
+            ? DateFormat('dd/MM/yyyy').format(dates.first)
+            : '${DateFormat('dd/MM').format(dates.first)} - '
+                '${DateFormat('dd/MM/yyyy').format(dates.last)}';
+    return '$dateLabel · ${package.title} · ${dates.length} giornate';
+  }
+
+  String _packageDatesLabel(GaraPackage package) {
+    final dates = package.activeDates;
+    if (dates.isEmpty) return 'Date non disponibili';
+    return dates
+        .map((date) => DateFormat('dd/MM/yyyy').format(date))
+        .join(', ');
+  }
+
+  Widget _scopeOption({
+    required bool selected,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    String? badge,
+  }) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Material(
+      color: selected ? const Color(0xFFE8F3FF) : Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 82),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected ? primary : const Color(0xFFD7E1ED),
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: selected ? primary : const Color(0xFFF0F4F8),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(
+                  selected ? Icons.check_rounded : icon,
+                  color: selected ? Colors.white : const Color(0xFF40556E),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 5,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (badge != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCF5E7),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              badge,
+                              style: const TextStyle(
+                                color: Color(0xFF176B42),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Color(0xFF52657B),
+                        fontSize: 14,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildGareSelectionCard() {
@@ -437,37 +861,139 @@ class _RootScreenState extends State<RootScreen> {
           //),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            initialValue: selectedGara?.id,
-            items: gareDisponibili
+            key: ValueKey('package-selector-${selectedPackage?.stableKey}'),
+            initialValue: selectedPackage?.stableKey,
+            items: pacchettiDisponibili
                 .map(
-                  (g) => DropdownMenuItem(
-                    value: g.id,
-                    child: Text(_garaDisplayLabel(g)),
+                  (package) => DropdownMenuItem(
+                    value: package.stableKey,
+                    child: Text(
+                      _packageDisplayLabel(package),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 )
                 .toList(),
             onChanged: (value) {
-              final gara =
-                  gareDisponibili.firstWhere((g) => g.id == value, orElse: () {
-                return gareDisponibili.first;
-              });
-              _selectGara(gara);
+              final package = pacchettiDisponibili.firstWhere(
+                (entry) => entry.stableKey == value,
+                orElse: () {
+                  return pacchettiDisponibili.first;
+                },
+              );
+              _selectPackage(package);
             },
             decoration: const InputDecoration(
-              labelText: 'Gara',
+              labelText: 'Evento o gara',
+              helperText: 'Scegli l’evento per cui devi fare il rapportino.',
+              prefixIcon: Icon(Icons.search_rounded),
               border: OutlineInputBorder(),
             ),
             isExpanded: true,
-            hint: const Text('Seleziona una gara'),
+            hint: const Text('Tocca qui per scegliere'),
           ),
+          if (selectedPackage?.isPackage == true) ...[
+            const SizedBox(height: 18),
+            const Text(
+              'Cosa vuoi compilare?',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              selectedPackage!.suggested
+                  ? 'Le gare sembrano collegate. Controlla le date e scegli.'
+                  : 'Questo evento comprende più giornate.',
+              style: const TextStyle(color: Color(0xFF52657B), fontSize: 15),
+            ),
+            if (selectedPackage!.suggested) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF5DF),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFF0D49C)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, color: Color(0xFF855B00)),
+                    SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        'Pacchetto suggerito: verifica che le giornate '
+                        'appartengano davvero allo stesso evento.',
+                        style: TextStyle(
+                          color: Color(0xFF6D4C00),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            _scopeOption(
+              selected: wholePackage,
+              icon: Icons.event_repeat_rounded,
+              title: 'Tutto l’evento',
+              subtitle: '${selectedPackage!.activeDates.length} giornate: '
+                  '${_packageDatesLabel(selectedPackage!)}',
+              badge: selectedPackage!.isConfirmedPackage ? 'CONSIGLIATO' : null,
+              onTap: _selectWholePackage,
+            ),
+            const SizedBox(height: 10),
+            _scopeOption(
+              selected: !wholePackage,
+              icon: Icons.today_rounded,
+              title: 'Una sola giornata',
+              subtitle: 'Crea il rapportino soltanto per la data scelta.',
+              onTap: () =>
+                  _selectSingleGara(selectedGara ?? selectedPackage!.primary),
+            ),
+            if (!wholePackage) ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                key: ValueKey('day-selector-${selectedGara?.id}'),
+                initialValue: selectedGara?.id,
+                items: selectedPackage!.gare
+                    .map(
+                      (gara) => DropdownMenuItem(
+                        value: gara.id,
+                        child: Text(
+                          _garaDisplayLabel(gara),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  final gara = selectedPackage!.gare.firstWhere(
+                    (entry) => entry.id == value,
+                    orElse: () => selectedPackage!.primary,
+                  );
+                  _selectSingleGara(gara);
+                },
+                decoration: const InputDecoration(
+                  labelText: 'Scegli la giornata',
+                  prefixIcon: Icon(Icons.calendar_today_rounded),
+                  border: OutlineInputBorder(),
+                ),
+                isExpanded: true,
+              ),
+            ],
+          ],
         ],
       ),
     );
   }
 
   Widget _buildSelectedGaraInfo() {
-    final gara = selectedGara;
-    if (gara == null) return const SizedBox.shrink();
+    final package = _selectedReportPackage;
+    if (package == null) return const SizedBox.shrink();
+    final gara = package.primary;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -482,7 +1008,7 @@ class _RootScreenState extends State<RootScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  gara.titolo,
+                  package.title,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -492,11 +1018,41 @@ class _RootScreenState extends State<RootScreen> {
             ],
           ),
           const SizedBox(height: 10),
-          Text("Date: ${_garaDateRange(gara)}"),
+          const SizedBox(height: 2),
+          Text(
+            package.isPackage
+                ? '${package.activeDates.length} giornate incluse'
+                : 'Una giornata inclusa',
+            style: const TextStyle(
+              color: Color(0xFF176B42),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text('Date: ${_packageDatesLabel(package)}'),
           Text("Luogo: ${gara.localita.isEmpty ? '-' : gara.localita}"),
           if (gara.organizzatore.isNotEmpty)
             Text("Organizzatore: ${gara.organizzatore}"),
           if (gara.sport.isNotEmpty) Text("Sport: ${gara.sport}"),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: prefilling ? null : _restoreOriginalData,
+              icon: const Icon(Icons.restore_rounded),
+              label: const Text('Ripristina dati gara'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -606,17 +1162,91 @@ class _RootScreenState extends State<RootScreen> {
           child: AllegatiForm(key: allegatiKey),
         ),
         const SizedBox(height: 16),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF2F8FF),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFCFE2F7)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    _savingDraft
+                        ? Icons.sync_rounded
+                        : Icons.cloud_done_rounded,
+                    color: const Color(0xFF0A66C2),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _savingDraft
+                          ? 'Salvataggio della bozza...'
+                          : _lastDraftSavedAt == null
+                              ? 'Salvataggio automatico attivo'
+                              : 'Bozza salvata alle '
+                                  '${DateFormat('HH:mm').format(_lastDraftSavedAt!)}',
+                      style: const TextStyle(
+                        color: Color(0xFF24415F),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Gli allegati non vengono conservati nella bozza.',
+                style: TextStyle(color: Color(0xFF52657B), fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _savingDraft
+                ? null
+                : () => _saveCurrentDraft(showMessage: true),
+            icon: const Icon(Icons.save_rounded),
+            label: const Text('Salva bozza'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF0A66C2),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              textStyle: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
             onPressed: () async {
-              final garaSelezionata = selectedGara;
-              if (garaSelezionata == null) {
+              final gareSelezionate = _selectedReportGare;
+              final reportPackage = _selectedReportPackage;
+              if (gareSelezionate.isEmpty || reportPackage == null) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Seleziona prima una gara'),
@@ -624,6 +1254,8 @@ class _RootScreenState extends State<RootScreen> {
                 );
                 return;
               }
+
+              if (!await _confirmPackageGeneration(reportPackage)) return;
 
               final gara = garaKey.currentState?.getData() ?? {};
               final cronos = cronometristiKey.currentState?.getData() ?? [];
@@ -633,7 +1265,8 @@ class _RootScreenState extends State<RootScreen> {
               final danni = danniKey.currentState?.getData() ?? '';
               final immagini = allegatiKey.currentState?.getImages() ?? [];
               final payload = _buildRapportinoPayload(
-                garaSelezionata: garaSelezionata,
+                gareSelezionate: gareSelezionate,
+                reportPackage: reportPackage,
                 gara: gara,
                 cronos: cronos,
                 orariGiornata: orariGiornata,
@@ -644,19 +1277,32 @@ class _RootScreenState extends State<RootScreen> {
 
               try {
                 await _saveDraft(
-                  garaId: garaSelezionata.id,
+                  garaId: _draftKey,
                   payload: payload,
                 );
+                final reportFilename = _notionReportFilename(reportPackage);
+                late final _ReportArchiveResult archiveResult;
                 if (kIsWeb) {
                   final pdfBytes = await generaPdfBytesConDati(payload);
+                  archiveResult = await _archiveReport(
+                    pdfBytes: pdfBytes,
+                    gare: gareSelezionate,
+                    filename: reportFilename,
+                  );
                   await Printing.sharePdf(
                     bytes: pdfBytes,
                     filename: 'rapporto_servizio.pdf',
                   );
+                  _showArchiveWarning(archiveResult);
                 } else {
                   final file = await generaPdfConDati(
                     payload,
                     salvaLocalmente: true,
+                  );
+                  archiveResult = await _archiveReport(
+                    pdfBytes: await file.readAsBytes(),
+                    gare: gareSelezionate,
+                    filename: reportFilename,
                   );
                   await SharePlus.instance.share(
                     ShareParams(
@@ -664,11 +1310,19 @@ class _RootScreenState extends State<RootScreen> {
                       files: [XFile(file.path)],
                     ),
                   );
+                  _showArchiveWarning(archiveResult);
                 }
-                await notion.updateGaraStatus(
-                  garaSelezionata.id,
-                  'RAPPORTINO RICEVUTO',
-                );
+                if (!archiveResult.uploaded) return;
+                for (final gara in gareSelezionate) {
+                  await notion.updateGaraStatus(
+                    gara.id,
+                    RaceStatuses.reportReceived,
+                  );
+                }
+                await _draftService.deleteDraft(_draftKey);
+                if (mounted) {
+                  setState(() => _lastDraftSavedAt = null);
+                }
                 await _loadGareDsc();
               } catch (e) {
                 if (!mounted) return;
@@ -678,10 +1332,66 @@ class _RootScreenState extends State<RootScreen> {
               }
             },
             icon: const Icon(Icons.picture_as_pdf),
-            label: const Text("Genera rapportino"),
+            label: Text(
+              _selectedReportPackage?.isPackage == true
+                  ? 'Genera un unico rapportino'
+                  : 'Genera rapportino',
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  String _notionReportFilename(GaraPackage reportPackage) {
+    final date = reportPackage.startDate == null
+        ? ''
+        : DateFormat('yyyy-MM-dd').format(reportPackage.startDate!);
+    final datedTitle =
+        date.isEmpty ? reportPackage.title : '$date - ${reportPackage.title}';
+    return 'Rapporto servizio - $datedTitle.pdf';
+  }
+
+  Future<_ReportArchiveResult> _archiveReport({
+    required List<int> pdfBytes,
+    required List<Gara> gare,
+    required String filename,
+  }) async {
+    final sizeMb = pdfBytes.length / (1024 * 1024);
+    if (pdfBytes.length > AppConfig.maxNotionPdfBytes) {
+      return _ReportArchiveResult.failure(
+        'Il PDF pesa ${sizeMb.toStringAsFixed(1)} MB e supera il limite di '
+        '${(AppConfig.maxNotionPdfBytes / (1024 * 1024)).toStringAsFixed(1)} MB. '
+        'Riduci il numero di foto e riprova.',
+      );
+    }
+    try {
+      final uploaded = await notion.archiveReportPdf(
+        pdfBytes: pdfBytes,
+        pageIds: gare.map((gara) => gara.id).toList(),
+        filename: filename,
+      );
+      return uploaded
+          ? const _ReportArchiveResult.success()
+          : const _ReportArchiveResult.failure(
+              'Notion non ha confermato il caricamento del PDF.',
+            );
+    } catch (error) {
+      return _ReportArchiveResult.failure(error.toString());
+    }
+  }
+
+  void _showArchiveWarning(_ReportArchiveResult result) {
+    if (result.uploaded || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'PDF generato, ma non archiviato in Notion. ${result.error} '
+          'La bozza è stata mantenuta.',
+        ),
+        duration: const Duration(seconds: 10),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -717,8 +1427,18 @@ class _RootScreenState extends State<RootScreen> {
           ),
           SizedBox(height: 6),
           Text(
-            'Seleziona la gara e compila il rapportino in tutte le sezioni.',
-            style: TextStyle(color: Colors.white),
+            'Tre passaggi semplici, con i dati della gara gia pronti.',
+            style: TextStyle(color: Colors.white, fontSize: 15),
+          ),
+          SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _HeroStep(number: '1', label: 'Scegli evento'),
+              _HeroStep(number: '2', label: 'Controlla i dati'),
+              _HeroStep(number: '3', label: 'Genera PDF'),
+            ],
           ),
         ],
       ),
@@ -729,82 +1449,156 @@ class _RootScreenState extends State<RootScreen> {
   Widget build(BuildContext context) {
     final canFillForm = selectedGara != null;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Crono Valtellinesi'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            tooltip: 'Aiuto',
-            onPressed: () => showHelpDialog(
-              context,
-              'Rapportini',
-              HelpContent.rapportini,
+    return PopScope<Object?>(
+      canPop: _allowPop,
+      onPopInvokedWithResult: _handlePop,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Crono Valtellinesi'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.help_outline),
+              tooltip: 'Aiuto',
+              onPressed: () => showHelpDialog(
+                context,
+                'Rapportini',
+                HelpContent.rapportini,
+              ),
             ),
-          ),
-          TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            },
-            icon: const Icon(Icons.home),
-            label: const Text('Home'),
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.primary,
+            TextButton.icon(
+              onPressed: () async {
+                await _savePendingChangesIfAny();
+                if (!context.mounted) return;
+                setState(() => _allowPop = true);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  }
+                });
+              },
+              icon: const Icon(Icons.home),
+              label: const Text('Home'),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.primary,
+              ),
             ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFEAF3FF), Color(0xFFF7FBFF), Color(0xFFFFFFFF)],
+          ],
+        ),
+        body: SafeArea(
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFEAF3FF),
+                  Color(0xFFF7FBFF),
+                  Color(0xFFFFFFFF)
+                ],
+              ),
             ),
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeroCard(),
-                const SizedBox(height: 12),
-                _buildGareSelectionCard(),
-                const SizedBox(height: 12),
-                _buildSelectedGaraInfo(),
-                if (prefilling)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: LinearProgressIndicator(),
-                  ),
-                if (!canFillForm &&
-                    !loadingGareList &&
-                    gareDisponibili.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      'Seleziona una gara per abilitare il rapportino.',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeroCard(),
+                  const SizedBox(height: 12),
+                  _buildGareSelectionCard(),
+                  const SizedBox(height: 12),
+                  _buildSelectedGaraInfo(),
+                  if (prefilling)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: LinearProgressIndicator(),
+                    ),
+                  if (!canFillForm &&
+                      !loadingGareList &&
+                      gareDisponibili.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'Seleziona una gara per abilitare il rapportino.',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  IgnorePointer(
+                    ignoring: !canFillForm,
+                    child: Opacity(
+                      opacity: canFillForm ? 1 : 0.35,
+                      child: KeyedSubtree(
+                        key: ValueKey(formVersion),
+                        child: _buildRapportoForm(),
                       ),
                     ),
                   ),
-                const SizedBox(height: 8),
-                IgnorePointer(
-                  ignoring: !canFillForm,
-                  child: Opacity(
-                    opacity: canFillForm ? 1 : 0.35,
-                    child: KeyedSubtree(
-                      key: ValueKey(formVersion),
-                      child: _buildRapportoForm(),
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ReportArchiveResult {
+  final bool uploaded;
+  final String? error;
+
+  const _ReportArchiveResult.success()
+      : uploaded = true,
+        error = null;
+
+  const _ReportArchiveResult.failure(this.error) : uploaded = false;
+}
+
+class _HeroStep extends StatelessWidget {
+  final String number;
+  final String label;
+
+  const _HeroStep({required this.number, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.34)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 23,
+            height: 23,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              number,
+              style: const TextStyle(
+                color: Color(0xFF0759A8),
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

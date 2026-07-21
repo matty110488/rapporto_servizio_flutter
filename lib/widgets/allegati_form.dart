@@ -27,7 +27,11 @@ class AllegatiFormState extends State<AllegatiForm> {
               onTap: () async {
                 Navigator.pop(context);
                 final foto = await _picker.pickImage(
-                    source: ImageSource.camera, imageQuality: 75);
+                  source: ImageSource.camera,
+                  imageQuality: 70,
+                  maxWidth: 1600,
+                  maxHeight: 1600,
+                );
                 if (foto != null) {
                   setState(() => immagini.add(foto));
                 }
@@ -38,7 +42,11 @@ class AllegatiFormState extends State<AllegatiForm> {
               title: const Text('Seleziona dalla galleria'),
               onTap: () async {
                 Navigator.pop(context);
-                final scelte = await _picker.pickMultiImage(imageQuality: 75);
+                final scelte = await _picker.pickMultiImage(
+                  imageQuality: 70,
+                  maxWidth: 1600,
+                  maxHeight: 1600,
+                );
                 if (scelte.isNotEmpty) {
                   setState(() => immagini.addAll(scelte));
                 }
