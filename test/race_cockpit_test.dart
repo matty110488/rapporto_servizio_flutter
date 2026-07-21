@@ -16,15 +16,7 @@ class _FakeNotionService extends NotionService {
       };
 }
 
-void main() {
-  testWidgets('cockpit renders pass and operational information on a phone',
-      (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    final gara = Gara(
+Gara _gara({required String organizzatore}) => Gara(
       id: '123456781234123412341234567890ab',
       titolo: 'Trofeo Test Technology',
       sport: 'Sci alpino',
@@ -32,7 +24,7 @@ void main() {
       dataGaraFine: '',
       localita: 'Chiesa in Valmalenco',
       sitoGara: 'Pista Campolungo',
-      organizzatore: 'Sci Club +39 333 1234567',
+      organizzatore: organizzatore,
       idSicWin: '',
       dataRichiesta: '',
       kronosIds: const ['crono-id'],
@@ -43,43 +35,58 @@ void main() {
       status: 'DESIGNAZIONE INVIATA',
     );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: const TextScaler.linear(1.2),
-          ),
-          child: child!,
-        ),
-        home: DettaglioGara(
-          gara: gara,
-          loggedUser: const {
-            'id': 'crono-id',
-            'properties': {
-              'USERNAME': {
-                'type': 'rich_text',
-                'rich_text': [
-                  {'plain_text': 'Luca Cronometrista'}
-                ],
-              },
+Widget _app(Gara gara) => MaterialApp(
+      home: DettaglioGara(
+        gara: gara,
+        loggedUser: const {
+          'id': 'crono-id',
+          'properties': {
+            'USERNAME': {
+              'type': 'rich_text',
+              'rich_text': [
+                {'plain_text': 'Luca Cronometrista'}
+              ],
             },
           },
-          notionService: _FakeNotionService(),
-        ),
+        },
+        notionService: _FakeNotionService(),
       ),
+    );
+
+void main() {
+  testWidgets('cockpit keeps Race Control and standard operational sections',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _app(_gara(organizzatore: 'Sci Club +39 333 1234567')),
     );
     await tester.pumpAndSettle();
 
     expect(find.text('Cockpit gara'), findsOneWidget);
     expect(find.text('RACE CONTROL'), findsOneWidget);
     expect(find.text('Trofeo Test Technology'), findsOneWidget);
+    expect(find.text('Azioni rapide'), findsOneWidget);
+    expect(find.text('INDICAZIONI'), findsOneWidget);
+    expect(find.text('CHIAMA ORGANIZZATORE'), findsOneWidget);
 
-    await tester.scrollUntilVisible(find.text('Il tuo pass'), 300);
+    expect(find.text('Avanzamento missione'), findsNothing);
+    expect(find.text('Il tuo pass'), findsNothing);
+    expect(find.text('Mostra pass'), findsNothing);
+    expect(find.text('Apparecchiatura prevista'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('organizer call is hidden when no phone number is provided',
+      (tester) async {
+    await tester.pumpWidget(_app(_gara(organizzatore: 'Sci Club Valtellina')));
     await tester.pumpAndSettle();
 
-    expect(find.text('DESIGNAZIONE · SERVICE PASS'), findsOneWidget);
-    expect(find.text('Cronometrista'), findsOneWidget);
-    expect(find.text('Condividi o salva pass'), findsOneWidget);
+    expect(find.text('INDICAZIONI'), findsOneWidget);
+    expect(find.text('CHIAMA ORGANIZZATORE'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }
