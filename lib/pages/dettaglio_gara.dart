@@ -105,6 +105,14 @@ class _DettaglioGaraState extends State<DettaglioGara> {
             _buildQuickActions(),
             const SizedBox(height: 20),
             _sectionTitle(
+              eyebrow: 'ORGANIZZATORE',
+              title: 'Contatto organizzatore',
+              subtitle: 'Riferimento della società che organizza la gara.',
+            ),
+            const SizedBox(height: 10),
+            _buildOrganizerPanel(),
+            const SizedBox(height: 20),
+            _sectionTitle(
               eyebrow: 'EQUIPAGGIO',
               title: 'Squadra di servizio',
               subtitle: 'Tutti i ruoli della designazione in un solo posto.',
@@ -282,7 +290,6 @@ class _DettaglioGaraState extends State<DettaglioGara> {
   }
 
   Widget _buildQuickActions() {
-    final phone = _organizerPhone();
     return _CockpitPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -297,12 +304,88 @@ class _DettaglioGaraState extends State<DettaglioGara> {
             icon: const Icon(Icons.navigation_rounded),
             label: const Text('INDICAZIONI'),
           ),
-          if (phone != null) ...[
-            const SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: () => _callOrganizer(phone),
-              icon: const Icon(Icons.call_rounded),
-              label: const Text('CHIAMA ORGANIZZATORE'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOrganizerPanel() {
+    final displayPhone = _organizerPhoneDisplay();
+    final dialPhone = _organizerPhone();
+    return _CockpitPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F4FF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.business_rounded,
+                  color: Color(0xFF0A66C2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Organizzatore',
+                      style: TextStyle(
+                        color: Color(0xFF647587),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _organizerName(),
+                      style: const TextStyle(
+                        color: Color(0xFF1B344F),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (displayPhone != null && dialPhone != null) ...[
+            const SizedBox(height: 14),
+            FilledButton(
+              onPressed: () => _callOrganizer(dialPhone),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.call_rounded),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Column(
+                        children: [
+                          const Text('CHIAMA ORGANIZZATORE'),
+                          Text(
+                            displayPhone,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ],
@@ -474,12 +557,34 @@ class _DettaglioGaraState extends State<DettaglioGara> {
   }
 
   String? _organizerPhone() {
-    final match = RegExp(r'(?:\+\d[\d\s().-]{6,}\d|\b\d[\d\s().-]{7,}\d\b)')
-        .firstMatch(widget.gara.organizzatore);
+    final match = _organizerPhoneMatch();
     if (match == null) return null;
     final raw = match.group(0)!;
     final sanitized = raw.replaceAll(RegExp(r'[^\d+]'), '');
     return sanitized.length >= 8 ? sanitized : null;
+  }
+
+  String? _organizerPhoneDisplay() {
+    final value = _organizerPhoneMatch()?.group(0)?.trim();
+    return value == null || value.isEmpty ? null : value;
+  }
+
+  RegExpMatch? _organizerPhoneMatch() {
+    return RegExp(r'(?:\+\d[\d\s().-]{6,}\d|\b\d[\d\s().-]{7,}\d\b)')
+        .firstMatch(widget.gara.organizzatore);
+  }
+
+  String _organizerName() {
+    var value = widget.gara.organizzatore.trim();
+    final match = _organizerPhoneMatch();
+    if (match != null) {
+      value = value.replaceRange(match.start, match.end, ' ');
+    }
+    value = value
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'^[\s,;:/|\-]+|[\s,;:/|\-]+$'), '')
+        .trim();
+    return value.isEmpty ? 'Non indicato' : value;
   }
 
   Future<void> _callOrganizer(String phone) async {

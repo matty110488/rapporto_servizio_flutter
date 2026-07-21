@@ -71,7 +71,10 @@ void main() {
     expect(find.text('Trofeo Test Technology'), findsOneWidget);
     expect(find.text('Azioni rapide'), findsOneWidget);
     expect(find.text('INDICAZIONI'), findsOneWidget);
+    expect(find.text('ORGANIZZATORE'), findsOneWidget);
+    expect(find.text('Sci Club'), findsOneWidget);
     expect(find.text('CHIAMA ORGANIZZATORE'), findsOneWidget);
+    expect(find.text('+39 333 1234567'), findsOneWidget);
 
     expect(find.text('Avanzamento missione'), findsNothing);
     expect(find.text('Il tuo pass'), findsNothing);
@@ -86,6 +89,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('INDICAZIONI'), findsOneWidget);
+    expect(find.text('ORGANIZZATORE'), findsOneWidget);
+    expect(find.text('Sci Club Valtellina'), findsOneWidget);
     expect(find.text('CHIAMA ORGANIZZATORE'), findsNothing);
     expect(tester.takeException(), isNull);
   });
