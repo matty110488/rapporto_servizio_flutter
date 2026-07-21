@@ -779,7 +779,7 @@ export default async function handler(req, res) {
         garaId,
         typeof garaPage.last_edited_time === 'string' ? garaPage.last_edited_time : '',
       ].join(':');
-      const title = 'Designazione inviata';
+      const title = 'Nuova designazione';
       const body = designationBodyForGara(garaPage);
       const tokenCandidates = ['FCM_TOKEN', 'PUSH_TOKEN', 'TOKEN_PUSH'];
       const tokens = new Set();
