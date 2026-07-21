@@ -1281,9 +1281,10 @@ class _RootScreenState extends State<RootScreen> {
                   payload: payload,
                 );
                 final reportFilename = _notionReportFilename(reportPackage);
+                late final _ReportArchiveResult archiveResult;
                 if (kIsWeb) {
                   final pdfBytes = await generaPdfBytesConDati(payload);
-                  await _archiveReportSilently(
+                  archiveResult = await _archiveReport(
                     pdfBytes: pdfBytes,
                     gare: gareSelezionate,
                     filename: reportFilename,
@@ -1292,12 +1293,13 @@ class _RootScreenState extends State<RootScreen> {
                     bytes: pdfBytes,
                     filename: 'rapporto_servizio.pdf',
                   );
+                  _showArchiveWarning(archiveResult);
                 } else {
                   final file = await generaPdfConDati(
                     payload,
                     salvaLocalmente: true,
                   );
-                  await _archiveReportSilently(
+                  archiveResult = await _archiveReport(
                     pdfBytes: await file.readAsBytes(),
                     gare: gareSelezionate,
                     filename: reportFilename,
@@ -1308,7 +1310,9 @@ class _RootScreenState extends State<RootScreen> {
                       files: [XFile(file.path)],
                     ),
                   );
+                  _showArchiveWarning(archiveResult);
                 }
+                if (!archiveResult.uploaded) return;
                 for (final gara in gareSelezionate) {
                   await notion.updateGaraStatus(
                     gara.id,
@@ -1348,20 +1352,47 @@ class _RootScreenState extends State<RootScreen> {
     return 'Rapporto servizio - $datedTitle.pdf';
   }
 
-  Future<void> _archiveReportSilently({
+  Future<_ReportArchiveResult> _archiveReport({
     required List<int> pdfBytes,
     required List<Gara> gare,
     required String filename,
   }) async {
+    final sizeMb = pdfBytes.length / (1024 * 1024);
+    if (pdfBytes.length > AppConfig.maxNotionPdfBytes) {
+      return _ReportArchiveResult.failure(
+        'Il PDF pesa ${sizeMb.toStringAsFixed(1)} MB e supera il limite di '
+        '${(AppConfig.maxNotionPdfBytes / (1024 * 1024)).toStringAsFixed(1)} MB. '
+        'Riduci il numero di foto e riprova.',
+      );
+    }
     try {
-      await notion.archiveReportPdf(
+      final uploaded = await notion.archiveReportPdf(
         pdfBytes: pdfBytes,
         pageIds: gare.map((gara) => gara.id).toList(),
         filename: filename,
       );
-    } catch (_) {
-      // The Notion archive is best-effort and must never block report delivery.
+      return uploaded
+          ? const _ReportArchiveResult.success()
+          : const _ReportArchiveResult.failure(
+              'Notion non ha confermato il caricamento del PDF.',
+            );
+    } catch (error) {
+      return _ReportArchiveResult.failure(error.toString());
     }
+  }
+
+  void _showArchiveWarning(_ReportArchiveResult result) {
+    if (result.uploaded || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'PDF generato, ma non archiviato in Notion. ${result.error} '
+          'La bozza è stata mantenuta.',
+        ),
+        duration: const Duration(seconds: 10),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Widget _buildHeroCard() {
@@ -1512,6 +1543,17 @@ class _RootScreenState extends State<RootScreen> {
       ),
     );
   }
+}
+
+class _ReportArchiveResult {
+  final bool uploaded;
+  final String? error;
+
+  const _ReportArchiveResult.success()
+      : uploaded = true,
+        error = null;
+
+  const _ReportArchiveResult.failure(this.error) : uploaded = false;
 }
 
 class _HeroStep extends StatelessWidget {

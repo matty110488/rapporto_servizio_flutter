@@ -25,7 +25,6 @@ class GaraFormState extends State<GaraForm> {
   DateTime? dataDa;
   DateTime? dataA;
   Map<String, Map<String, String>> orariPerData = {};
-  final Map<String, TextEditingController> _timeControllers = {};
 
   Future<void> _selezionaData(BuildContext context, bool isDa) async {
     final picked = await showDatePicker(
@@ -73,9 +72,6 @@ class GaraFormState extends State<GaraForm> {
     organizzatoreController.dispose();
     luogoController.dispose();
     dscController.dispose();
-    for (final controller in _timeControllers.values) {
-      controller.dispose();
-    }
     super.dispose();
   }
 
@@ -107,7 +103,6 @@ class GaraFormState extends State<GaraForm> {
       };
     }
     orariPerData = updated;
-    _pruneTimeControllers();
   }
 
   void _syncOrariWithDates(List<DateTime> dates) {
@@ -130,13 +125,16 @@ class GaraFormState extends State<GaraForm> {
       };
     }
     orariPerData = updated;
-    _pruneTimeControllers();
   }
 
   void _aggiornaOrarioPerData(String data, String campo, String valore) {
+    _aggiornaCampiPerData(data, {campo: valore});
+  }
+
+  void _aggiornaCampiPerData(String data, Map<String, String> aggiornamenti) {
     setState(() {
       final corrente = Map<String, String>.from(orariPerData[data] ?? {});
-      corrente[campo] = valore;
+      corrente.addAll(aggiornamenti);
       orariPerData[data] = {
         'oraDa': (corrente['oraDa'] ?? '').toString(),
         'oraA': (corrente['oraA'] ?? '').toString(),
@@ -148,97 +146,15 @@ class GaraFormState extends State<GaraForm> {
     widget.onOrariChanged?.call(getOrariGiornata());
   }
 
-  String _timeKey(String data, String campo) => '$data::$campo';
-
-  TextEditingController _getTimeController({
-    required String data,
-    required String campo,
-    required String value,
-  }) {
-    final key = _timeKey(data, campo);
-    final existing = _timeControllers[key];
-    if (existing != null) {
-      if (existing.text != value) {
-        existing.text = value;
-      }
-      return existing;
+  _TimeSelection? _parseTime(String raw) {
+    final match = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(raw.trim());
+    if (match == null) return null;
+    final hour = int.tryParse(match.group(1)!);
+    final minute = int.tryParse(match.group(2)!);
+    if (hour == null || minute == null || hour > 23 || minute > 59) {
+      return null;
     }
-    final controller = TextEditingController(text: value);
-    _timeControllers[key] = controller;
-    return controller;
-  }
-
-  void _pruneTimeControllers() {
-    final validKeys = <String>{};
-    for (final data in orariPerData.keys) {
-      validKeys.add(_timeKey(data, 'oraDa'));
-      validKeys.add(_timeKey(data, 'oraA'));
-      validKeys.add(_timeKey(data, 'pausaOre'));
-      validKeys.add(_timeKey(data, 'pausaMinuti'));
-    }
-    final keysToRemove = _timeControllers.keys
-        .where((k) => !validKeys.contains(k))
-        .toList(growable: false);
-    for (final key in keysToRemove) {
-      _timeControllers.remove(key)?.dispose();
-    }
-  }
-
-  String _normalizeTime(String raw) {
-    final value = raw.trim();
-    if (value.isEmpty) return '';
-
-    final onlyHour = RegExp(r'^\d{1,2}$');
-    if (onlyHour.hasMatch(value)) {
-      final hour = int.tryParse(value);
-      if (hour != null && hour >= 0 && hour <= 23) {
-        return '$hour:00';
-      }
-      return value;
-    }
-
-    final hourMinute = RegExp(r'^(\d{1,2}):(\d{1,2})$').firstMatch(value);
-    if (hourMinute != null) {
-      final hour = int.tryParse(hourMinute.group(1)!);
-      final minute = int.tryParse(hourMinute.group(2)!);
-      if (hour != null && minute != null) {
-        if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
-          return '$hour:${minute.toString().padLeft(2, '0')}';
-        }
-      }
-      return value;
-    }
-
-    final compact = RegExp(r'^(\d{1,2})(\d{2})$').firstMatch(value);
-    if (compact != null) {
-      final hour = int.tryParse(compact.group(1)!);
-      final minute = int.tryParse(compact.group(2)!);
-      if (hour != null &&
-          minute != null &&
-          hour >= 0 &&
-          hour <= 23 &&
-          minute >= 0 &&
-          minute <= 59) {
-        return '$hour:${minute.toString().padLeft(2, '0')}';
-      }
-    }
-
-    return value;
-  }
-
-  void _normalizeAndSaveTime({
-    required String data,
-    required String campo,
-    required TextEditingController controller,
-  }) {
-    final normalized = _normalizeTime(controller.text);
-    if (controller.text != normalized) {
-      controller.value = controller.value.copyWith(
-        text: normalized,
-        selection: TextSelection.collapsed(offset: normalized.length),
-      );
-    }
-    _aggiornaOrarioPerData(data, campo, normalized);
+    return _TimeSelection(hour, minute);
   }
 
   void applyNotionData({
@@ -332,7 +248,6 @@ class GaraFormState extends State<GaraForm> {
       if (normalizedOrari.isNotEmpty) {
         orariPerData = Map<String, Map<String, String>>.from(normalizedOrari);
       }
-      _pruneTimeControllers();
     });
 
     widget.onSportChanged?.call(sport);
@@ -529,105 +444,66 @@ class GaraFormState extends State<GaraForm> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _timeField(
-                            label: 'Ora inizio',
-                            hint: 'HH:MM',
-                            controller: _getTimeController(
-                              data: data,
-                              campo: 'oraDa',
-                              value: (orari['oraDa'] ?? '').toString(),
-                            ),
-                            onChanged: (val) =>
-                                _aggiornaOrarioPerData(data, 'oraDa', val),
-                            onNormalize: (controller) => _normalizeAndSaveTime(
-                              data: data,
-                              campo: 'oraDa',
-                              controller: controller,
-                            ),
-                            fieldKey: ValueKey('ora-da-gara-$data'),
-                            colorScheme: colorScheme,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _timeField(
-                            label: 'Ora fine',
-                            hint: 'HH:MM',
-                            controller: _getTimeController(
-                              data: data,
-                              campo: 'oraA',
-                              value: (orari['oraA'] ?? '').toString(),
-                            ),
-                            onChanged: (val) =>
-                                _aggiornaOrarioPerData(data, 'oraA', val),
-                            onNormalize: (controller) => _normalizeAndSaveTime(
-                              data: data,
-                              campo: 'oraA',
-                              controller: controller,
-                            ),
-                            fieldKey: ValueKey('ora-a-gara-$data'),
-                            colorScheme: colorScheme,
-                          ),
-                        ),
-                      ],
+                    _timeSelectors(
+                      data: data,
+                      orari: orari,
+                      colorScheme: colorScheme,
                     ),
-                    const SizedBox(height: 8),
-                    Material(
-                      type: MaterialType.transparency,
-                      child: SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Pausa effettuata'),
-                        subtitle:
-                            const Text('La pausa si applica alla giornata'),
-                        value: (orari['pausa'] ?? 'false') == 'true',
-                        onChanged: (value) => _aggiornaOrarioPerData(
-                          data,
-                          'pausa',
-                          value.toString(),
-                        ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surface.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.free_breakfast_outlined,
+                            color: colorScheme.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Pausa effettuata',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                Text(
+                                  'Impostazione valida per la giornata',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch.adaptive(
+                            key: ValueKey('break-switch-$data'),
+                            value: (orari['pausa'] ?? 'false') == 'true',
+                            onChanged: (value) async {
+                              _aggiornaOrarioPerData(
+                                data,
+                                'pausa',
+                                value.toString(),
+                              );
+                              if (value) {
+                                await _selectBreakDuration(data);
+                              }
+                            },
+                          ),
+                        ],
                       ),
                     ),
                     if ((orari['pausa'] ?? 'false') == 'true') ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _durationField(
-                              label: 'Ore pausa',
-                              controller: _getTimeController(
-                                data: data,
-                                campo: 'pausaOre',
-                                value: (orari['pausaOre'] ?? '').toString(),
-                              ),
-                              onChanged: (value) => _aggiornaOrarioPerData(
-                                data,
-                                'pausaOre',
-                                value,
-                              ),
-                              fieldKey: ValueKey('pausa-ore-gara-$data'),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _durationField(
-                              label: 'Minuti pausa',
-                              controller: _getTimeController(
-                                data: data,
-                                campo: 'pausaMinuti',
-                                value: (orari['pausaMinuti'] ?? '').toString(),
-                              ),
-                              onChanged: (value) => _aggiornaOrarioPerData(
-                                data,
-                                'pausaMinuti',
-                                value,
-                              ),
-                              fieldKey: ValueKey('pausa-minuti-gara-$data'),
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 10),
+                      _selectorField(
+                        fieldKey: ValueKey('break-selector-$data'),
+                        label: 'Durata pausa',
+                        value: _formatBreakDuration(orari),
+                        icon: Icons.timer_outlined,
+                        onTap: () => _selectBreakDuration(data),
+                        colorScheme: colorScheme,
                       ),
                     ],
                   ],
@@ -640,59 +516,289 @@ class GaraFormState extends State<GaraForm> {
     );
   }
 
-  Widget _timeField({
-    required String label,
-    required String hint,
-    required TextEditingController controller,
-    required ValueChanged<String> onChanged,
-    required ValueChanged<TextEditingController> onNormalize,
-    required Key fieldKey,
+  Widget _timeSelectors({
+    required String data,
+    required Map<String, String> orari,
     required ColorScheme colorScheme,
   }) {
-    return TextFormField(
-      key: fieldKey,
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: Icon(Icons.schedule_rounded,
-            size: 18, color: colorScheme.primary.withOpacity(0.8)),
-        filled: true,
-        fillColor: colorScheme.surface.withOpacity(0.95),
-        isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-      keyboardType: TextInputType.datetime,
-      onChanged: onChanged,
-      onEditingComplete: () => onNormalize(controller),
-      onTapOutside: (_) => onNormalize(controller),
-      onFieldSubmitted: (_) => onNormalize(controller),
+    final start = _selectorField(
+      fieldKey: ValueKey('time-selector-oraDa-$data'),
+      label: 'Ora inizio',
+      value: (orari['oraDa'] ?? '').toString(),
+      icon: Icons.play_circle_outline_rounded,
+      onTap: () => _selectClockTime(data, 'oraDa', 'Ora inizio'),
+      colorScheme: colorScheme,
+    );
+    final end = _selectorField(
+      fieldKey: ValueKey('time-selector-oraA-$data'),
+      label: 'Ora fine',
+      value: (orari['oraA'] ?? '').toString(),
+      icon: Icons.stop_circle_outlined,
+      onTap: () => _selectClockTime(data, 'oraA', 'Ora fine'),
+      colorScheme: colorScheme,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 520) {
+          return Column(
+            children: [start, const SizedBox(height: 10), end],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: start),
+            const SizedBox(width: 10),
+            Expanded(child: end),
+          ],
+        );
+      },
     );
   }
 
-  Widget _durationField({
-    required String label,
-    required TextEditingController controller,
-    required ValueChanged<String> onChanged,
+  Widget _selectorField({
     required Key fieldKey,
+    required String label,
+    required String value,
+    required IconData icon,
+    required VoidCallback onTap,
+    required ColorScheme colorScheme,
   }) {
-    return TextFormField(
+    final hasValue = value.trim().isNotEmpty;
+    return Material(
       key: fieldKey,
-      controller: controller,
-      keyboardType: TextInputType.number,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: '0',
-        prefixIcon: const Icon(Icons.timer_outlined, size: 18),
-        isDense: true,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      color: colorScheme.surface.withOpacity(0.95),
+      borderRadius: BorderRadius.circular(11),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(11),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            border: Border.all(color: colorScheme.outline.withOpacity(0.45)),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 21, color: colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: colorScheme.onSurface.withOpacity(0.65),
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      hasValue ? value : 'Seleziona',
+                      style: TextStyle(
+                        color: hasValue
+                            ? colorScheme.onSurface
+                            : colorScheme.primary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_drop_down_rounded,
+                color: colorScheme.onSurface.withOpacity(0.6),
+              ),
+            ],
+          ),
+        ),
       ),
-      onChanged: onChanged,
     );
+  }
+
+  Future<void> _selectClockTime(
+    String data,
+    String campo,
+    String title,
+  ) async {
+    final orari = orariPerData[data] ?? const {};
+    final current = _parseTime(orari[campo] ?? '');
+    _TimeSelection fallback;
+    if (campo == 'oraA') {
+      final start = _parseTime(orari['oraDa'] ?? '');
+      fallback = start == null
+          ? const _TimeSelection(17, 0)
+          : _TimeSelection((start.hour + 8) % 24, _nearestFive(start.minute));
+    } else {
+      fallback = const _TimeSelection(8, 0);
+    }
+
+    final selected = await _showTimeSelectionDialog(
+      title: title,
+      subtitle: 'Scegli ora e minuti a intervalli di 5 minuti.',
+      initial: current ?? fallback,
+      allowClear: current != null,
+    );
+    if (selected == null || !mounted) return;
+    _aggiornaOrarioPerData(
+      data,
+      campo,
+      selected.clear ? '' : selected.asClockValue,
+    );
+  }
+
+  Future<void> _selectBreakDuration(String data) async {
+    final orari = orariPerData[data] ?? const {};
+    final hours = int.tryParse(orari['pausaOre'] ?? '');
+    final minutes = int.tryParse(orari['pausaMinuti'] ?? '');
+    final hasDuration = hours != null || minutes != null;
+    final selected = await _showTimeSelectionDialog(
+      title: 'Durata pausa',
+      subtitle: 'Scegli la durata a intervalli di 5 minuti.',
+      initial: _TimeSelection(
+        (hours ?? 0).clamp(0, 12).toInt(),
+        _nearestFive((minutes ?? 30).clamp(0, 59).toInt()),
+      ),
+      maxHour: 12,
+      allowClear: hasDuration,
+      durationMode: true,
+    );
+    if (selected == null || !mounted) return;
+    _aggiornaCampiPerData(data, {
+      'pausaOre': selected.clear ? '' : selected.hour.toString(),
+      'pausaMinuti': selected.clear ? '' : selected.minute.toString(),
+    });
+  }
+
+  Future<_TimeSelection?> _showTimeSelectionDialog({
+    required String title,
+    required String subtitle,
+    required _TimeSelection initial,
+    int maxHour = 23,
+    bool allowClear = false,
+    bool durationMode = false,
+  }) {
+    var selectedHour = initial.hour.clamp(0, maxHour).toInt();
+    var selectedMinute = _nearestFive(initial.minute);
+    return showDialog<_TimeSelection>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          icon: Icon(
+            durationMode ? Icons.timer_outlined : Icons.schedule_rounded,
+          ),
+          title: Text(title),
+          content: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(subtitle),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        key: const ValueKey('hour-dropdown'),
+                        initialValue: selectedHour,
+                        decoration: InputDecoration(
+                          labelText: durationMode ? 'Ore' : 'Ora',
+                          border: const OutlineInputBorder(),
+                        ),
+                        items: List.generate(
+                          maxHour + 1,
+                          (hour) => DropdownMenuItem(
+                            value: hour,
+                            child: Text(hour.toString().padLeft(2, '0')),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() => selectedHour = value);
+                          }
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Text(
+                        ':',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                    ),
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        key: const ValueKey('minute-dropdown'),
+                        initialValue: selectedMinute,
+                        decoration: const InputDecoration(
+                          labelText: 'Minuti',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: List.generate(
+                          12,
+                          (index) {
+                            final minute = index * 5;
+                            return DropdownMenuItem(
+                              value: minute,
+                              child: Text(minute.toString().padLeft(2, '0')),
+                            );
+                          },
+                        ),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() => selectedMinute = value);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            if (allowClear)
+              TextButton(
+                onPressed: () => Navigator.pop(
+                  dialogContext,
+                  const _TimeSelection.clear(),
+                ),
+                child: const Text('Cancella valore'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Annulla'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(
+                dialogContext,
+                _TimeSelection(selectedHour, selectedMinute),
+              ),
+              icon: const Icon(Icons.check_rounded),
+              label: const Text('Conferma'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _nearestFive(int minute) {
+    final rounded = ((minute / 5).round() * 5);
+    return rounded > 55 ? 55 : rounded;
+  }
+
+  String _formatBreakDuration(Map<String, String> orari) {
+    final hours = int.tryParse(orari['pausaOre'] ?? '') ?? 0;
+    final minutes = int.tryParse(orari['pausaMinuti'] ?? '') ?? 0;
+    if (hours <= 0 && minutes <= 0) return 'Seleziona';
+    final parts = <String>[];
+    if (hours > 0) parts.add('$hours h');
+    if (minutes > 0) parts.add('$minutes min');
+    return parts.join(' ');
   }
 
   String _formatDateLabel(dynamic value) {
@@ -724,4 +830,19 @@ class GaraFormState extends State<GaraForm> {
       ],
     );
   }
+}
+
+class _TimeSelection {
+  final int hour;
+  final int minute;
+  final bool clear;
+
+  const _TimeSelection(this.hour, this.minute) : clear = false;
+  const _TimeSelection.clear()
+      : hour = 0,
+        minute = 0,
+        clear = true;
+
+  String get asClockValue =>
+      '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 }

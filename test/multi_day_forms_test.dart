@@ -29,6 +29,63 @@ void main() {
     );
   });
 
+  testWidgets('time selector uses five-minute intervals', (tester) async {
+    final key = GlobalKey<GaraFormState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(child: GaraForm(key: key)),
+        ),
+      ),
+    );
+
+    key.currentState!.applyPackageData(
+      nome: 'Meeting Alpino',
+      organizzatore: 'Associazione',
+      sportValue: 'Nuoto',
+      luogo: 'Sondrio',
+      dates: [DateTime(2026, 8, 12)],
+    );
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey('time-selector-oraDa-2026-08-12')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Scegli ora e minuti a intervalli di 5 minuti.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('minute-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('30').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Conferma'));
+    await tester.pumpAndSettle();
+
+    expect(
+      key.currentState!.getOrariGiornata()['2026-08-12']?['oraDa'],
+      '08:30',
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('break-switch-2026-08-12')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Scegli la durata a intervalli di 5 minuti.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Conferma'));
+    await tester.pumpAndSettle();
+
+    final schedule = key.currentState!.getOrariGiornata()['2026-08-12']!;
+    expect(schedule['pausa'], 'true');
+    expect(schedule['pausaOre'], '0');
+    expect(schedule['pausaMinuti'], '30');
+  });
+
   testWidgets('each timekeeper receives only their assigned dates',
       (tester) async {
     final key = GlobalKey<CronometristiFormState>();
