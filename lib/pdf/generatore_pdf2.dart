@@ -414,6 +414,9 @@ pw.Widget _sezioneGiornate(
       orariPerData[key.toString()] = {
         'oraDa': (value['oraDa'] ?? '').toString(),
         'oraA': (value['oraA'] ?? '').toString(),
+        'pausa': (value['pausa'] ?? 'false').toString(),
+        'pausaOre': (value['pausaOre'] ?? '').toString(),
+        'pausaMinuti': (value['pausaMinuti'] ?? '').toString(),
       };
     }
   });
@@ -431,9 +434,18 @@ pw.Widget _sezioneGiornate(
       final spese = _txt(g['spese']);
       final oraDa = _txt(g['oraDa']);
       final oraA = _txt(g['oraA']);
+      final pausa = _txt(g['pausa']);
+      final pausaOre = _txt(g['pausaOre']);
+      final pausaMinuti = _txt(g['pausaMinuti']);
       if (!orariPerData.containsKey(dIso) &&
           (oraDa.isNotEmpty || oraA.isNotEmpty)) {
-        orariPerData[dIso] = {'oraDa': oraDa, 'oraA': oraA};
+        orariPerData[dIso] = {
+          'oraDa': oraDa,
+          'oraA': oraA,
+          'pausa': pausa,
+          'pausaOre': pausaOre,
+          'pausaMinuti': pausaMinuti,
+        };
       }
       perData.putIfAbsent(dIso, () => []);
       perData[dIso]!.add({
@@ -460,6 +472,7 @@ pw.Widget _sezioneGiornate(
     final rows = perData[d]!..sort((a, b) => a['nome']!.compareTo(b['nome']!));
     final orari = _orariForDate(orariPerData, d);
     final orarioLabel = _formatOrarioRange(orari['oraDa'], orari['oraA']);
+    final pausaLabel = _formatPausa(orari);
     widgets.add(
       pw.Container(
         margin: const pw.EdgeInsets.only(bottom: 8),
@@ -495,6 +508,11 @@ pw.Widget _sezioneGiornate(
                   pw.SizedBox(height: 2),
                   pw.Text(
                     'Orario: $orarioLabel',
+                    style: pw.TextStyle(font: base, fontSize: 9),
+                  ),
+                  pw.SizedBox(height: 1),
+                  pw.Text(
+                    'Pausa: $pausaLabel',
                     style: pw.TextStyle(font: base, fontSize: 9),
                   ),
                 ],
@@ -1026,10 +1044,21 @@ Map<String, String> _orariForDate(
   String iso,
 ) {
   final raw = orariPerData[iso];
-  if (raw == null) return {'oraDa': '', 'oraA': ''};
+  if (raw == null) {
+    return {
+      'oraDa': '',
+      'oraA': '',
+      'pausa': 'false',
+      'pausaOre': '',
+      'pausaMinuti': '',
+    };
+  }
   return {
     'oraDa': _txt(raw['oraDa']),
     'oraA': _txt(raw['oraA']),
+    'pausa': _txt(raw['pausa']),
+    'pausaOre': _txt(raw['pausaOre']),
+    'pausaMinuti': _txt(raw['pausaMinuti']),
   };
 }
 
@@ -1040,6 +1069,16 @@ String _formatOrarioRange(String? da, String? a) {
   final startLabel = start.isEmpty ? '-' : start;
   final endLabel = end.isEmpty ? '-' : end;
   return '$startLabel - $endLabel';
+}
+
+String _formatPausa(Map<String, String> orari) {
+  if (orari['pausa'] != 'true') return 'No';
+  final ore = int.tryParse(orari['pausaOre'] ?? '') ?? 0;
+  final minuti = int.tryParse(orari['pausaMinuti'] ?? '') ?? 0;
+  final parts = <String>[];
+  if (ore > 0) parts.add('$ore h');
+  if (minuti > 0) parts.add('$minuti min');
+  return parts.isEmpty ? 'Sì' : 'Sì, ${parts.join(' ')}';
 }
 
 // ===== Header & Footer =====

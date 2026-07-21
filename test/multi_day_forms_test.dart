@@ -74,4 +74,56 @@ void main() {
       containsAll(['Mario Rossi', 'Luigi Bianchi']),
     );
   });
+
+  testWidgets('worked hours are calculated from schedule and daily break',
+      (tester) async {
+    final key = GlobalKey<CronometristiFormState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(child: CronometristiForm(key: key)),
+        ),
+      ),
+    );
+
+    key.currentState!.syncDaysWithDates([DateTime(2026, 8, 12)]);
+    key.currentState!.setCronometristiPerDate({
+      'Mario Rossi': [DateTime(2026, 8, 12)],
+    });
+    key.currentState!.setOrari({
+      '2026-08-12': {
+        'oraDa': '08:00',
+        'oraA': '17:30',
+        'pausa': 'true',
+        'pausaOre': '1',
+        'pausaMinuti': '30',
+      },
+    });
+    await tester.pump();
+
+    var giorno = (key.currentState!.getData().single['giorni'] as List).single
+        as Map<String, dynamic>;
+    expect(giorno['ore'], '8');
+
+    final oreField = find.byWidgetPredicate(
+      (widget) => widget is TextField && widget.decoration?.labelText == 'Ore',
+    );
+    await tester.enterText(oreField, '7.5');
+    await tester.pump();
+
+    giorno = (key.currentState!.getData().single['giorni'] as List).single
+        as Map<String, dynamic>;
+    expect(giorno['ore'], '7.5');
+
+    key.currentState!.setOrari({
+      '2026-08-12': {
+        'oraDa': '08:00',
+        'oraA': '17:30',
+        'pausa': 'true',
+        'pausaOre': '1',
+        'pausaMinuti': '30',
+      },
+    });
+    expect(giorno['ore'], '7.5');
+  });
 }

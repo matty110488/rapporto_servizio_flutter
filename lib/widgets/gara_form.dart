@@ -101,6 +101,9 @@ class GaraFormState extends State<GaraForm> {
       updated[iso] = {
         'oraDa': (existing['oraDa'] ?? '').toString(),
         'oraA': (existing['oraA'] ?? '').toString(),
+        'pausa': (existing['pausa'] ?? 'false').toString(),
+        'pausaOre': (existing['pausaOre'] ?? '').toString(),
+        'pausaMinuti': (existing['pausaMinuti'] ?? '').toString(),
       };
     }
     orariPerData = updated;
@@ -121,6 +124,9 @@ class GaraFormState extends State<GaraForm> {
       updated[entry.key] = {
         'oraDa': (existing['oraDa'] ?? '').toString(),
         'oraA': (existing['oraA'] ?? '').toString(),
+        'pausa': (existing['pausa'] ?? 'false').toString(),
+        'pausaOre': (existing['pausaOre'] ?? '').toString(),
+        'pausaMinuti': (existing['pausaMinuti'] ?? '').toString(),
       };
     }
     orariPerData = updated;
@@ -134,6 +140,9 @@ class GaraFormState extends State<GaraForm> {
       orariPerData[data] = {
         'oraDa': (corrente['oraDa'] ?? '').toString(),
         'oraA': (corrente['oraA'] ?? '').toString(),
+        'pausa': (corrente['pausa'] ?? 'false').toString(),
+        'pausaOre': (corrente['pausaOre'] ?? '').toString(),
+        'pausaMinuti': (corrente['pausaMinuti'] ?? '').toString(),
       };
     });
     widget.onOrariChanged?.call(getOrariGiornata());
@@ -164,6 +173,8 @@ class GaraFormState extends State<GaraForm> {
     for (final data in orariPerData.keys) {
       validKeys.add(_timeKey(data, 'oraDa'));
       validKeys.add(_timeKey(data, 'oraA'));
+      validKeys.add(_timeKey(data, 'pausaOre'));
+      validKeys.add(_timeKey(data, 'pausaMinuti'));
     }
     final keysToRemove = _timeControllers.keys
         .where((k) => !validKeys.contains(k))
@@ -300,6 +311,9 @@ class GaraFormState extends State<GaraForm> {
           normalizedOrari[key.toString()] = {
             'oraDa': (value['oraDa'] ?? '').toString(),
             'oraA': (value['oraA'] ?? '').toString(),
+            'pausa': (value['pausa'] ?? 'false').toString(),
+            'pausaOre': (value['pausaOre'] ?? '').toString(),
+            'pausaMinuti': (value['pausaMinuti'] ?? '').toString(),
           };
         }
       });
@@ -474,7 +488,7 @@ class GaraFormState extends State<GaraForm> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Aggiungi ora inizio e fine.',
+            'Aggiungi ora di inizio, fine ed eventuale pausa.',
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
@@ -560,6 +574,62 @@ class GaraFormState extends State<GaraForm> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
+                    Material(
+                      type: MaterialType.transparency,
+                      child: SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Pausa effettuata'),
+                        subtitle:
+                            const Text('La pausa si applica alla giornata'),
+                        value: (orari['pausa'] ?? 'false') == 'true',
+                        onChanged: (value) => _aggiornaOrarioPerData(
+                          data,
+                          'pausa',
+                          value.toString(),
+                        ),
+                      ),
+                    ),
+                    if ((orari['pausa'] ?? 'false') == 'true') ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _durationField(
+                              label: 'Ore pausa',
+                              controller: _getTimeController(
+                                data: data,
+                                campo: 'pausaOre',
+                                value: (orari['pausaOre'] ?? '').toString(),
+                              ),
+                              onChanged: (value) => _aggiornaOrarioPerData(
+                                data,
+                                'pausaOre',
+                                value,
+                              ),
+                              fieldKey: ValueKey('pausa-ore-gara-$data'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _durationField(
+                              label: 'Minuti pausa',
+                              controller: _getTimeController(
+                                data: data,
+                                campo: 'pausaMinuti',
+                                value: (orari['pausaMinuti'] ?? '').toString(),
+                              ),
+                              onChanged: (value) => _aggiornaOrarioPerData(
+                                data,
+                                'pausaMinuti',
+                                value,
+                              ),
+                              fieldKey: ValueKey('pausa-minuti-gara-$data'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               );
@@ -601,6 +671,27 @@ class GaraFormState extends State<GaraForm> {
       onEditingComplete: () => onNormalize(controller),
       onTapOutside: (_) => onNormalize(controller),
       onFieldSubmitted: (_) => onNormalize(controller),
+    );
+  }
+
+  Widget _durationField({
+    required String label,
+    required TextEditingController controller,
+    required ValueChanged<String> onChanged,
+    required Key fieldKey,
+  }) {
+    return TextFormField(
+      key: fieldKey,
+      controller: controller,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: '0',
+        prefixIcon: const Icon(Icons.timer_outlined, size: 18),
+        isDense: true,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      onChanged: onChanged,
     );
   }
 

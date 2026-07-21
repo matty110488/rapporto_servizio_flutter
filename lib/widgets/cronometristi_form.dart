@@ -65,6 +65,9 @@ class CronometristiFormState extends State<CronometristiForm> {
       nuoviOrari[iso] = {
         'oraDa': (esistente['oraDa'] ?? '').toString(),
         'oraA': (esistente['oraA'] ?? '').toString(),
+        'pausa': (esistente['pausa'] ?? 'false').toString(),
+        'pausaOre': (esistente['pausaOre'] ?? '').toString(),
+        'pausaMinuti': (esistente['pausaMinuti'] ?? '').toString(),
       };
     }
     setState(() {
@@ -85,14 +88,21 @@ class CronometristiFormState extends State<CronometristiForm> {
           final indexed = index < cur.length ? cur[index] : null;
           final existing =
               existingByDate[iso] ?? (indexed is Map ? indexed : const {});
-          nuovo.add({
+          final giorno = {
             'data': iso,
             'ore': existing['ore'] ?? '',
             'km': existing['km'] ?? '',
             'spese': existing['spese'] ?? '',
             'oraDa': orariPerData[iso]?['oraDa'] ?? '',
             'oraA': orariPerData[iso]?['oraA'] ?? '',
-          });
+            'pausa': orariPerData[iso]?['pausa'] ?? 'false',
+            'pausaOre': orariPerData[iso]?['pausaOre'] ?? '',
+            'pausaMinuti': orariPerData[iso]?['pausaMinuti'] ?? '',
+          };
+          if ((giorno['ore'] ?? '').toString().isEmpty) {
+            giorno['ore'] = _calcolaOre(orariPerData[iso] ?? const {}) ?? '';
+          }
+          nuovo.add(giorno);
         }
         riga['giorni'] = nuovo;
       }
@@ -118,14 +128,18 @@ class CronometristiFormState extends State<CronometristiForm> {
       return _activeDates.map((date) {
         final iso = _isoDate(date);
         final orari = orariPerData[iso] ?? {};
-        return {
+        final giorno = <String, dynamic>{
           'data': iso,
-          'ore': '',
           'km': '',
           'spese': '',
           'oraDa': (orari['oraDa'] ?? '').toString(),
           'oraA': (orari['oraA'] ?? '').toString(),
+          'pausa': (orari['pausa'] ?? 'false').toString(),
+          'pausaOre': (orari['pausaOre'] ?? '').toString(),
+          'pausaMinuti': (orari['pausaMinuti'] ?? '').toString(),
         };
+        giorno['ore'] = _calcolaOre(orari) ?? '';
+        return giorno;
       }).toList();
     }
     return [
@@ -162,14 +176,18 @@ class CronometristiFormState extends State<CronometristiForm> {
     Map<String, dynamic> dayData(DateTime date) {
       final iso = _isoDate(date);
       final orari = orariPerData[iso] ?? const {};
-      return {
+      final giorno = <String, dynamic>{
         'data': iso,
-        'ore': '',
         'km': '',
         'spese': '',
         'oraDa': (orari['oraDa'] ?? '').toString(),
         'oraA': (orari['oraA'] ?? '').toString(),
+        'pausa': (orari['pausa'] ?? 'false').toString(),
+        'pausaOre': (orari['pausaOre'] ?? '').toString(),
+        'pausaMinuti': (orari['pausaMinuti'] ?? '').toString(),
       };
+      giorno['ore'] = _calcolaOre(orari) ?? '';
+      return giorno;
     }
 
     setState(() {
@@ -206,19 +224,53 @@ class CronometristiFormState extends State<CronometristiForm> {
   }
 
   void setOrari(Map<String, Map<String, String>> orari) {
+    final normalizzati = orari.map(
+      (data, value) => MapEntry(data, {
+        'oraDa': (value['oraDa'] ?? '').toString(),
+        'oraA': (value['oraA'] ?? '').toString(),
+        'pausa': (value['pausa'] ?? 'false').toString(),
+        'pausaOre': (value['pausaOre'] ?? '').toString(),
+        'pausaMinuti': (value['pausaMinuti'] ?? '').toString(),
+      }),
+    );
+    final dateCambiate = <String>{
+      ...orariPerData.keys,
+      ...normalizzati.keys,
+    }
+        .where(
+          (data) => !_stessoOrario(orariPerData[data], normalizzati[data]),
+        )
+        .toSet();
+
     setState(() {
-      orariPerData = Map<String, Map<String, String>>.from(orari);
+      orariPerData = normalizzati;
       for (final riga in righe) {
         final giorni = (riga['giorni'] as List?) ?? [];
         for (final g in giorni) {
           final data = (g['data'] ?? '').toString();
+          if (!dateCambiate.contains(data)) continue;
           final orariData = orariPerData[data] ?? {};
           g['oraDa'] = (orariData['oraDa'] ?? '').toString();
           g['oraA'] = (orariData['oraA'] ?? '').toString();
+          g['pausa'] = (orariData['pausa'] ?? 'false').toString();
+          g['pausaOre'] = (orariData['pausaOre'] ?? '').toString();
+          g['pausaMinuti'] = (orariData['pausaMinuti'] ?? '').toString();
+          final oreCalcolate = _calcolaOre(orariData);
+          if (oreCalcolate != null) g['ore'] = oreCalcolate;
         }
       }
+      _revision++;
     });
     _notifyDataChanged();
+  }
+
+  bool _stessoOrario(
+    Map<String, String>? primo,
+    Map<String, String>? secondo,
+  ) {
+    if (primo == null || secondo == null) return primo == secondo;
+    const campi = ['oraDa', 'oraA', 'pausa', 'pausaOre', 'pausaMinuti'];
+    return campi.every((campo) => primo[campo] == secondo[campo]);
   }
 
   void applySavedData(List<dynamic> savedRows) {
@@ -231,6 +283,9 @@ class CronometristiFormState extends State<CronometristiForm> {
           'spese': '',
           'oraDa': '',
           'oraA': '',
+          'pausa': 'false',
+          'pausaOre': '',
+          'pausaMinuti': '',
         };
       }
       return {
@@ -240,6 +295,9 @@ class CronometristiFormState extends State<CronometristiForm> {
         'spese': (raw['spese'] ?? '').toString(),
         'oraDa': (raw['oraDa'] ?? '').toString(),
         'oraA': (raw['oraA'] ?? '').toString(),
+        'pausa': (raw['pausa'] ?? 'false').toString(),
+        'pausaOre': (raw['pausaOre'] ?? '').toString(),
+        'pausaMinuti': (raw['pausaMinuti'] ?? '').toString(),
       };
     }
 
@@ -470,6 +528,37 @@ class CronometristiFormState extends State<CronometristiForm> {
       speseTot += num.tryParse((g['spese'] ?? '').toString()) ?? 0;
     }
     return {'ore': oreTot, 'km': kmTot, 'spese': speseTot};
+  }
+
+  int? _minutiDaOrario(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return null;
+    final match = RegExp(r'^(\d{1,2})(?::?(\d{2}))?$').firstMatch(value);
+    if (match == null) return null;
+    final ore = int.tryParse(match.group(1)!);
+    final minuti = int.tryParse(match.group(2) ?? '0');
+    if (ore == null || minuti == null || ore > 23 || minuti > 59) return null;
+    return ore * 60 + minuti;
+  }
+
+  String? _calcolaOre(Map<String, String> orari) {
+    final inizio = _minutiDaOrario(orari['oraDa'] ?? '');
+    final fine = _minutiDaOrario(orari['oraA'] ?? '');
+    if (inizio == null || fine == null) return null;
+
+    var minutiLavorati = fine - inizio;
+    if (minutiLavorati < 0) minutiLavorati += 24 * 60;
+    if ((orari['pausa'] ?? 'false') == 'true') {
+      final oreInserite = int.tryParse(orari['pausaOre'] ?? '') ?? 0;
+      final minutiInseriti = int.tryParse(orari['pausaMinuti'] ?? '') ?? 0;
+      final orePausa = oreInserite < 0 ? 0 : oreInserite;
+      final minutiPausa = minutiInseriti < 0 ? 0 : minutiInseriti;
+      minutiLavorati -= orePausa * 60 + minutiPausa;
+    }
+    if (minutiLavorati < 0) minutiLavorati = 0;
+
+    final value = (minutiLavorati / 60).toStringAsFixed(2);
+    return value.replaceFirst(RegExp(r'\.?0+$'), '');
   }
 
   String _formatDateLabel(dynamic value, {int? index}) {
