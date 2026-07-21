@@ -41,6 +41,7 @@ void main() {
       designationRoleFor(gara(kronos: const ['user']), 'user'),
       DesignationRole.timekeeper,
     );
+    expect(DesignationRole.secretaryPc.label, 'Elaborazione Dati');
   });
 
   test('DSC wins when a user has more than one role', () {

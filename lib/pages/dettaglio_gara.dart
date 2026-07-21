@@ -29,6 +29,7 @@ class _DettaglioGaraState extends State<DettaglioGara> {
   List<String> kronos = [];
   List<String> pcSegreteria = [];
   String dsc = '';
+  String dscPhone = '';
   bool loadingPeople = true;
   String? errorMessage;
 
@@ -45,6 +46,10 @@ class _DettaglioGaraState extends State<DettaglioGara> {
   }
 
   DesignationRole get _role => designationRoleFor(widget.gara, _loggedUserId);
+  bool get _isAdmin => isNotionAdmin(widget.loggedUser);
+  bool get _canCallOrganizer =>
+      _isAdmin || _role == DesignationRole.serviceManager;
+  bool get _canContactDsc => _isAdmin || _role != DesignationRole.viewer;
 
   @override
   void initState() {
@@ -60,15 +65,17 @@ class _DettaglioGaraState extends State<DettaglioGara> {
         _fetchNames(widget.gara.kronosIds),
         _fetchNames(widget.gara.pcSegreteriaIds),
         if (widget.gara.dscIds.isNotEmpty)
-          notion.fetchNameFromPage(widget.gara.dscIds.first)
+          notion.fetchPersonContactFromPage(widget.gara.dscIds.first)
         else
-          Future.value(''),
+          Future.value(const NotionPersonContact(name: '', phone: '')),
       ]);
       if (!mounted) return;
       setState(() {
         kronos = results[0] as List<String>;
         pcSegreteria = results[1] as List<String>;
-        dsc = results[2] as String;
+        final dscContact = results[2] as NotionPersonContact;
+        dsc = dscContact.name;
+        dscPhone = dscContact.phone;
         loadingPeople = false;
         errorMessage = null;
       });
@@ -113,9 +120,9 @@ class _DettaglioGaraState extends State<DettaglioGara> {
             _buildOrganizerPanel(),
             const SizedBox(height: 20),
             _sectionTitle(
-              eyebrow: 'EQUIPAGGIO',
-              title: 'Squadra di servizio',
-              subtitle: 'Tutti i ruoli della designazione in un solo posto.',
+              eyebrow: 'DESIGNAZIONE',
+              title: 'Equipe di Cronometraggio',
+              subtitle: 'DSC, cronometristi ed Elaborazione Dati.',
             ),
             const SizedBox(height: 10),
             if (loadingPeople)
@@ -216,45 +223,47 @@ class _DettaglioGaraState extends State<DettaglioGara> {
                 _heroFact(Icons.sports_rounded, gara.sport),
             ],
           ),
-          const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.all(13),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.17),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-            ),
-            child: Row(
-              children: [
-                const CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Color(0xFF47B6FF),
-                  child: Icon(Icons.person_rounded, color: Colors.white),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _loggedUserName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      Text(
-                        _role.label,
-                        style: const TextStyle(color: Color(0xFFB8DBF6)),
-                      ),
-                    ],
+          if (_role != DesignationRole.viewer) ...[
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(13),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.17),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              ),
+              child: Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 20,
+                    backgroundColor: Color(0xFF47B6FF),
+                    child: Icon(Icons.person_rounded, color: Colors.white),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _loggedUserName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          _role.label,
+                          style: const TextStyle(color: Color(0xFFB8DBF6)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -358,7 +367,9 @@ class _DettaglioGaraState extends State<DettaglioGara> {
               ),
             ],
           ),
-          if (displayPhone != null && dialPhone != null) ...[
+          if (_canCallOrganizer &&
+              displayPhone != null &&
+              dialPhone != null) ...[
             const SizedBox(height: 14),
             FilledButton(
               onPressed: () => _callOrganizer(dialPhone),
@@ -398,48 +409,91 @@ class _DettaglioGaraState extends State<DettaglioGara> {
       child: Column(
         children: [
           _crewGroup(
-              'DSC', Icons.badge_rounded, dsc.isEmpty ? const [] : [dsc]),
+            'DSC',
+            Icons.badge_rounded,
+            dsc.isEmpty ? const [] : [dsc],
+            phone: _canContactDsc ? dscPhone : '',
+          ),
           const Divider(height: 24),
           _crewGroup('Cronometristi', Icons.groups_rounded, kronos),
           const Divider(height: 24),
-          _crewGroup('PC Segreteria', Icons.computer_rounded, pcSegreteria),
+          _crewGroup('Elaborazione Dati', Icons.computer_rounded, pcSegreteria),
         ],
       ),
     );
   }
 
-  Widget _crewGroup(String title, IconData icon, List<String> values) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _crewGroup(
+    String title,
+    IconData icon,
+    List<String> values, {
+    String phone = '',
+  }) {
+    final dialPhone = _sanitizePhone(phone);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE8F4FF),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: const Color(0xFF0A66C2), size: 20),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F4FF),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: const Color(0xFF0A66C2), size: 20),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    values.isEmpty ? 'Non assegnato' : values.join(' · '),
+                    style: TextStyle(
+                      color: values.isEmpty
+                          ? const Color(0xFF7E8B99)
+                          : const Color(0xFF344E68),
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        if (dialPhone != null) ...[
+          const SizedBox(height: 10),
+          Row(
             children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
-              const SizedBox(height: 5),
-              Text(
-                values.isEmpty ? 'Non assegnato' : values.join(' · '),
-                style: TextStyle(
-                  color: values.isEmpty
-                      ? const Color(0xFF7E8B99)
-                      : const Color(0xFF344E68),
-                  height: 1.35,
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _callPhone(dialPhone),
+                  icon: const Icon(Icons.call_rounded),
+                  label: const Text('TELEFONA'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF1F9D55),
+                  ),
+                  onPressed: () => _openWhatsApp(dialPhone),
+                  icon: const Icon(Icons.chat_rounded),
+                  label: const Text('WHATSAPP'),
                 ),
               ),
             ],
           ),
-        ),
+        ],
       ],
     );
   }
@@ -513,7 +567,7 @@ class _DettaglioGaraState extends State<DettaglioGara> {
     final raceDay = DateTime(date.year, date.month, date.day);
     final days = raceDay.difference(today).inDays;
     if (days == 0) return 'OGGI · È IL GIORNO DELLA GARA';
-    if (days == 1) return 'DOMANI · PREPARATI ALLA MISSIONE';
+    if (days == 1) return 'DOMANI';
     if (days > 1) return 'TRA $days GIORNI';
     return 'SERVIZIO DEL ${DateFormat('dd/MM/yyyy').format(date)}';
   }
@@ -588,9 +642,26 @@ class _DettaglioGaraState extends State<DettaglioGara> {
   }
 
   Future<void> _callOrganizer(String phone) async {
+    await _callPhone(phone);
+  }
+
+  String? _sanitizePhone(String raw) {
+    final sanitized = raw.replaceAll(RegExp(r'[^\d+]'), '');
+    return sanitized.replaceAll('+', '').length >= 8 ? sanitized : null;
+  }
+
+  Future<void> _callPhone(String phone) async {
     final uri = Uri(scheme: 'tel', path: phone);
     if (!await launchUrl(uri)) {
       _showMessage('Non riesco ad avviare la chiamata.');
+    }
+  }
+
+  Future<void> _openWhatsApp(String phone) async {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    final uri = Uri.https('wa.me', '/$digits');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      _showMessage('Non riesco ad aprire WhatsApp.');
     }
   }
 

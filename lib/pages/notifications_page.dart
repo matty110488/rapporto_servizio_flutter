@@ -26,7 +26,6 @@ class NotificationsPage extends StatefulWidget {
 class _NotificationsPageState extends State<NotificationsPage> {
   bool _loading = true;
   bool _busy = false;
-  bool _testing = false;
   bool _enabled = false;
   String _statusText = 'Controllo stato notifiche...';
   List<PushNotice> _notifications = const [];
@@ -58,7 +57,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     _loadAll();
     _pollingTimer =
         Timer.periodic(AppConfig.notificationsPageRefreshInterval, (_) {
-      unawaited(_syncAndLoadNotifications());
+      unawaited(_loadNotifications(silent: true));
     });
   }
 
@@ -73,18 +72,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
     setState(() => _loading = true);
     await Future.wait([
       _loadStatus(),
-      _syncAndLoadNotifications(),
+      _loadNotifications(),
     ]);
     if (mounted) setState(() => _loading = false);
-  }
-
-  Future<void> _syncAndLoadNotifications() async {
-    try {
-      await _notion.notifyDesignationsForSentStatus();
-    } catch (_) {
-      // Silent: polling must not block the notification list.
-    }
-    await _loadNotifications(silent: true);
   }
 
   Future<void> _loadStatus() async {
@@ -181,41 +171,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
-  Future<void> _testNotifications() async {
-    final userId = _loggedUserId;
-    if (userId == null || _testing) return;
-    setState(() => _testing = true);
-    try {
-      final result = await sendTestNotificationToCurrentDevice(userId);
-      if (!mounted) return;
-      setState(() {
-        _enabled = result.sent > 0 || _enabled;
-        _statusText = result.sent > 0
-            ? 'Test inviato al token di questo dispositivo'
-            : 'Test non consegnato dal server';
-      });
-      await _loadNotifications(silent: true);
-      if (!mounted) return;
-      final message = result.sent > 0
-          ? 'Test inviato. Dovresti ricevere una sola notifica.'
-          : 'Test non consegnato: ${result.errors.isNotEmpty ? result.errors.first : 'nessun dettaglio dal server'}.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      final message = e is PushNotificationSetupException
-          ? e.userMessage
-          : 'Test notifiche non riuscito: $e';
-      setState(() => _statusText = message);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
-    } finally {
-      if (mounted) setState(() => _testing = false);
-    }
-  }
-
   Future<void> _deleteNotification(PushNotice notice) async {
     final userId = _loggedUserId;
     final id = notice.id;
@@ -299,8 +254,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   children: [
                     _settingsCard(),
                     const SizedBox(height: 14),
-                    _testCard(),
-                    const SizedBox(height: 14),
                     _historyHeader(),
                     const SizedBox(height: 8),
                     if (_notifications.isEmpty)
@@ -365,43 +318,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
               activeTrackColor: const Color(0xFF007AFF),
               onChanged: _setEnabled,
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _testCard() {
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Test notifiche',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1A2B40),
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Invia una notifica di prova a questo dispositivo. Il risultato corretto è riceverne una sola.',
-            style: TextStyle(color: Color(0xFF49627E)),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _testing ? null : _testNotifications,
-              icon: _testing
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.send),
-              label: const Text('Invia test'),
-            ),
-          ),
         ],
       ),
     );

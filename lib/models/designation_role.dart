@@ -2,7 +2,7 @@ import 'gara.dart';
 
 enum DesignationRole {
   serviceManager('DSC'),
-  secretaryPc('PC Segreteria'),
+  secretaryPc('Elaborazione Dati'),
   timekeeper('Cronometrista'),
   viewer('Visualizzazione');
 

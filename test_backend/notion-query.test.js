@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import handler from '../api/notion-query.js';
+import handler, {
+  hideAllNotificationRecords,
+  hideNotificationRecord,
+  notificationAlreadyRecorded,
+  visibleNotificationRecords,
+} from '../api/notion-query.js';
 
 process.env.NOTION_TOKEN = 'test-notion-token';
 process.env.DATABASE_ID = 'test-users-database';
@@ -117,4 +122,48 @@ test('first access stays generic when username and email do not match', async ()
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test('hiding a notification preserves its delivery key for deduplication', () => {
+  const records = [
+    {
+      id: 'notice-1',
+      type: 'designation',
+      garaId: 'gara-1',
+      eventKey: 'designation:gara-1:edit-1',
+      read: false,
+      hidden: false,
+    },
+  ];
+
+  const hiddenRecords = hideNotificationRecord(records, 'notice-1');
+
+  assert.equal(hiddenRecords[0].hidden, true);
+  assert.equal(hiddenRecords[0].read, true);
+  assert.deepEqual(visibleNotificationRecords(hiddenRecords), []);
+  assert.equal(
+    notificationAlreadyRecorded(hiddenRecords, {
+      type: 'designation',
+      garaId: 'gara-1',
+      eventKey: 'designation:gara-1:edit-1',
+    }),
+    true,
+  );
+});
+
+test('clearing notifications hides records without losing delivery history', () => {
+  const records = [
+    { id: 'notice-1', eventKey: 'event-1', read: false },
+    { id: 'notice-2', eventKey: 'event-2', read: true },
+  ];
+
+  const hiddenRecords = hideAllNotificationRecords(records);
+
+  assert.equal(hiddenRecords.every((entry) => entry.hidden), true);
+  assert.equal(hiddenRecords.every((entry) => entry.read), true);
+  assert.deepEqual(visibleNotificationRecords(hiddenRecords), []);
+  assert.deepEqual(
+    hiddenRecords.map((entry) => entry.eventKey),
+    ['event-1', 'event-2'],
+  );
 });

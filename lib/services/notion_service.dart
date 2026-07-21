@@ -5,6 +5,13 @@ import '../config/app_config.dart';
 import '../config/app_environment.dart';
 import '../state/session_state.dart';
 
+class NotionPersonContact {
+  const NotionPersonContact({required this.name, required this.phone});
+
+  final String name;
+  final String phone;
+}
+
 class NotionService {
   final String databaseId;
 
@@ -74,18 +81,23 @@ class NotionService {
   /// Fetches the title of an arbitrary related page so we can show a readable
   /// name instead of the Notion relation ID.
   Future<String> fetchNameFromPage(String pageId) async {
+    return (await fetchPersonContactFromPage(pageId)).name;
+  }
+
+  Future<NotionPersonContact> fetchPersonContactFromPage(String pageId) async {
     final res = await _postViaWebProxy({
       'action': 'retrievePage',
       'pageId': pageId,
     });
 
     if (res.statusCode != 200) {
-      throw Exception('Errore fetchNameFromPage: ${res.body}');
+      throw Exception('Errore fetchPersonContactFromPage: ${res.body}');
     }
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     final props = data['properties'] as Map<String, dynamic>? ?? {};
 
+    var name = '';
     for (final value in props.values) {
       if (value is! Map<String, dynamic>) continue;
       if (value['type'] != 'title') continue;
@@ -97,12 +109,63 @@ class NotionService {
       if (first is Map<String, dynamic>) {
         final text = first['plain_text'];
         if (text is String && text.isNotEmpty) {
-          return text;
+          name = text.trim();
+          break;
         }
       }
     }
 
-    return '';
+    String readPhone(Object? raw) {
+      if (raw is! Map) return '';
+      final phone = raw['phone_number'];
+      if (phone is String && phone.trim().isNotEmpty) return phone.trim();
+      final richText = raw['rich_text'];
+      if (richText is List) {
+        final text = richText
+            .whereType<Map>()
+            .map((item) => item['plain_text']?.toString() ?? '')
+            .join()
+            .trim();
+        if (text.isNotEmpty) return text;
+      }
+      final formula = raw['formula'];
+      if (formula is Map) {
+        final text = formula['string'];
+        if (text is String && text.trim().isNotEmpty) return text.trim();
+      }
+      return '';
+    }
+
+    const phoneKeys = [
+      'TELEFONO',
+      'Telefono',
+      'telefono',
+      'CELLULARE',
+      'Cellulare',
+      'cellulare',
+      'PHONE',
+      'Phone',
+      'phone',
+      'MOBILE',
+      'Mobile',
+      'WHATSAPP',
+      'WhatsApp',
+    ];
+    var phone = '';
+    for (final key in phoneKeys) {
+      phone = readPhone(props[key]);
+      if (phone.isNotEmpty) break;
+    }
+    if (phone.isEmpty) {
+      for (final value in props.values) {
+        if (value is Map && value['type'] == 'phone_number') {
+          phone = readPhone(value);
+          if (phone.isNotEmpty) break;
+        }
+      }
+    }
+
+    return NotionPersonContact(name: name, phone: phone);
   }
 
   Future<Map<String, dynamic>> retrievePage(String pageId) async {

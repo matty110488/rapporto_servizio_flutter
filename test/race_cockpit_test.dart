@@ -14,6 +14,17 @@ class _FakeNotionService extends NotionService {
         'pc-id' => 'Anna Segreteria',
         _ => '',
       };
+
+  @override
+  Future<NotionPersonContact> fetchPersonContactFromPage(String pageId) async {
+    if (pageId == 'dsc-id') {
+      return const NotionPersonContact(
+        name: 'Mario Responsabile',
+        phone: '+39 333 7654321',
+      );
+    }
+    return const NotionPersonContact(name: '', phone: '');
+  }
 }
 
 Gara _gara({required String organizzatore}) => Gara(
@@ -35,18 +46,24 @@ Gara _gara({required String organizzatore}) => Gara(
       status: 'DESIGNAZIONE INVIATA',
     );
 
-Widget _app(Gara gara) => MaterialApp(
+Widget _app(
+  Gara gara, {
+  String userId = 'crono-id',
+  bool admin = false,
+}) =>
+    MaterialApp(
       home: DettaglioGara(
         gara: gara,
-        loggedUser: const {
-          'id': 'crono-id',
+        loggedUser: {
+          'id': userId,
           'properties': {
             'USERNAME': {
               'type': 'rich_text',
-              'rich_text': [
-                {'plain_text': 'Luca Cronometrista'}
+              'rich_text': const [
+                {'plain_text': 'Utente Test'}
               ],
             },
+            if (admin) 'ADMIN': {'checkbox': true},
           },
         },
         notionService: _FakeNotionService(),
@@ -73,8 +90,20 @@ void main() {
     expect(find.text('INDICAZIONI'), findsOneWidget);
     expect(find.text('ORGANIZZATORE'), findsOneWidget);
     expect(find.text('Sci Club'), findsOneWidget);
-    expect(find.text('CHIAMA ORGANIZZATORE'), findsOneWidget);
-    expect(find.text('+39 333 1234567'), findsOneWidget);
+    expect(find.text('CHIAMA ORGANIZZATORE'), findsNothing);
+    expect(find.text('Utente Test'), findsOneWidget);
+    expect(find.text('Cronometrista'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('TELEFONA'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Equipe di Cronometraggio'), findsOneWidget);
+    expect(find.text('TELEFONA'), findsOneWidget);
+    expect(find.text('WHATSAPP'), findsOneWidget);
 
     expect(find.text('Avanzamento missione'), findsNothing);
     expect(find.text('Il tuo pass'), findsNothing);
@@ -93,5 +122,45 @@ void main() {
     expect(find.text('Sci Club Valtellina'), findsOneWidget);
     expect(find.text('CHIAMA ORGANIZZATORE'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('race DSC can call the organizer', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        _gara(organizzatore: 'Sci Club +39 333 1234567'),
+        userId: 'dsc-id',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('CHIAMA ORGANIZZATORE'), findsOneWidget);
+    expect(find.text('+39 333 1234567'), findsOneWidget);
+  });
+
+  testWidgets('admin can call the organizer', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        _gara(organizzatore: 'Sci Club +39 333 1234567'),
+        userId: 'admin-id',
+        admin: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('CHIAMA ORGANIZZATORE'), findsOneWidget);
+  });
+
+  testWidgets('viewer identity is hidden from Race Control', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        _gara(organizzatore: 'Sci Club +39 333 1234567'),
+        userId: 'viewer-id',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('RACE CONTROL'), findsOneWidget);
+    expect(find.text('Utente Test'), findsNothing);
+    expect(find.text('Visualizzazione'), findsNothing);
   });
 }

@@ -86,7 +86,7 @@ deve conservare almeno queste proprietà e i relativi tipi:
 | `STATUS` | Status oppure select | Flusso designazione/rapportino |
 | `KRONOS DESIGNATI` | Relazione | Personale assegnato |
 | `DSC` | Relazione | Responsabile autorizzato al rapportino |
-| `PC SEGRETERIA` | Relazione | Personale di segreteria |
+| `PC SEGRETERIA` | Relazione | Personale Elaborazione Dati |
 | `APPARECCHIATURA` | Multi-select | Materiale previsto |
 | `TIPOLOGIA` | Select | Tipo di gara |
 | `ID SIC WIN` | Testo/valore leggibile | Pacchetti di più giornate |

@@ -26,6 +26,35 @@ const ALLOWED_ORIGINS = [
     .filter(Boolean),
 ];
 
+export function visibleNotificationRecords(records) {
+  return records.filter((entry) => entry?.hidden !== true);
+}
+
+export function hideNotificationRecord(records, notificationId) {
+  return records.map((entry) =>
+    entry.id === notificationId
+      ? { ...entry, read: true, hidden: true }
+      : entry,
+  );
+}
+
+export function hideAllNotificationRecords(records) {
+  return records.map((entry) => ({ ...entry, read: true, hidden: true }));
+}
+
+export function notificationAlreadyRecorded(records, notification) {
+  if (notification.eventKey) {
+    return records.some((entry) => entry.eventKey === notification.eventKey);
+  }
+  if (notification.type === 'designation' && notification.garaId) {
+    return records.some(
+      (entry) =>
+        entry.type === notification.type && entry.garaId === notification.garaId,
+    );
+  }
+  return false;
+}
+
 function isAllowedOrigin(origin) {
   // Requests from mobile/non-browser clients may not have Origin.
   if (!origin) return true;
@@ -265,6 +294,7 @@ export default async function handler(req, res) {
                   ? entry.createdAt
                   : new Date().toISOString(),
               read: entry.read === true,
+              hidden: entry.hidden === true,
             };
           })
           .filter(Boolean);
@@ -721,22 +751,8 @@ export default async function handler(req, res) {
       const existingRecords = notificationKey
         ? extractNotificationRecords(props[notificationKey])
         : [];
-      if (notification.eventKey) {
-        const alreadyExists = existingRecords.some(
-          (entry) => entry.eventKey === notification.eventKey,
-        );
-        if (alreadyExists) {
-          return { status: 200, data: { ok: true, deduped: true } };
-        }
-      } else if (notification.type === 'designation' && notification.garaId) {
-        const alreadyExists = existingRecords.some(
-          (entry) =>
-            entry.type === notification.type &&
-            entry.garaId === notification.garaId,
-        );
-        if (alreadyExists) {
-          return { status: 200, data: { ok: true, deduped: true } };
-        }
+      if (notificationAlreadyRecorded(existingRecords, notification)) {
+        return { status: 200, data: { ok: true, deduped: true } };
       }
       const record = {
         id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -1501,7 +1517,10 @@ export default async function handler(req, res) {
       const notifications = notificationKey
         ? extractNotificationRecords(props[notificationKey])
         : [];
-      return res.status(200).json({ ok: true, notifications });
+      return res.status(200).json({
+        ok: true,
+        notifications: visibleNotificationRecords(notifications),
+      });
     }
 
     if (action === 'markPushNotificationsRead') {
@@ -1550,7 +1569,7 @@ export default async function handler(req, res) {
       const notifications = notificationKey
         ? extractNotificationRecords(props[notificationKey])
         : [];
-      const nextNotifications = notifications.filter((entry) => entry.id !== notificationId);
+      const nextNotifications = hideNotificationRecord(notifications, notificationId);
       const saved = await saveNotificationRecords(userId, nextNotifications);
       if (saved.status !== 200) return res.status(saved.status).json(saved.data);
       return res.status(200).json({ ok: true, notifications: nextNotifications });
@@ -1563,7 +1582,19 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'Cannot clear notifications for another user' });
       }
 
-      const saved = await saveNotificationRecords(userId, []);
+      const page = await notionRequest(`https://api.notion.com/v1/pages/${userId}`, 'GET');
+      if (page.status !== 200) return res.status(page.status).json(page.data);
+      const props = page.data && typeof page.data === 'object' ? page.data.properties : {};
+      const notificationKey = findKeyByCandidates(props, [
+        'FCM_NOTIFICATIONS',
+        'PUSH_NOTIFICATIONS',
+        'NOTIFICHE_PUSH',
+      ]);
+      const notifications = notificationKey
+        ? extractNotificationRecords(props[notificationKey])
+        : [];
+      const nextNotifications = hideAllNotificationRecords(notifications);
+      const saved = await saveNotificationRecords(userId, nextNotifications);
       if (saved.status !== 200) return res.status(saved.status).json(saved.data);
       return res.status(200).json({ ok: true, notifications: [] });
     }

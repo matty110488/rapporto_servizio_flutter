@@ -16,13 +16,13 @@ PWA su iPhone, Android e computer.
 - nome, data, luogo e disciplina della gara;
 - stato e avanzamento Designazione > Servizio > Rapportino;
 - nome dell'utente e ruolo ricavato dalle relazioni Notion;
-- DSC, cronometristi e PC Segreteria;
+- DSC, cronometristi ed Elaborazione Dati;
 - apparecchiature previste;
 - apertura delle indicazioni stradali;
 - chiamata all'organizzatore quando il testo contiene un numero telefonico;
 - Pass designazione universale.
 
-Il ruolo viene risolto in questo ordine: DSC, PC Segreteria, Cronometrista,
+Il ruolo viene risolto in questo ordine: DSC, Elaborazione Dati, Cronometrista,
 Visualizzazione. L'ordine evita risultati ambigui quando una persona compare in
 piu relazioni.
 
