@@ -22,12 +22,14 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
   List<Gara> gareCompletate = [];
   bool loading = true;
   String? errore;
+  late int selectedYear;
 
   @override
   void initState() {
     super.initState();
+    selectedYear = AppConfig.currentRaceYear;
     notion = NotionService(
-      databaseId: AppConfig.primaryRaceDatabaseId,
+      databaseId: AppConfig.raceDatabaseIds[selectedYear]!,
     );
     _caricaArchivio();
   }
@@ -103,16 +105,14 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
     return false;
   }
 
-  Future<void> _caricaArchivio() async {
+  Future<void> _caricaArchivio({bool forceRefresh = false}) async {
     setState(() {
       loading = true;
       errore = null;
     });
 
     try {
-      final results = await notion.fetchGare(
-        additionalDatabaseIds: AppConfig.additionalRaceDatabaseIds,
-      );
+      final results = await notion.fetchGare(forceRefresh: forceRefresh);
       final all = results.map((e) => Gara.fromNotion(e)).toList();
 
       final userId = _loggedUserId;
@@ -149,6 +149,17 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
     }
   }
 
+  Future<void> _changeYear(int year) async {
+    if (year == selectedYear) return;
+    setState(() {
+      selectedYear = year;
+      loading = true;
+      errore = null;
+    });
+    notion = NotionService(databaseId: AppConfig.raceDatabaseIds[year]!);
+    await _caricaArchivio();
+  }
+
   String _fmtDateRange(Gara g) {
     String fmt(String iso) {
       final d = DateTime.tryParse(iso);
@@ -169,6 +180,7 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
           loggedUser: widget.loggedUser,
           initialGaraId: gara.id,
           includeSentReports: true,
+          initialRaceYear: selectedYear,
         ),
       ),
     );
@@ -180,6 +192,28 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
       appBar: AppBar(
         title: const Text('Archivio rapportini inviati'),
         actions: [
+          PopupMenuButton<int>(
+            tooltip: 'Scegli anno',
+            initialValue: selectedYear,
+            onSelected: _changeYear,
+            itemBuilder: (context) => AppConfig.configuredRaceYears.reversed
+                .map(
+                  (year) => PopupMenuItem<int>(
+                    value: year,
+                    child: Text(year.toString()),
+                  ),
+                )
+                .toList(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Center(
+                child: Text(
+                  selectedYear.toString(),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.help_outline),
             tooltip: 'Aiuto',
@@ -192,7 +226,7 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Aggiorna',
-            onPressed: _caricaArchivio,
+            onPressed: () => _caricaArchivio(forceRefresh: true),
           ),
           TextButton.icon(
             onPressed: () {

@@ -26,6 +26,16 @@ void main() {
     expect(AppConfig.latestRaceYear, AppConfig.configuredRaceYears.last);
   });
 
+  test('operational year prefers today and falls back to latest configured',
+      () {
+    expect(AppConfig.raceYearFor(DateTime(2026, 7, 1)), 2026);
+    expect(AppConfig.raceYearFor(DateTime(2030, 1, 1)), 2026);
+    expect(
+      AppConfig.currentRaceDatabaseId,
+      AppConfig.raceDatabaseIds[AppConfig.currentRaceYear],
+    );
+  });
+
   test('Notion schema contract contains the properties required by reports',
       () {
     expect(NotionRaceProperties.title, 'GARA');

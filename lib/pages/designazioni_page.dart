@@ -35,7 +35,7 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
   void initState() {
     super.initState();
     notion = NotionService(
-      databaseId: AppConfig.primaryRaceDatabaseId,
+      databaseId: AppConfig.currentRaceDatabaseId,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -44,15 +44,13 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
     _caricaGare();
   }
 
-  Future<void> _caricaGare() async {
+  Future<void> _caricaGare({bool forceRefresh = false}) async {
     setState(() {
       loading = true;
       errore = null;
     });
     try {
-      final results = await notion.fetchGare(
-        additionalDatabaseIds: AppConfig.additionalRaceDatabaseIds,
-      );
+      final results = await notion.fetchGare(forceRefresh: forceRefresh);
       final all = results.map((e) => Gara.fromNotion(e)).toList();
       final userId = _loggedUserId;
 
@@ -149,7 +147,7 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
         child: loading
             ? _buildLoadingState()
             : RefreshIndicator(
-                onRefresh: _caricaGare,
+                onRefresh: () => _caricaGare(forceRefresh: true),
                 child: errore != null
                     ? _buildErrorState()
                     : ListView(
@@ -217,7 +215,7 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
               Text(errore ?? ''),
               const SizedBox(height: 12),
               FilledButton.icon(
-                onPressed: _caricaGare,
+                onPressed: () => _caricaGare(forceRefresh: true),
                 icon: const Icon(Icons.refresh),
                 label: const Text('Riprova'),
               ),

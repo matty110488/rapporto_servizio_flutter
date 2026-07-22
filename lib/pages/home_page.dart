@@ -49,7 +49,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _raceControlController = PageController(viewportFraction: 0.92);
-    _notion = NotionService(databaseId: AppConfig.primaryRaceDatabaseId);
+    _notion = NotionService(databaseId: AppConfig.currentRaceDatabaseId);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       PrankPopupService.maybeShow(context, widget.loggedUser);
@@ -183,7 +183,10 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _loadDashboard({bool showLoading = true}) async {
+  Future<void> _loadDashboard({
+    bool showLoading = true,
+    bool forceRefresh = false,
+  }) async {
     if (_refreshingDashboard || (!showLoading && _loadingDashboard)) return;
     setState(() {
       if (showLoading) {
@@ -206,9 +209,7 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
-      final rows = await _notion.fetchGare(
-        additionalDatabaseIds: AppConfig.additionalRaceDatabaseIds,
-      );
+      final rows = await _notion.fetchGare(forceRefresh: forceRefresh);
       final gare = rows.map((e) => Gara.fromNotion(e)).toList();
 
       final conUtente = gare
@@ -504,7 +505,12 @@ class _HomePageState extends State<HomePage> {
           tooltip: 'Aggiorna servizi',
           onPressed: _loadingDashboard || _refreshingDashboard
               ? null
-              : () => unawaited(_loadDashboard(showLoading: false)),
+              : () => unawaited(
+                    _loadDashboard(
+                      showLoading: false,
+                      forceRefresh: true,
+                    ),
+                  ),
           icon: _refreshingDashboard
               ? SizedBox.square(
                   dimension: 18,
@@ -593,7 +599,12 @@ class _HomePageState extends State<HomePage> {
                 TextButton(
                   onPressed: _refreshingDashboard
                       ? null
-                      : () => unawaited(_loadDashboard(showLoading: false)),
+                      : () => unawaited(
+                            _loadDashboard(
+                              showLoading: false,
+                              forceRefresh: true,
+                            ),
+                          ),
                   child: const Text(
                     'Riprova',
                     style: TextStyle(color: Colors.white),

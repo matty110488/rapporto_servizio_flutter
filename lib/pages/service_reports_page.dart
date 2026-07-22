@@ -264,6 +264,7 @@ class _RapportinoDraftsPageState extends State<RapportinoDraftsPage> {
           initialGaraId: draft.primaryGaraId,
           initialWholePackage: draft.wholePackage,
           includeSentReports: true,
+          initialRaceYear: draft.raceYear,
         ),
       ),
     );

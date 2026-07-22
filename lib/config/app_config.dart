@@ -18,6 +18,17 @@ abstract final class AppConfig {
   static List<String> get allRaceDatabaseIds =>
       List<String>.unmodifiable(raceDatabaseIds.values);
 
+  /// The annual database used by operational screens on first load.
+  ///
+  /// If the calendar year has not been configured yet, keep the app usable by
+  /// falling back to the most recent configured database.
+  static int raceYearFor(DateTime date) =>
+      raceDatabaseIds.containsKey(date.year) ? date.year : latestRaceYear;
+
+  static int get currentRaceYear => raceYearFor(DateTime.now());
+
+  static String get currentRaceDatabaseId => raceDatabaseIds[currentRaceYear]!;
+
   /// First database used by pages that load every configured year.
   static String get primaryRaceDatabaseId => raceDatabaseIds.values.first;
 
@@ -28,6 +39,7 @@ abstract final class AppConfig {
   static int get latestRaceYear => raceDatabaseIds.keys.last;
 
   static const dashboardRefreshInterval = Duration(minutes: 5);
+  static const raceDatabaseCacheDuration = Duration(minutes: 5);
   static const notificationBadgeRefreshInterval = Duration(seconds: 45);
   static const notificationsPageRefreshInterval = Duration(seconds: 30);
   static const reportDraftAutosaveInterval = Duration(seconds: 10);

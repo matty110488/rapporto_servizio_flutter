@@ -48,7 +48,10 @@ class _GarePageState extends State<GarePage> {
     load();
   }
 
-  Future<void> load({bool showSpinner = false}) async {
+  Future<void> load({
+    bool showSpinner = false,
+    bool forceRefresh = false,
+  }) async {
     if (showSpinner) {
       setState(() {
         loading = true;
@@ -57,7 +60,7 @@ class _GarePageState extends State<GarePage> {
     notion = NotionService(
       databaseId: AppConfig.raceDatabaseIds[selectedYear]!,
     );
-    final results = await notion.fetchGare();
+    final results = await notion.fetchGare(forceRefresh: forceRefresh);
     final nextGare = results.map((e) => Gara.fromNotion(e)).toList();
 
     if (!mounted) return;
@@ -571,7 +574,9 @@ class _GarePageState extends State<GarePage> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Aggiorna calendario',
-            onPressed: loading ? null : () => load(showSpinner: true),
+            onPressed: loading
+                ? null
+                : () => load(showSpinner: true, forceRefresh: true),
           ),
           IconButton(
             icon: const Icon(Icons.help_outline),
@@ -605,7 +610,7 @@ class _GarePageState extends State<GarePage> {
         child: loading
             ? _buildLoadingState()
             : RefreshIndicator(
-                onRefresh: () => load(showSpinner: false),
+                onRefresh: () => load(forceRefresh: true),
                 child: grouped.isEmpty
                     ? _buildEmptyState(filtersEnabled: true)
                     : ListView(
@@ -682,7 +687,7 @@ class _GarePageState extends State<GarePage> {
               ),
               const SizedBox(height: 14),
               FilledButton.icon(
-                onPressed: () => load(showSpinner: true),
+                onPressed: () => load(showSpinner: true, forceRefresh: true),
                 icon: const Icon(Icons.refresh),
                 label: const Text('Aggiorna'),
               ),
@@ -891,7 +896,9 @@ class _GarePageState extends State<GarePage> {
           ),
           IconButton.filledTonal(
             tooltip: 'Aggiorna calendario',
-            onPressed: loading ? null : () => load(showSpinner: true),
+            onPressed: loading
+                ? null
+                : () => load(showSpinner: true, forceRefresh: true),
             icon: const Icon(Icons.refresh),
           ),
         ],

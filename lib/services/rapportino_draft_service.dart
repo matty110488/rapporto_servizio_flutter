@@ -9,6 +9,7 @@ class RapportinoDraftSummary {
   final DateTime updatedAt;
   final String primaryGaraId;
   final bool wholePackage;
+  final int? raceYear;
 
   const RapportinoDraftSummary({
     required this.draftId,
@@ -17,6 +18,7 @@ class RapportinoDraftSummary {
     required this.updatedAt,
     required this.primaryGaraId,
     required this.wholePackage,
+    this.raceYear,
   });
 }
 
@@ -69,6 +71,9 @@ class RapportinoDraftService {
             DateTime.fromMillisecondsSinceEpoch(0);
         final primaryGaraId = (data['primaryGaraId'] ?? '').toString().trim();
         final fallbackGaraId = draftId.contains(':') ? '' : draftId;
+        final raceDate = DateTime.tryParse(
+          (gara['dataGara'] ?? gara['data'] ?? '').toString(),
+        );
 
         summaries.add(
           RapportinoDraftSummary(
@@ -80,6 +85,7 @@ class RapportinoDraftService {
             primaryGaraId:
                 primaryGaraId.isNotEmpty ? primaryGaraId : fallbackGaraId,
             wholePackage: data['wholePackage'] == true,
+            raceYear: raceDate?.year,
           ),
         );
       } catch (_) {

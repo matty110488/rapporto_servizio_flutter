@@ -15,13 +15,13 @@ class StatistichePage extends StatefulWidget {
 }
 
 class _StatistichePageState extends State<StatistichePage> {
-  late final NotionService _notion;
+  late NotionService _notion;
   bool _loading = true;
   String? _error;
   _StatsData _stats = const _StatsData();
-  List<Gara> _allGare = const [];
   List<int> _availableYears = const [];
   int? _selectedYear;
+  int _loadRequestId = 0;
 
   String? get _loggedUserId {
     final id = widget.loggedUser['id'];
@@ -93,11 +93,14 @@ class _StatistichePageState extends State<StatistichePage> {
   @override
   void initState() {
     super.initState();
-    _notion = NotionService(databaseId: AppConfig.primaryRaceDatabaseId);
+    _selectedYear = AppConfig.currentRaceYear;
+    _availableYears = AppConfig.configuredRaceYears.reversed.toList();
+    _notion = NotionService(databaseId: AppConfig.currentRaceDatabaseId);
     _loadStats();
   }
 
-  Future<void> _loadStats() async {
+  Future<void> _loadStats({bool forceRefresh = false}) async {
+    final requestId = ++_loadRequestId;
     setState(() {
       _loading = true;
       _error = null;
@@ -114,23 +117,29 @@ class _StatistichePageState extends State<StatistichePage> {
         return;
       }
 
+      final selectedYear = _selectedYear;
+      final selectedDatabaseId = selectedYear == null
+          ? AppConfig.currentRaceDatabaseId
+          : AppConfig.raceDatabaseIds[selectedYear]!;
+      final additionalDatabaseIds = selectedYear == null
+          ? AppConfig.allRaceDatabaseIds
+              .where((id) => id != selectedDatabaseId)
+              .toList()
+          : const <String>[];
+      _notion = NotionService(databaseId: selectedDatabaseId);
       final results = await _notion.fetchGare(
-        additionalDatabaseIds: AppConfig.additionalRaceDatabaseIds,
+        additionalDatabaseIds: additionalDatabaseIds,
+        forceRefresh: forceRefresh,
       );
       final gare = results.map((e) => Gara.fromNotion(e)).toList();
-      final years = _extractYears(gare);
-      final selectedYear = _pickInitialYear(years, _selectedYear);
 
-      if (!mounted) return;
+      if (!mounted || requestId != _loadRequestId) return;
       setState(() {
-        _allGare = gare;
-        _availableYears = years;
-        _selectedYear = selectedYear;
         _stats = _buildStats(gare, userId, selectedYear);
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || requestId != _loadRequestId) return;
       setState(() {
         _error = e.toString();
         _loading = false;
@@ -139,12 +148,12 @@ class _StatistichePageState extends State<StatistichePage> {
   }
 
   void _selectYear(int? year) {
-    final userId = _loggedUserId;
-    if (userId == null) return;
     setState(() {
       _selectedYear = year;
-      _stats = _buildStats(_allGare, userId, year);
+      _loading = true;
+      _error = null;
     });
+    _loadStats();
   }
 
   _StatsData _buildStats(List<Gara> gare, String userId, int? year) {
@@ -175,23 +184,6 @@ class _StatistichePageState extends State<StatistichePage> {
   List<Gara> _filterByYear(List<Gara> gare, int? year) {
     if (year == null) return gare;
     return gare.where((g) => _yearOf(g) == year).toList();
-  }
-
-  List<int> _extractYears(List<Gara> gare) {
-    final years = <int>{};
-    for (final gara in gare) {
-      final year = _yearOf(gara);
-      if (year != null) years.add(year);
-    }
-    final sorted = years.toList()..sort((a, b) => b.compareTo(a));
-    return sorted;
-  }
-
-  int? _pickInitialYear(List<int> years, int? previous) {
-    if (previous != null && years.contains(previous)) return previous;
-    final currentYear = DateTime.now().year;
-    if (years.contains(currentYear)) return currentYear;
-    return years.isEmpty ? null : years.first;
   }
 
   int? _yearOf(Gara gara) {
@@ -252,7 +244,7 @@ class _StatistichePageState extends State<StatistichePage> {
         actions: [
           IconButton(
             tooltip: 'Aggiorna',
-            onPressed: _loadStats,
+            onPressed: () => _loadStats(forceRefresh: true),
             icon: const Icon(Icons.refresh),
           ),
           TextButton.icon(
@@ -276,7 +268,7 @@ class _StatistichePageState extends State<StatistichePage> {
           ),
         ),
         child: RefreshIndicator(
-          onRefresh: _loadStats,
+          onRefresh: () => _loadStats(forceRefresh: true),
           child: _loading
               ? ListView(
                   padding: const EdgeInsets.all(16),
@@ -292,7 +284,7 @@ class _StatistichePageState extends State<StatistichePage> {
                   ],
                 )
               : _error != null
-                  ? _ErrorView(error: _error!, onRetry: _loadStats)
+                  ? _ErrorView(error: _error!, onRetry: () => _loadStats())
                   : _StatsView(
                       stats: _stats,
                       availableYears: _availableYears,

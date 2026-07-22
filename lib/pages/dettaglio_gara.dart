@@ -55,7 +55,7 @@ class _DettaglioGaraState extends State<DettaglioGara> {
   void initState() {
     super.initState();
     notion = widget.notionService ??
-        NotionService(databaseId: AppConfig.primaryRaceDatabaseId);
+        NotionService(databaseId: AppConfig.currentRaceDatabaseId);
     loadPeople();
   }
 

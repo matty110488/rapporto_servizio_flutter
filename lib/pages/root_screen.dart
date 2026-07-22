@@ -29,6 +29,7 @@ class RootScreen extends StatefulWidget {
   final String? initialGaraId;
   final bool? initialWholePackage;
   final bool includeSentReports;
+  final int? initialRaceYear;
 
   const RootScreen({
     super.key,
@@ -36,6 +37,7 @@ class RootScreen extends StatefulWidget {
     this.initialGaraId,
     this.initialWholePackage,
     this.includeSentReports = false,
+    this.initialRaceYear,
   });
 
   @override
@@ -172,7 +174,8 @@ class _RootScreenState extends State<RootScreen> {
   void initState() {
     super.initState();
     notion = NotionService(
-      databaseId: AppConfig.primaryRaceDatabaseId,
+      databaseId: AppConfig.raceDatabaseIds[widget.initialRaceYear] ??
+          AppConfig.currentRaceDatabaseId,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -197,9 +200,7 @@ class _RootScreenState extends State<RootScreen> {
       gareError = null;
     });
     try {
-      final results = await notion.fetchGare(
-        additionalDatabaseIds: AppConfig.additionalRaceDatabaseIds,
-      );
+      final results = await notion.fetchGare();
       final allGare =
           results.map((e) => Gara.fromNotion(e)).toList(growable: false);
       final userId = _loggedUserId;

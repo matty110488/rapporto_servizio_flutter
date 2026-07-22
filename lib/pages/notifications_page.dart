@@ -42,7 +42,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   void initState() {
     super.initState();
-    _notion = NotionService(databaseId: AppConfig.primaryRaceDatabaseId);
+    _notion = NotionService(databaseId: AppConfig.currentRaceDatabaseId);
     _foregroundSubscription = foregroundPushNotices.listen((notice) {
       if (!mounted) return;
       setState(() {
