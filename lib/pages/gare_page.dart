@@ -450,60 +450,12 @@ class _GarePageState extends State<GarePage> {
   }
 
   Future<void> _toggleDisponibilita(Gara gara, bool join) async {
-    final userId = _loggedUserId;
-    if (userId == null) return;
-
     setState(() {
       updatingGare.add(gara.id);
     });
 
-    List<String> ids;
     try {
-      ids = await notion.fetchKronosDesignatiIds(gara.id);
-    } catch (_) {
-      ids = List<String>.from(gara.kronosIds);
-    }
-
-    if (join) {
-      if (!ids.contains(userId)) ids.add(userId);
-    } else {
-      ids.removeWhere((id) => id == userId);
-    }
-
-    try {
-      String currentDisponibilitaViaApp = '';
-      try {
-        currentDisponibilitaViaApp =
-            await notion.fetchDisponibilitaViaAppText(gara.id);
-      } catch (_) {
-        currentDisponibilitaViaApp = '';
-      }
-
-      final disponibilitaViaApp = _mergeDisponibilitaViaApp(
-        currentValue: currentDisponibilitaViaApp,
-        currentUserName: _loggedUserName(),
-        join: join,
-      );
-      await notion.updateKronosDesignati(
-        gara.id,
-        ids,
-        disponibilitaViaApp: disponibilitaViaApp,
-      );
-      AdminNotificationResult? notificationResult;
-      String? notificationError;
-      try {
-        notificationResult = await notion.notifyAdminsAvailability(
-          garaId: gara.id,
-          garaTitolo: gara.titolo,
-          userId: userId,
-          userName: _loggedUserName(),
-          available: join,
-        );
-      } catch (e) {
-        // Non blocchiamo il flusso disponibilita se la push fallisce.
-        notificationError = e.toString();
-        print('Notifica admin fallita: $e');
-      }
+      final result = await _updateDisponibilita(gara, join);
       await load();
       if (!mounted) return;
 
@@ -513,8 +465,8 @@ class _GarePageState extends State<GarePage> {
             _availabilitySnackText(
               garaTitle: gara.titolo,
               joined: join,
-              notificationResult: notificationResult,
-              notificationError: notificationError,
+              notificationResult: result.notificationResult,
+              notificationError: result.notificationError,
             ),
           ),
         ),
@@ -528,6 +480,112 @@ class _GarePageState extends State<GarePage> {
       if (mounted) {
         setState(() {
           updatingGare.remove(gara.id);
+        });
+      }
+    }
+  }
+
+  Future<_AvailabilityUpdateResult> _updateDisponibilita(
+    Gara gara,
+    bool join,
+  ) async {
+    final userId = _loggedUserId;
+    if (userId == null) throw StateError('Utente non riconosciuto.');
+
+    List<String> ids;
+    try {
+      ids = await notion.fetchKronosDesignatiIds(gara.id);
+    } catch (_) {
+      ids = List<String>.from(gara.kronosIds);
+    }
+    if (join) {
+      if (!ids.contains(userId)) ids.add(userId);
+    } else {
+      ids.removeWhere((id) => id == userId);
+    }
+
+    String currentDisponibilitaViaApp = '';
+    try {
+      currentDisponibilitaViaApp =
+          await notion.fetchDisponibilitaViaAppText(gara.id);
+    } catch (_) {
+      currentDisponibilitaViaApp = '';
+    }
+    final disponibilitaViaApp = _mergeDisponibilitaViaApp(
+      currentValue: currentDisponibilitaViaApp,
+      currentUserName: _loggedUserName(),
+      join: join,
+    );
+    await notion.updateKronosDesignati(
+      gara.id,
+      ids,
+      disponibilitaViaApp: disponibilitaViaApp,
+    );
+
+    AdminNotificationResult? notificationResult;
+    String? notificationError;
+    try {
+      notificationResult = await notion.notifyAdminsAvailability(
+        garaId: gara.id,
+        garaTitolo: gara.titolo,
+        userId: userId,
+        userName: _loggedUserName(),
+        available: join,
+      );
+    } catch (e) {
+      notificationError = e.toString();
+      debugPrint('Notifica admin fallita: $e');
+    }
+    return _AvailabilityUpdateResult(
+      notificationResult: notificationResult,
+      notificationError: notificationError,
+    );
+  }
+
+  Future<void> _togglePackageDisponibilita(GaraPackage entry) async {
+    final candidabili = entry.gare.where(_puoCandidarsi).toList();
+    if (_loggedUserId == null || candidabili.isEmpty) return;
+
+    final join = !candidabili.every(_isUserAssigned);
+    final targets =
+        candidabili.where((gara) => _isUserAssigned(gara) != join).toList();
+    if (targets.isEmpty) return;
+
+    setState(() {
+      updatingGare.addAll(candidabili.map((gara) => gara.id));
+    });
+
+    var completed = 0;
+    try {
+      for (final gara in targets) {
+        await _updateDisponibilita(gara, join);
+        completed++;
+      }
+      await load();
+      if (!mounted) return;
+      final action = join
+          ? 'Disponibilità data per tutto il pacchetto'
+          : 'Disponibilità rimossa da tutto il pacchetto';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$action (${targets.length} giornate).')),
+      );
+    } catch (e) {
+      await load();
+      if (!mounted) return;
+      final partial = completed == 0
+          ? ''
+          : ' Aggiornate $completed giornate su ${targets.length}.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Errore durante l\'aggiornamento del pacchetto.$partial $e',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          updatingGare.removeAll(candidabili.map((gara) => gara.id));
         });
       }
     }
@@ -1030,6 +1088,11 @@ class _GarePageState extends State<GarePage> {
   Widget _buildPackageCard(GaraPackage entry) {
     final gare = entry.gare;
     final main = gare.first;
+    final candidabili = gare.where(_puoCandidarsi).toList();
+    final packageUpdating =
+        candidabili.any((gara) => updatingGare.contains(gara.id));
+    final allPackageAssigned =
+        candidabili.isNotEmpty && candidabili.every(_isUserAssigned);
     final packageLabel = entry.suggested ? 'Gara in più giorni' : 'Pacchetto';
     final packageColor =
         entry.suggested ? const Color(0xFF9D6400) : const Color(0xFF1F5FA8);
@@ -1145,6 +1208,37 @@ class _GarePageState extends State<GarePage> {
                   )
                   .toList(),
             ),
+            if (_loggedUserId != null && candidabili.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: packageUpdating
+                      ? null
+                      : () => _togglePackageDisponibilita(entry),
+                  icon: packageUpdating
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          allPackageAssigned
+                              ? Icons.person_remove_alt_1
+                              : Icons.group_add_outlined,
+                        ),
+                  label: Text(
+                    allPackageAssigned
+                        ? 'Rimuovimi da tutto il pacchetto'
+                        : 'Mi rendo disponibile per tutto il pacchetto',
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF0A66C2),
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1152,6 +1246,10 @@ class _GarePageState extends State<GarePage> {
   }
 
   Widget _buildPackageDayRow(Gara gara) {
+    final candidabile = _puoCandidarsi(gara);
+    final assigned = _isUserAssigned(gara);
+    final designato = _isDesignato(gara);
+    final updating = updatingGare.contains(gara.id);
     return Material(
       color: const Color(0xFFF7FBFF),
       borderRadius: BorderRadius.circular(13),
@@ -1170,34 +1268,77 @@ class _GarePageState extends State<GarePage> {
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-          child: Row(
+          child: Column(
             children: [
-              SizedBox(
-                width: 82,
-                child: Text(
-                  _fmtDate(gara.dataGara) ?? '-',
-                  style: const TextStyle(
-                    color: Color(0xFF27415F),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
+              Row(
+                children: [
+                  SizedBox(
+                    width: 108,
+                    child: Text(
+                      _fmtDateWithWeekday(gara.dataGara) ?? '-',
+                      style: const TextStyle(
+                        color: Color(0xFF27415F),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      gara.titolo,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _statusChip(gara.status),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.chevron_right,
+                    color: Color(0xFF6D7E91),
+                  ),
+                ],
+              ),
+              if (assigned || designato) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _involvementChip(
+                    designato ? 'Sei designato' : 'Disponibilità data',
+                    designato
+                        ? Icons.verified_user_outlined
+                        : Icons.person_pin_circle_outlined,
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  gara.titolo,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+              ],
+              if (_loggedUserId != null && candidabile) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: updating
+                        ? null
+                        : () => _toggleDisponibilita(gara, !assigned),
+                    icon: updating
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            assigned
+                                ? Icons.person_remove_alt_1
+                                : Icons.person_add_alt_1,
+                          ),
+                    label: Text(
+                      assigned
+                          ? 'Rimuovimi da questa giornata'
+                          : 'Mi rendo disponibile per questa giornata',
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              _statusChip(gara.status),
-              const SizedBox(width: 4),
-              const Icon(
-                Icons.chevron_right,
-                color: Color(0xFF6D7E91),
-              ),
+              ],
             ],
           ),
         ),
@@ -1344,6 +1485,16 @@ class _GarePageState extends State<GarePage> {
       );
     }
     final day = DateFormat('dd').format(date);
+    const shortWeekdays = [
+      'LUN',
+      'MAR',
+      'MER',
+      'GIO',
+      'VEN',
+      'SAB',
+      'DOM',
+    ];
+    final weekday = shortWeekdays[date.weekday - 1];
     const shortMonths = [
       'GEN',
       'FEB',
@@ -1362,6 +1513,16 @@ class _GarePageState extends State<GarePage> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        Text(
+          weekday,
+          style: const TextStyle(
+            color: Color(0xFF49627E),
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 3),
         Text(
           day,
           style: const TextStyle(
@@ -1461,9 +1622,10 @@ class _GarePageState extends State<GarePage> {
   DateTime? _parseDate(String value) => DateTime.tryParse(value);
 
   String _formatDateRange(Gara gara) {
-    final start = _fmtDate(gara.dataGara);
-    final end =
-        gara.dataGaraFine.isNotEmpty ? _fmtDate(gara.dataGaraFine) : start;
+    final start = _fmtDateWithWeekday(gara.dataGara);
+    final end = gara.dataGaraFine.isNotEmpty
+        ? _fmtDateWithWeekday(gara.dataGaraFine)
+        : start;
     if (start == null && end == null) return '-';
     if (start != null && end != null && start != end) return '$start - $end';
     return start ?? end ?? '-';
@@ -1473,10 +1635,8 @@ class _GarePageState extends State<GarePage> {
     final start = entry.startDate;
     final end = entry.endDate ?? start;
     if (start == null && end == null) return '-';
-    final formattedStart =
-        start == null ? null : DateFormat('dd/MM/yyyy').format(start);
-    final formattedEnd =
-        end == null ? null : DateFormat('dd/MM/yyyy').format(end);
+    final formattedStart = start == null ? null : _formatDateWithWeekday(start);
+    final formattedEnd = end == null ? null : _formatDateWithWeekday(end);
     if (formattedStart != null &&
         formattedEnd != null &&
         formattedStart != formattedEnd) {
@@ -1485,10 +1645,15 @@ class _GarePageState extends State<GarePage> {
     return formattedStart ?? formattedEnd ?? '-';
   }
 
-  String? _fmtDate(String iso) {
-    final d = DateTime.tryParse(iso);
-    if (d == null) return null;
-    return DateFormat('dd/MM/yyyy').format(d);
+  String? _fmtDateWithWeekday(String iso) {
+    final date = DateTime.tryParse(iso);
+    return date == null ? null : _formatDateWithWeekday(date);
+  }
+
+  String _formatDateWithWeekday(DateTime date) {
+    const weekdays = ['LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB', 'DOM'];
+    return '${weekdays[date.weekday - 1]} '
+        '${DateFormat('dd/MM/yyyy').format(date)}';
   }
 
   _StatusStyle _statusStyle(String status) {
@@ -1553,6 +1718,16 @@ class _StatusStyle {
     required this.strong,
     required this.accent,
   });
+}
+
+class _AvailabilityUpdateResult {
+  const _AvailabilityUpdateResult({
+    required this.notificationResult,
+    required this.notificationError,
+  });
+
+  final AdminNotificationResult? notificationResult;
+  final String? notificationError;
 }
 
 class _CalendarEntry {

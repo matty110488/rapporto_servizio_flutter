@@ -5,7 +5,7 @@ class HelpContent {
   ];
 
   static const calendario = [
-    "Viene presentato l'elenco completo delle gare; l'utente puo' dare la propria disponibilita' premendo sull'apposito pulsante, visibile solo con stato DA GESTIRE o IN PROGRESS.",
+    "Viene presentato l'elenco completo delle gare; l'utente puo' dare la propria disponibilita' premendo sull'apposito pulsante, visibile solo con stato DA GESTIRE o IN PROGRESS. Per le gare in piu' giornate e' possibile scegliere una singola giornata oppure tutto il pacchetto.",
     'Se sei stato assegnato ad una gara (tramite la pressione del pulsante o dalla Segreteria), visualizzerai il pulsante "Rimuovimi dalla gara" che ti permette di ritirare la tua disponibilita\' PRIMA che lo status della gara sia COPERTA.',
     'Toccare una gara per vedere i dettagli.',
   ];
