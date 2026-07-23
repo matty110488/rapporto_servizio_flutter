@@ -10,7 +10,7 @@ import 'app_update_service_stub.dart'
 
 const _compiledAppVersion = String.fromEnvironment(
   'APP_VERSION',
-  defaultValue: '2.1.1+22',
+  defaultValue: '2.1.2+23',
 );
 
 bool get appUpdateSupported => platform.appUpdateSupported;

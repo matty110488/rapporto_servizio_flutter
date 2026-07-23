@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../config/app_config.dart';
 import '../models/gara.dart';
@@ -34,9 +35,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const _layoutVersion = 'App version 2.1.1 - MT88';
-
   late final NotionService _notion;
+  String _appVersionLabel = 'App version - MT88';
   bool _loadingDashboard = true;
   bool _refreshingDashboard = false;
   String? _dashboardError;
@@ -52,6 +52,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _raceControlController = PageController(viewportFraction: 0.92);
     _notion = NotionService(databaseId: AppConfig.currentRaceDatabaseId);
+    unawaited(_loadAppVersion());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       PrankPopupService.maybeShow(context, widget.loggedUser);
@@ -99,6 +100,19 @@ class _HomePageState extends State<HomePage> {
     final id = widget.loggedUser['id'];
     if (id is String && id.isNotEmpty) return id;
     return null;
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      final version = packageInfo.version.trim();
+      if (!mounted || version.isEmpty) return;
+      setState(() {
+        _appVersionLabel = 'App version $version - MT88';
+      });
+    } catch (_) {
+      // The version label is decorative and must never block the home page.
+    }
   }
 
   Future<void> _showAvailableAppUpdate() async {
@@ -407,6 +421,7 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         _HomeSidebar(
                           userName: userName,
+                          appVersionLabel: _appVersionLabel,
                           navItems: navItems,
                           onLogout: widget.onLogout,
                         ),
@@ -489,10 +504,10 @@ class _HomePageState extends State<HomePage> {
                 onOpenNotifications: onOpenNotifications,
               ),
             const SizedBox(height: 14),
-            const Center(
+            Center(
               child: Text(
-                _layoutVersion,
-                style: TextStyle(
+                _appVersionLabel,
+                style: const TextStyle(
                   color: Color(0xFF7B8EA3),
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -847,11 +862,13 @@ class _HomeNavData {
 
 class _HomeSidebar extends StatelessWidget {
   final String userName;
+  final String appVersionLabel;
   final List<_HomeNavData> navItems;
   final VoidCallback onLogout;
 
   const _HomeSidebar({
     required this.userName,
+    required this.appVersionLabel,
     required this.navItems,
     required this.onLogout,
   });
@@ -904,9 +921,9 @@ class _HomeSidebar extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            _HomePageState._layoutVersion,
-            style: TextStyle(
+          Text(
+            appVersionLabel,
+            style: const TextStyle(
               color: Color(0xFF7B8EA3),
               fontSize: 11,
               fontWeight: FontWeight.w600,
