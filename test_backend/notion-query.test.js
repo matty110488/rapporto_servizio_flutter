@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import handler, {
+  DEFAULT_REPORT_NOTIFICATION_EMAIL,
   hideAllNotificationRecords,
   hideNotificationRecord,
+  isReportReceivedTransition,
   notificationAlreadyRecorded,
   visibleNotificationRecords,
 } from '../api/notion-query.js';
@@ -165,5 +167,24 @@ test('clearing notifications hides records without losing delivery history', () 
   assert.deepEqual(
     hiddenRecords.map((entry) => entry.eventKey),
     ['event-1', 'event-2'],
+  );
+});
+
+test('report notification targets Mattia only on a real received-status transition', () => {
+  assert.equal(DEFAULT_REPORT_NOTIFICATION_EMAIL, 'tognoli.mt@gmail.com');
+  assert.equal(
+    isReportReceivedTransition('IN PROGRESS', 'RAPPORTINO RICEVUTO'),
+    true,
+  );
+  assert.equal(
+    isReportReceivedTransition(
+      'RAPPORTINO RICEVUTO',
+      'RAPPORTINO RICEVUTO',
+    ),
+    false,
+  );
+  assert.equal(
+    isReportReceivedTransition('IN PROGRESS', 'GARA COMPLETATA'),
+    false,
   );
 });

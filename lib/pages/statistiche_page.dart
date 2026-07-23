@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
+import '../utils/italian_date_formatter.dart';
 import '../widgets/stopwatch_loading.dart';
 
 class StatistichePage extends StatefulWidget {
@@ -847,9 +848,5 @@ BoxDecoration _panelDecoration({
 }
 
 String _formatDate(String iso) {
-  final parsed = DateTime.tryParse(iso);
-  if (parsed == null) return iso.isEmpty ? '-' : iso;
-  final dd = parsed.day.toString().padLeft(2, '0');
-  final mm = parsed.month.toString().padLeft(2, '0');
-  return '$dd/$mm/${parsed.year}';
+  return formatItalianIsoDateOrValue(iso);
 }

@@ -7,6 +7,7 @@ import '../models/gara.dart';
 import '../models/gara_package.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
+import '../utils/italian_date_formatter.dart';
 import '../widgets/help_dialog.dart';
 import '../widgets/stopwatch_loading.dart';
 import 'dettaglio_gara.dart';
@@ -1485,16 +1486,7 @@ class _GarePageState extends State<GarePage> {
       );
     }
     final day = DateFormat('dd').format(date);
-    const shortWeekdays = [
-      'LUN',
-      'MAR',
-      'MER',
-      'GIO',
-      'VEN',
-      'SAB',
-      'DOM',
-    ];
-    final weekday = shortWeekdays[date.weekday - 1];
+    final weekday = italianShortWeekday(date);
     const shortMonths = [
       'GEN',
       'FEB',
@@ -1635,8 +1627,8 @@ class _GarePageState extends State<GarePage> {
     final start = entry.startDate;
     final end = entry.endDate ?? start;
     if (start == null && end == null) return '-';
-    final formattedStart = start == null ? null : _formatDateWithWeekday(start);
-    final formattedEnd = end == null ? null : _formatDateWithWeekday(end);
+    final formattedStart = start == null ? null : formatItalianDate(start);
+    final formattedEnd = end == null ? null : formatItalianDate(end);
     if (formattedStart != null &&
         formattedEnd != null &&
         formattedStart != formattedEnd) {
@@ -1646,14 +1638,7 @@ class _GarePageState extends State<GarePage> {
   }
 
   String? _fmtDateWithWeekday(String iso) {
-    final date = DateTime.tryParse(iso);
-    return date == null ? null : _formatDateWithWeekday(date);
-  }
-
-  String _formatDateWithWeekday(DateTime date) {
-    const weekdays = ['LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB', 'DOM'];
-    return '${weekdays[date.weekday - 1]} '
-        '${DateFormat('dd/MM/yyyy').format(date)}';
+    return formatItalianIsoDate(iso);
   }
 
   _StatusStyle _statusStyle(String status) {

@@ -55,6 +55,14 @@ export function notificationAlreadyRecorded(records, notification) {
   return false;
 }
 
+export const DEFAULT_REPORT_NOTIFICATION_EMAIL = 'tognoli.mt@gmail.com';
+
+export function isReportReceivedTransition(previousStatus, targetStatus) {
+  const previous = String(previousStatus || '').trim().toUpperCase();
+  const target = String(targetStatus || '').trim().toUpperCase();
+  return target === RACE_STATUSES.reportReceived && previous !== target;
+}
+
 function isAllowedOrigin(origin) {
   // Requests from mobile/non-browser clients may not have Origin.
   if (!origin) return true;
@@ -855,6 +863,106 @@ export default async function handler(req, res) {
       };
     };
 
+    const notifyReportRecipient = async (garaPage) => {
+      const recipientEmail = String(
+        process.env.REPORT_NOTIFICATION_EMAIL || DEFAULT_REPORT_NOTIFICATION_EMAIL,
+      )
+        .trim()
+        .toLowerCase();
+      const users = await queryAllDatabasePages(DATABASE_ID);
+      const recipient = users.find(
+        (candidate) => emailFromUser(candidate).trim().toLowerCase() === recipientEmail,
+      );
+      if (!recipient || typeof recipient.id !== 'string') {
+        return {
+          sent: 0,
+          attempted: 0,
+          recipients: 0,
+          reason: `Report notification recipient not found: ${recipientEmail}`,
+        };
+      }
+
+      const garaId = typeof garaPage?.id === 'string' ? garaPage.id : '';
+      const garaTitolo = extractPageTitle(garaPage);
+      const garaData = extractGaraDateText(garaPage);
+      const garaLuogo = extractGaraPlaceText(garaPage);
+      const details = [garaData, garaLuogo].filter(Boolean).join(' - ');
+      const title = 'Nuovo rapportino ricevuto';
+      const body = details
+        ? `È stato inviato il rapportino per ${garaTitolo}\n${details}`
+        : `È stato inviato il rapportino per ${garaTitolo}`;
+      const eventKey = [
+        'report-received',
+        garaId,
+        typeof garaPage?.last_edited_time === 'string'
+          ? garaPage.last_edited_time
+          : '',
+      ].join(':');
+
+      const saved = await appendUserNotification(recipient.id, {
+        title,
+        body,
+        type: 'report-received',
+        garaId,
+        eventKey,
+      });
+      if (saved.status !== 200) {
+        return {
+          sent: 0,
+          attempted: 0,
+          recipients: 0,
+          error: 'Unable to record report notification',
+        };
+      }
+      if (saved.data?.deduped === true) {
+        return {
+          sent: 0,
+          attempted: 0,
+          recipients: 1,
+          deduped: true,
+        };
+      }
+
+      const props =
+        recipient.properties && typeof recipient.properties === 'object'
+          ? recipient.properties
+          : {};
+      const tokenKey = findKeyByCandidates(props, [
+        'FCM_TOKEN',
+        'PUSH_TOKEN',
+        'TOKEN_PUSH',
+      ]);
+      const tokens = tokenKey ? extractPushTokens(props[tokenKey]) : [];
+      if (tokens.length === 0) {
+        return {
+          sent: 0,
+          attempted: 0,
+          recipients: 1,
+          recorded: true,
+          reason: 'Report recipient has no active push tokens',
+        };
+      }
+
+      const result = await sendFcmMessages({
+        tokens,
+        title,
+        body,
+        data: {
+          type: 'report-received',
+          garaId,
+          garaTitolo,
+          garaData,
+          garaLuogo,
+          recipientEmail,
+        },
+      });
+      return {
+        ...result,
+        recipients: 1,
+        recorded: true,
+      };
+    };
+
     const savePasskeys = async (pageId, passkeys) => {
       const propertyResult = await ensurePasskeysProperty();
       if (propertyResult.status !== 200) return propertyResult;
@@ -1308,14 +1416,22 @@ export default async function handler(req, res) {
         'PATCH',
         payload,
       );
-      if (
-        response.status === 200 &&
-        targetStatus === RACE_STATUSES.designationSent &&
-        previousStatus !== RACE_STATUSES.designationSent
-      ) {
+      if (response.status === 200) {
         try {
-          const notificationResult = await notifyDesignatedCronos(response.data);
-          if (response.data && typeof response.data === 'object') {
+          let notificationResult;
+          if (
+            targetStatus === RACE_STATUSES.designationSent &&
+            previousStatus !== RACE_STATUSES.designationSent
+          ) {
+            notificationResult = await notifyDesignatedCronos(response.data);
+          } else if (isReportReceivedTransition(previousStatus, targetStatus)) {
+            notificationResult = await notifyReportRecipient(response.data);
+          }
+          if (
+            notificationResult &&
+            response.data &&
+            typeof response.data === 'object'
+          ) {
             response.data.pushNotification = notificationResult;
           }
         } catch (error) {

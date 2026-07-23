@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/cronometristi.dart';
+import '../utils/italian_date_formatter.dart';
 
 class GaraForm extends StatefulWidget {
   final ValueChanged<String>? onSportChanged;
@@ -805,14 +806,7 @@ class GaraFormState extends State<GaraForm> {
   String _formatDateLabel(dynamic value) {
     final d = value?.toString() ?? '';
     if (d.isEmpty) return '';
-    final parts = d.split('-');
-    if (parts.length == 3) {
-      final dd = parts[2].padLeft(2, '0');
-      final mm = parts[1].padLeft(2, '0');
-      final yyyy = parts[0];
-      return "$dd/$mm/$yyyy";
-    }
-    return d;
+    return formatItalianIsoDateOrValue(d, emptyValue: '');
   }
 
   Widget _dataSelector(String label, DateTime? date, VoidCallback onPressed) {

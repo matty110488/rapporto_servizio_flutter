@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../config/app_config.dart';
 import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
+import '../utils/italian_date_formatter.dart';
 import '../widgets/help_dialog.dart';
 import '../widgets/stopwatch_loading.dart';
 import 'dettaglio_gara.dart';
@@ -405,9 +405,7 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
   }
 
   String? _fmtDate(String iso) {
-    final d = DateTime.tryParse(iso);
-    if (d == null) return null;
-    return DateFormat('dd/MM/yyyy').format(d);
+    return formatItalianIsoDate(iso);
   }
 }
 

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config/app_config.dart';
 import '../models/designation_role.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
+import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
 import '../widgets/stopwatch_loading.dart';
 
@@ -569,7 +569,7 @@ class _DettaglioGaraState extends State<DettaglioGara> {
     if (days == 0) return 'OGGI · È IL GIORNO DELLA GARA';
     if (days == 1) return 'DOMANI';
     if (days > 1) return 'TRA $days GIORNI';
-    return 'SERVIZIO DEL ${DateFormat('dd/MM/yyyy').format(date)}';
+    return 'SERVIZIO DEL ${formatItalianDate(date)}';
   }
 
   String _formatDateRange(Gara gara) {
@@ -591,8 +591,7 @@ class _DettaglioGaraState extends State<DettaglioGara> {
   }
 
   String? _fmtDate(String iso) {
-    final date = DateTime.tryParse(iso);
-    return date == null ? null : DateFormat('dd/MM/yyyy').format(date);
+    return formatItalianIsoDate(iso);
   }
 
   Future<void> _openDirections() async {

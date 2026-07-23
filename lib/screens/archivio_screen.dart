@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../config/app_config.dart';
 import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../pages/root_screen.dart';
 import '../services/notion_service.dart';
+import '../utils/italian_date_formatter.dart';
 import '../widgets/help_dialog.dart';
 
 class ArchivioScreen extends StatefulWidget {
@@ -162,9 +162,7 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
 
   String _fmtDateRange(Gara g) {
     String fmt(String iso) {
-      final d = DateTime.tryParse(iso);
-      if (d == null) return iso.isEmpty ? '-' : iso;
-      return DateFormat('dd/MM/yyyy').format(d);
+      return formatItalianIsoDateOrValue(iso);
     }
 
     final start = fmt(g.dataGara);

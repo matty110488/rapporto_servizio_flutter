@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../constants/help_content.dart';
 import '../screens/archivio_screen.dart';
 import '../services/rapportino_draft_service.dart';
+import '../utils/italian_date_formatter.dart';
 import '../widgets/help_dialog.dart';
 import 'root_screen.dart';
 
@@ -297,7 +298,7 @@ class _RapportinoDraftsPageState extends State<RapportinoDraftsPage> {
 
   String _savedLabel(DateTime value) {
     if (value.millisecondsSinceEpoch == 0) return 'Data non disponibile';
-    return 'Salvata il ${DateFormat('dd/MM/yyyy').format(value)} '
+    return 'Salvata il ${formatItalianDate(value)} '
         'alle ${DateFormat('HH:mm').format(value)}';
   }
 
@@ -356,7 +357,9 @@ class _RapportinoDraftsPageState extends State<RapportinoDraftsPage> {
                             ),
                             if (draft.dateLabel.isNotEmpty) ...[
                               const SizedBox(height: 5),
-                              Text(draft.dateLabel),
+                              Text(
+                                addItalianWeekdaysToDateLabel(draft.dateLabel),
+                              ),
                             ],
                             const SizedBox(height: 5),
                             Text(

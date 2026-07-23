@@ -8,6 +8,7 @@ import '../services/app_update_service.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/push_notification_service.dart';
+import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
 import 'dettaglio_gara.dart';
 import 'designazioni_page.dart';
@@ -493,11 +494,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _hero(String userName) {
     String formatDate(String iso) {
-      final d = DateTime.tryParse(iso);
-      if (d == null) return '-';
-      final dd = d.day.toString().padLeft(2, '0');
-      final mm = d.month.toString().padLeft(2, '0');
-      return '$dd/$mm/${d.year}';
+      return formatItalianIsoDate(iso) ?? '-';
     }
 
     final prossimi = _dashboard.nextServices;
