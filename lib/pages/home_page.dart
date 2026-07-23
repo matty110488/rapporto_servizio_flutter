@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../config/app_config.dart';
 import '../models/gara.dart';
+import '../services/app_update_exception.dart';
 import '../services/app_update_service.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
@@ -33,7 +34,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const _layoutVersion = 'App version 2.1.0 - MT88';
+  static const _layoutVersion = 'App version 2.1.1 - MT88';
 
   late final NotionService _notion;
   bool _loadingDashboard = true;
@@ -136,13 +137,25 @@ class _HomePageState extends State<HomePage> {
     if (shouldUpdate != true || !mounted) return;
 
     try {
-      await forceAppUpdate();
-    } catch (_) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
+          duration: Duration(seconds: 20),
           content: Text(
-            'Non è stato possibile aggiornare l’app. Riprova da Impostazioni.',
+            'Download dell’aggiornamento in corso. Non chiudere l’app…',
+          ),
+        ),
+      );
+      await forceAppUpdate();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error is AppUpdateException
+                ? error.userMessage
+                : 'Non è stato possibile aggiornare l’app. '
+                    'Riprova da Impostazioni.',
           ),
         ),
       );

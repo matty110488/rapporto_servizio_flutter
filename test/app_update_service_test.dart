@@ -21,4 +21,31 @@ void main() {
 
     expect(update, isNull);
   });
+
+  test('reads Android APK metadata from the update manifest', () {
+    final update = appUpdateFromVersionPayload(
+      const {
+        'version': '2.1.1',
+        'build_number': '22',
+        'android': {
+          'apk_url': 'https://example.com/crono.apk',
+          'sha256': 'ABC123',
+        },
+      },
+      currentVersion: '2.1.0+21',
+    );
+
+    expect(update, isNotNull);
+    expect(update!.androidApkUrl, 'https://example.com/crono.apk');
+    expect(update.androidSha256, 'abc123');
+  });
+
+  test('does not offer an older published build', () {
+    final update = appUpdateFromVersionPayload(
+      const {'version': '2.0.9', 'build_number': '20'},
+      currentVersion: '2.1.0+21',
+    );
+
+    expect(update, isNull);
+  });
 }

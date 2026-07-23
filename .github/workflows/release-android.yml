@@ -1,0 +1,90 @@
+name: Release Android APK
+
+on:
+  push:
+    tags:
+      - 'android-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.3'
+          cache: true
+
+      - name: Configure Android signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ANDROID_KEY_ALIAS"
+          test -n "$ANDROID_KEY_PASSWORD"
+          test -n "$ANDROID_STORE_PASSWORD"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          printf '%s\n' \
+            "storeFile=upload-keystore.jks" \
+            "storePassword=$ANDROID_STORE_PASSWORD" \
+            "keyPassword=$ANDROID_KEY_PASSWORD" \
+            "keyAlias=$ANDROID_KEY_ALIAS" \
+            > android/key.properties
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-pub --no-fatal-infos
+
+      - name: Test
+        run: flutter test --no-pub
+
+      - name: Read app version
+        run: echo "APP_VERSION=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml)" >> "$GITHUB_ENV"
+
+      - name: Build signed APK
+        run: >-
+          flutter build apk --release --no-pub
+          --dart-define=APP_ENV=prod
+          --dart-define=APP_VERSION=$APP_VERSION
+
+      - name: Prepare update manifest
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk crono-valtellinesi.apk
+          APK_SHA256="$(sha256sum crono-valtellinesi.apk | cut -d ' ' -f1)"
+          APP_NAME="${APP_VERSION%%+*}"
+          BUILD_NUMBER="${APP_VERSION##*+}"
+          APK_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/crono-valtellinesi.apk"
+          jq -n \
+            --arg version "$APP_NAME" \
+            --arg build_number "$BUILD_NUMBER" \
+            --arg apk_url "$APK_URL" \
+            --arg sha256 "$APK_SHA256" \
+            '{
+              version: $version,
+              build_number: $build_number,
+              android: {
+                apk_url: $apk_url,
+                sha256: $sha256
+              }
+            }' > android-update.json
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME"
+          crono-valtellinesi.apk
+          android-update.json
+          --title "Crono Valtellinesi $APP_VERSION"
+          --generate-notes
