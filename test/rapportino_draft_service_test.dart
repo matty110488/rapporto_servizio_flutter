@@ -25,7 +25,7 @@ void main() {
       'wholePackage': true,
       'userId': 'user-a',
       'updatedAt': '2026-08-13T11:00:00.000',
-      'gara': {'nome': 'Meeting alpino'},
+      'gara': {'nome': 'Meeting alpino', 'data': '2026-08-13'},
     });
     await service.saveDraft('gara-other', {
       'title': 'Altra gara',
@@ -39,6 +39,7 @@ void main() {
     expect(drafts.first.draftId, 'package:42');
     expect(drafts.first.primaryGaraId, 'gara-2');
     expect(drafts.first.wholePackage, isTrue);
+    expect(drafts.first.raceYear, 2026);
   });
 
   test('deletes a local draft', () async {

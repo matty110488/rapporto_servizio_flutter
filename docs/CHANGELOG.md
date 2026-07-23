@@ -4,6 +4,15 @@ Questo documento registra le modifiche che cambiano il modo in cui il progetto
 e configurato o gestito. Le modifiche funzionali dettagliate restano disponibili
 anche nella cronologia Git e nelle pull request GitHub.
 
+## 2026-07-22 - Caricamento annuale e cache gare
+
+- Home, Designazioni e compilazione rapportini leggono solo l'anno corrente.
+- Calendario, Archivio e Statistiche caricano gli anni storici solo su scelta
+  esplicita dell'utente.
+- Aggiunta una cache annuale condivisa di cinque minuti per evitare letture
+  duplicate passando da una schermata all'altra.
+- Aggiornamenti manuali e modifiche alle gare invalidano o ignorano la cache.
+
 ## 2026-07-19 - Cockpit gara e Pass universale
 
 - Trasformato il dettaglio gara in un cockpit operativo.

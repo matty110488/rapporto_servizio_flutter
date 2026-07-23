@@ -15,6 +15,7 @@ import '../pdf/generatore_pdf2.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/rapportino_draft_service.dart';
+import '../utils/italian_date_formatter.dart';
 import '../widgets/allegati_form.dart';
 import '../widgets/apparecchiatura_form.dart';
 import '../widgets/cronometristi_form.dart';
@@ -29,6 +30,7 @@ class RootScreen extends StatefulWidget {
   final String? initialGaraId;
   final bool? initialWholePackage;
   final bool includeSentReports;
+  final int? initialRaceYear;
 
   const RootScreen({
     super.key,
@@ -36,6 +38,7 @@ class RootScreen extends StatefulWidget {
     this.initialGaraId,
     this.initialWholePackage,
     this.includeSentReports = false,
+    this.initialRaceYear,
   });
 
   @override
@@ -172,7 +175,8 @@ class _RootScreenState extends State<RootScreen> {
   void initState() {
     super.initState();
     notion = NotionService(
-      databaseId: AppConfig.primaryRaceDatabaseId,
+      databaseId: AppConfig.raceDatabaseIds[widget.initialRaceYear] ??
+          AppConfig.currentRaceDatabaseId,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -197,9 +201,7 @@ class _RootScreenState extends State<RootScreen> {
       gareError = null;
     });
     try {
-      final results = await notion.fetchGare(
-        additionalDatabaseIds: AppConfig.additionalRaceDatabaseIds,
-      );
+      final results = await notion.fetchGare();
       final allGare =
           results.map((e) => Gara.fromNotion(e)).toList(growable: false);
       final userId = _loggedUserId;
@@ -666,9 +668,7 @@ class _RootScreenState extends State<RootScreen> {
 
   String _formatDateLabel(String value) {
     if (value.isEmpty) return '-';
-    final parsed = DateTime.tryParse(value);
-    if (parsed == null) return value;
-    return DateFormat('dd/MM/yyyy').format(parsed);
+    return formatItalianIsoDateOrValue(value);
   }
 
   String _garaDisplayLabel(Gara gara) {
@@ -687,18 +687,16 @@ class _RootScreenState extends State<RootScreen> {
     final dateLabel = dates.isEmpty
         ? 'Senza data'
         : dates.length == 1
-            ? DateFormat('dd/MM/yyyy').format(dates.first)
-            : '${DateFormat('dd/MM').format(dates.first)} - '
-                '${DateFormat('dd/MM/yyyy').format(dates.last)}';
+            ? formatItalianDate(dates.first)
+            : '${formatItalianDate(dates.first, includeYear: false)} - '
+                '${formatItalianDate(dates.last)}';
     return '$dateLabel · ${package.title} · ${dates.length} giornate';
   }
 
   String _packageDatesLabel(GaraPackage package) {
     final dates = package.activeDates;
     if (dates.isEmpty) return 'Date non disponibili';
-    return dates
-        .map((date) => DateFormat('dd/MM/yyyy').format(date))
-        .join(', ');
+    return dates.map(formatItalianDate).join(', ');
   }
 
   Widget _scopeOption({

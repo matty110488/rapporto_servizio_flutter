@@ -15,6 +15,10 @@ class NotionPersonContact {
 class NotionService {
   final String databaseId;
 
+  static final Map<String, _RaceDatabaseCacheEntry> _raceDatabaseCache = {};
+  static final Map<String, Future<List<Map<String, dynamic>>>>
+      _raceDatabaseRequests = {};
+
   NotionService({required this.databaseId});
 
   // ---------------------------
@@ -22,6 +26,7 @@ class NotionService {
   // ---------------------------
   Future<List<Map<String, dynamic>>> fetchGare({
     List<String> additionalDatabaseIds = const [],
+    bool forceRefresh = false,
   }) async {
     final ids = <String>{
       databaseId,
@@ -29,9 +34,46 @@ class NotionService {
     };
     final List<Map<String, dynamic>> all = [];
     for (final id in ids) {
-      all.addAll(await _fetchGareFromDatabase(id));
+      all.addAll(
+        await _fetchCachedGareFromDatabase(id, forceRefresh: forceRefresh),
+      );
     }
     return all;
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchCachedGareFromDatabase(
+    String dbId, {
+    required bool forceRefresh,
+  }) async {
+    final now = DateTime.now();
+    final cached = _raceDatabaseCache[dbId];
+    if (!forceRefresh &&
+        cached != null &&
+        now.difference(cached.loadedAt) < AppConfig.raceDatabaseCacheDuration) {
+      return cached.rows;
+    }
+
+    final pending = _raceDatabaseRequests[dbId];
+    if (pending != null) return pending;
+
+    final request = _fetchGareFromDatabase(dbId);
+    _raceDatabaseRequests[dbId] = request;
+    try {
+      final rows = await request;
+      _raceDatabaseCache[dbId] = _RaceDatabaseCacheEntry(
+        rows: rows,
+        loadedAt: DateTime.now(),
+      );
+      return rows;
+    } finally {
+      if (identical(_raceDatabaseRequests[dbId], request)) {
+        _raceDatabaseRequests.remove(dbId);
+      }
+    }
+  }
+
+  static void invalidateRaceDatabaseCache() {
+    _raceDatabaseCache.clear();
   }
 
   Future<List<Map<String, dynamic>>> _fetchGareFromDatabase(String dbId) async {
@@ -273,6 +315,7 @@ class NotionService {
     if (res.statusCode != 200) {
       throw Exception('Errore aggiornamento gara: ${res.body}');
     }
+    invalidateRaceDatabaseCache();
   }
 
   Future<AdminNotificationResult> notifyAdminsAvailability({
@@ -331,12 +374,16 @@ class NotionService {
     };
 
     final primary = await _patchPage(pageId, statusPayload);
-    if (primary.statusCode == 200) return;
+    if (primary.statusCode == 200) {
+      invalidateRaceDatabaseCache();
+      return;
+    }
 
     final fallback = await _patchPage(pageId, selectPayload);
     if (fallback.statusCode != 200) {
       throw Exception('Errore aggiornamento status gara: ${fallback.body}');
     }
+    invalidateRaceDatabaseCache();
   }
 
   /// Archives a completed report in the race pages' `Files & media` field.
@@ -376,6 +423,7 @@ class NotionService {
     if (response.statusCode != 200) {
       throw Exception('Errore archiviazione PDF: ${response.body}');
     }
+    invalidateRaceDatabaseCache();
     return true;
   }
 
@@ -407,6 +455,13 @@ class NotionService {
 
     return res;
   }
+}
+
+class _RaceDatabaseCacheEntry {
+  const _RaceDatabaseCacheEntry({required this.rows, required this.loadedAt});
+
+  final List<Map<String, dynamic>> rows;
+  final DateTime loadedAt;
 }
 
 class AdminNotificationResult {

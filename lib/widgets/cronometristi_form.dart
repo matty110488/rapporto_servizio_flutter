@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/cronometristi.dart';
+import '../utils/italian_date_formatter.dart';
 
 class CronometristiForm extends StatefulWidget {
   final VoidCallback? onDataChanged;
@@ -564,14 +565,7 @@ class CronometristiFormState extends State<CronometristiForm> {
   String _formatDateLabel(dynamic value, {int? index}) {
     final d = value?.toString() ?? '';
     if (d.isEmpty) return index != null ? "Giorno ${index + 1}: " : '';
-    final parts = d.split('-');
-    if (parts.length == 3) {
-      final dd = parts[2].padLeft(2, '0');
-      final mm = parts[1].padLeft(2, '0');
-      final yyyy = parts[0];
-      return "$dd/$mm/$yyyy";
-    }
-    return d;
+    return formatItalianIsoDateOrValue(d, emptyValue: '');
   }
 
   String _isoDate(DateTime date) =>

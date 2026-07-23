@@ -8,6 +8,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 
+import '../utils/italian_date_formatter.dart';
+
 const Set<String> _tabelloniDevices = {
   'alge',
   'microtab',
@@ -155,7 +157,7 @@ pw.Widget _sezioneGara(
     if (iso.isEmpty) return '';
     try {
       final d = DateTime.parse(iso);
-      return DateFormat('dd/MM/yyyy').format(d);
+      return formatItalianDate(d);
     } catch (_) {
       return _txt(iso);
     }
@@ -1031,7 +1033,7 @@ pw.Widget _giornoCell(
 String _formatDateHuman(String iso) {
   try {
     final d = DateTime.parse(iso);
-    return DateFormat('dd/MM/yyyy').format(d);
+    return formatItalianDate(d);
   } catch (_) {
     return _txt(iso);
   }
@@ -1166,7 +1168,9 @@ pw.Widget _header(pw.Font bold, {pw.ImageProvider? logo}) {
 }
 
 pw.Widget _footer(pw.Font base, int page, int pages) {
-  final now = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+  final current = DateTime.now();
+  final now =
+      '${formatItalianDate(current)} ${DateFormat('HH:mm').format(current)}';
   return pw.Row(
     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
     children: [

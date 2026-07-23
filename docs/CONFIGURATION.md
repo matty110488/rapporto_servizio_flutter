@@ -36,9 +36,15 @@ static const Map<int, String> raceDatabaseIds = {
 };
 ```
 
-Le schermate Home, Designazioni, Rapporti di servizio, Archivio e Statistiche
-caricano automaticamente tutti i database presenti nella mappa. Il Calendario
-gare usa le chiavi della stessa mappa per costruire il selettore dell'anno.
+Home, Designazioni e la compilazione dei Rapporti di servizio caricano soltanto
+il database dell'anno corrente. Se l'anno corrente non e ancora configurato,
+l'app usa l'ultimo disponibile. Calendario, Archivio e Statistiche caricano il
+database scelto nel selettore; soltanto l'opzione esplicita `Tutti` delle
+Statistiche legge piu anni.
+
+Le letture annuali sono condivise in una cache di cinque minuti tra le
+schermate. Un aggiornamento manuale ignora la cache, mentre una modifica a una
+gara la invalida automaticamente.
 
 Il backend autorizza soltanto i database elencati in
 `DEFAULT_RACE_DATABASE_IDS` dentro `api/notion-config.js`, oltre agli eventuali
@@ -111,6 +117,7 @@ cercarli nelle singole schermate:
 | Parametro | Valore attuale | Effetto |
 | --- | --- | --- |
 | `dashboardRefreshInterval` | 5 minuti | Aggiornamento Home |
+| `raceDatabaseCacheDuration` | 5 minuti | Riutilizzo letture annuali tra schermate |
 | `notificationBadgeRefreshInterval` | 45 secondi | Badge notifiche Home |
 | `notificationsPageRefreshInterval` | 30 secondi | Elenco notifiche |
 | `reportDraftAutosaveInterval` | 4 secondi | Salvataggio bozza locale |

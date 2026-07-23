@@ -1,13 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../config/app_config.dart';
 import '../models/gara.dart';
+import '../services/app_update_exception.dart';
 import '../services/app_update_service.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/push_notification_service.dart';
+import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
 import 'dettaglio_gara.dart';
 import 'designazioni_page.dart';
@@ -32,9 +35,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const _layoutVersion = 'App version 2.1.0 - MT88';
-
   late final NotionService _notion;
+  String _appVersionLabel = 'App version - MT88';
   bool _loadingDashboard = true;
   bool _refreshingDashboard = false;
   String? _dashboardError;
@@ -49,7 +51,8 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _raceControlController = PageController(viewportFraction: 0.92);
-    _notion = NotionService(databaseId: AppConfig.primaryRaceDatabaseId);
+    _notion = NotionService(databaseId: AppConfig.currentRaceDatabaseId);
+    unawaited(_loadAppVersion());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       PrankPopupService.maybeShow(context, widget.loggedUser);
@@ -99,6 +102,19 @@ class _HomePageState extends State<HomePage> {
     return null;
   }
 
+  Future<void> _loadAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      final version = packageInfo.version.trim();
+      if (!mounted || version.isEmpty) return;
+      setState(() {
+        _appVersionLabel = 'App version $version - MT88';
+      });
+    } catch (_) {
+      // The version label is decorative and must never block the home page.
+    }
+  }
+
   Future<void> _showAvailableAppUpdate() async {
     final AppUpdateInfo? update;
     try {
@@ -135,13 +151,25 @@ class _HomePageState extends State<HomePage> {
     if (shouldUpdate != true || !mounted) return;
 
     try {
-      await forceAppUpdate();
-    } catch (_) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
+          duration: Duration(seconds: 20),
           content: Text(
-            'Non è stato possibile aggiornare l’app. Riprova da Impostazioni.',
+            'Download dell’aggiornamento in corso. Non chiudere l’app…',
+          ),
+        ),
+      );
+      await forceAppUpdate();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error is AppUpdateException
+                ? error.userMessage
+                : 'Non è stato possibile aggiornare l’app. '
+                    'Riprova da Impostazioni.',
           ),
         ),
       );
@@ -183,7 +211,10 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _loadDashboard({bool showLoading = true}) async {
+  Future<void> _loadDashboard({
+    bool showLoading = true,
+    bool forceRefresh = false,
+  }) async {
     if (_refreshingDashboard || (!showLoading && _loadingDashboard)) return;
     setState(() {
       if (showLoading) {
@@ -206,9 +237,7 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
-      final rows = await _notion.fetchGare(
-        additionalDatabaseIds: AppConfig.additionalRaceDatabaseIds,
-      );
+      final rows = await _notion.fetchGare(forceRefresh: forceRefresh);
       final gare = rows.map((e) => Gara.fromNotion(e)).toList();
 
       final conUtente = gare
@@ -392,6 +421,7 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         _HomeSidebar(
                           userName: userName,
+                          appVersionLabel: _appVersionLabel,
                           navItems: navItems,
                           onLogout: widget.onLogout,
                         ),
@@ -474,10 +504,10 @@ class _HomePageState extends State<HomePage> {
                 onOpenNotifications: onOpenNotifications,
               ),
             const SizedBox(height: 14),
-            const Center(
+            Center(
               child: Text(
-                _layoutVersion,
-                style: TextStyle(
+                _appVersionLabel,
+                style: const TextStyle(
                   color: Color(0xFF7B8EA3),
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -492,11 +522,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _hero(String userName) {
     String formatDate(String iso) {
-      final d = DateTime.tryParse(iso);
-      if (d == null) return '-';
-      final dd = d.day.toString().padLeft(2, '0');
-      final mm = d.month.toString().padLeft(2, '0');
-      return '$dd/$mm/${d.year}';
+      return formatItalianIsoDate(iso) ?? '-';
     }
 
     final prossimi = _dashboard.nextServices;
@@ -504,7 +530,12 @@ class _HomePageState extends State<HomePage> {
           tooltip: 'Aggiorna servizi',
           onPressed: _loadingDashboard || _refreshingDashboard
               ? null
-              : () => unawaited(_loadDashboard(showLoading: false)),
+              : () => unawaited(
+                    _loadDashboard(
+                      showLoading: false,
+                      forceRefresh: true,
+                    ),
+                  ),
           icon: _refreshingDashboard
               ? SizedBox.square(
                   dimension: 18,
@@ -593,7 +624,12 @@ class _HomePageState extends State<HomePage> {
                 TextButton(
                   onPressed: _refreshingDashboard
                       ? null
-                      : () => unawaited(_loadDashboard(showLoading: false)),
+                      : () => unawaited(
+                            _loadDashboard(
+                              showLoading: false,
+                              forceRefresh: true,
+                            ),
+                          ),
                   child: const Text(
                     'Riprova',
                     style: TextStyle(color: Colors.white),
@@ -826,11 +862,13 @@ class _HomeNavData {
 
 class _HomeSidebar extends StatelessWidget {
   final String userName;
+  final String appVersionLabel;
   final List<_HomeNavData> navItems;
   final VoidCallback onLogout;
 
   const _HomeSidebar({
     required this.userName,
+    required this.appVersionLabel,
     required this.navItems,
     required this.onLogout,
   });
@@ -883,9 +921,9 @@ class _HomeSidebar extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            _HomePageState._layoutVersion,
-            style: TextStyle(
+          Text(
+            appVersionLabel,
+            style: const TextStyle(
               color: Color(0xFF7B8EA3),
               fontSize: 11,
               fontWeight: FontWeight.w600,

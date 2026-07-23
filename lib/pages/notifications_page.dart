@@ -7,6 +7,7 @@ import '../config/app_config.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../services/push_notification_service.dart';
+import '../utils/italian_date_formatter.dart';
 import 'dettaglio_gara.dart';
 
 class NotificationsPage extends StatefulWidget {
@@ -42,7 +43,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   void initState() {
     super.initState();
-    _notion = NotionService(databaseId: AppConfig.primaryRaceDatabaseId);
+    _notion = NotionService(databaseId: AppConfig.currentRaceDatabaseId);
     _foregroundSubscription = foregroundPushNotices.listen((notice) {
       if (!mounted) return;
       setState(() {
@@ -218,11 +219,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   String _formatTimestamp(DateTime value) {
-    final day = value.day.toString().padLeft(2, '0');
-    final month = value.month.toString().padLeft(2, '0');
     final hour = value.hour.toString().padLeft(2, '0');
     final minute = value.minute.toString().padLeft(2, '0');
-    return '$day/$month $hour:$minute';
+    return '${formatItalianDate(value, includeYear: false)} $hour:$minute';
   }
 
   @override

@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../config/app_environment.dart';
 import '../services/app_preferences_service.dart';
+import '../services/app_update_exception.dart';
 import '../services/app_update_service.dart';
 import '../services/auth_service.dart';
 import '../services/push_notification_service.dart';
@@ -49,14 +50,10 @@ class _SettingsPageState extends State<SettingsPage> {
         await AppPreferencesService.loadBiometricLoginEnabled();
     var appVersion = '';
     try {
-      if (appUpdateSupported) {
-        appVersion = currentAppVersionLabel;
-      } else {
-        final packageInfo = await PackageInfo.fromPlatform();
-        appVersion = packageInfo.version;
-        if (packageInfo.buildNumber.trim().isNotEmpty) {
-          appVersion += ' (${packageInfo.buildNumber})';
-        }
+      final packageInfo = await PackageInfo.fromPlatform();
+      appVersion = packageInfo.version;
+      if (packageInfo.buildNumber.trim().isNotEmpty) {
+        appVersion += ' (${packageInfo.buildNumber})';
       }
     } catch (_) {
       appVersion = '';
@@ -89,10 +86,14 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _appUpdateBusy = true);
     try {
       await forceAppUpdate();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _appUpdateBusy = false);
-      _showMessage('Non è stato possibile aggiornare l’app. Riprova tra poco.');
+      _showMessage(
+        error is AppUpdateException
+            ? error.userMessage
+            : 'Non è stato possibile aggiornare l’app. Riprova tra poco.',
+      );
     }
   }
 
