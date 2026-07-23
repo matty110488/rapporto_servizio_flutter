@@ -1229,8 +1229,8 @@ class _GarePageState extends State<GarePage> {
                         ),
                   label: Text(
                     allPackageAssigned
-                        ? 'Rimuovimi da tutto il pacchetto'
-                        : 'Mi rendo disponibile per tutto il pacchetto',
+                        ? 'Rimuovimi da tutte le gare'
+                        : 'Mi rendo disponibile per tutte le gare',
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF0A66C2),
