@@ -27,8 +27,9 @@ class HelpContent {
   ];
 
   static const archivio = [
-    "Mostra le gare con rapportino gia' inviato.",
-    "Da questa sezione puoi riaprire i dati di un rapportino inviato.",
+    "Mostra i rapportini PDF salvati nella scheda della gara su Notion.",
+    "Ogni rapportino e' visibile solo al DSC della gara e agli amministratori.",
+    "Premi Apri rapportino per consultare il PDF archiviato.",
   ];
 
   static const noteUtili = [

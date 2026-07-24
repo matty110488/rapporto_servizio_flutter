@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
 import test from 'node:test';
 
 import handler, {
@@ -7,7 +8,10 @@ import handler, {
   hideNotificationRecord,
   isReportReceivedTransition,
   notificationAlreadyRecorded,
+  canViewRaceReports,
+  reportFilesFromPage,
   visibleNotificationRecords,
+  withoutRaceReportFiles,
 } from '../api/notion-query.js';
 
 process.env.NOTION_TOKEN = 'test-notion-token';
@@ -34,6 +38,20 @@ function responseRecorder() {
       return this;
     },
   };
+}
+
+function signedSession({ sub, admin = false }) {
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub,
+      admin,
+      exp: Math.floor(Date.now() / 1000) + 300,
+    }),
+  ).toString('base64url');
+  const signature = createHmac('sha256', process.env.SESSION_SECRET)
+    .update(payload)
+    .digest('base64url');
+  return `${payload}.${signature}`;
 }
 
 test('creates passkey authentication options for the production web origin', async () => {
@@ -187,4 +205,100 @@ test('report notification targets Mattia only on a real received-status transiti
     isReportReceivedTransition('IN PROGRESS', 'GARA COMPLETATA'),
     false,
   );
+});
+
+test('report archive access is limited to the race DSC and admins', () => {
+  const page = {
+    properties: {
+      DSC: {
+        relation: [{ id: 'aaaa-bbbb-cccc-dddd' }],
+      },
+    },
+  };
+
+  assert.equal(canViewRaceReports(page, { sub: 'aaaabbbbccccdddd' }), true);
+  assert.equal(canViewRaceReports(page, { sub: 'another-user' }), false);
+  assert.equal(canViewRaceReports(page, { sub: 'another-user', admin: true }), true);
+});
+
+test('only generated report PDFs are exposed by the archive', () => {
+  const page = {
+    properties: {
+      'Files & media': {
+        files: [
+          {
+            name: 'Rapporto servizio - Gara.pdf',
+            file: { url: 'https://notion.test/report' },
+          },
+          { name: 'Foto.jpg', file: { url: 'https://notion.test/photo' } },
+          { name: 'Rapporto servizio - incompleto.pdf', file: {} },
+        ],
+      },
+    },
+  };
+
+  assert.deepEqual(reportFilesFromPage(page), [
+    {
+      name: 'Rapporto servizio - Gara.pdf',
+      file: { url: 'https://notion.test/report' },
+    },
+  ]);
+  assert.equal(
+    Object.hasOwn(withoutRaceReportFiles(page).properties, 'Files & media'),
+    false,
+  );
+});
+
+test('report archive endpoint returns Notion PDFs only to an authorized DSC', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    status: 200,
+    async json() {
+      return {
+        results: [
+          {
+            id: 'race-page',
+            properties: {
+              DSC: { relation: [{ id: 'race-dsc' }] },
+              'Files & media': {
+                files: [
+                  {
+                    name: 'Rapporto servizio - Gara.pdf',
+                    file: { url: 'https://notion.test/report' },
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        has_more: false,
+      };
+    },
+  });
+
+  try {
+    const request = (sub) => ({
+      method: 'POST',
+      headers: {
+        origin: 'https://matty110488.github.io',
+        authorization: `Bearer ${signedSession({ sub })}`,
+      },
+      body: {
+        action: 'queryReportArchive',
+        databaseId: '2b1de089ef9580729622ff9543046cbc',
+      },
+    });
+
+    const dscResponse = responseRecorder();
+    await handler(request('race-dsc'), dscResponse);
+    assert.equal(dscResponse.statusCode, 200);
+    assert.equal(dscResponse.body.results.length, 1);
+
+    const otherResponse = responseRecorder();
+    await handler(request('another-user'), otherResponse);
+    assert.equal(otherResponse.statusCode, 200);
+    assert.deepEqual(otherResponse.body.results, []);
+  } finally {
+    global.fetch = originalFetch;
+  }
 });

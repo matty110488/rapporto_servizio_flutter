@@ -13,6 +13,7 @@ export const DEFAULT_RACE_DATABASE_IDS = [
 export const NOTION_RACE_PROPERTIES = Object.freeze({
   status: 'STATUS',
   files: 'Files & media',
+  serviceManager: 'DSC',
 });
 
 export const RACE_STATUSES = Object.freeze({

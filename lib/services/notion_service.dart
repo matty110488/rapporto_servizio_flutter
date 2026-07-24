@@ -120,6 +120,24 @@ class NotionService {
     return all;
   }
 
+  /// Loads only report-bearing races the signed-in user may view.
+  ///
+  /// The server authorizes each result against the race DSC relation, while
+  /// administrators may view every report.
+  Future<List<Map<String, dynamic>>> fetchReportArchive() async {
+    final res = await _postViaWebProxy({
+      'action': 'queryReportArchive',
+      'databaseId': databaseId,
+    });
+    if (res.statusCode != 200) {
+      throw Exception('Errore archivio Notion: ${res.body}');
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return List<Map<String, dynamic>>.from(
+      data['results'] as List<dynamic>? ?? const [],
+    );
+  }
+
   /// Fetches the title of an arbitrary related page so we can show a readable
   /// name instead of the Notion relation ID.
   Future<String> fetchNameFromPage(String pageId) async {

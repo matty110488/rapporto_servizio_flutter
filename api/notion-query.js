@@ -55,6 +55,70 @@ export function notificationAlreadyRecorded(records, notification) {
   return false;
 }
 
+function normalizedNotionId(value) {
+  return String(value || '').replace(/-/g, '').toLowerCase();
+}
+
+function propertyByName(properties, name) {
+  if (!properties || typeof properties !== 'object') return null;
+  const key = Object.keys(properties).find(
+    (candidate) => candidate.trim().toLowerCase() === name.toLowerCase(),
+  );
+  return key ? properties[key] : null;
+}
+
+export function reportFilesFromPage(page) {
+  const field = propertyByName(page?.properties, NOTION_RACE_PROPERTIES.files);
+  const files = Array.isArray(field?.files) ? field.files : [];
+  return files.filter((entry) => {
+    const name = typeof entry?.name === 'string' ? entry.name.trim().toLowerCase() : '';
+    const url =
+      typeof entry?.file?.url === 'string'
+        ? entry.file.url
+        : typeof entry?.external?.url === 'string'
+          ? entry.external.url
+          : '';
+    return name.startsWith('rapporto servizio') && name.endsWith('.pdf') && url.length > 0;
+  });
+}
+
+export function canViewRaceReports(page, session) {
+  if (session?.admin === true) return true;
+  const dscField = propertyByName(
+    page?.properties,
+    NOTION_RACE_PROPERTIES.serviceManager,
+  );
+  const dscIds = Array.isArray(dscField?.relation)
+    ? dscField.relation.map((entry) => normalizedNotionId(entry?.id)).filter(Boolean)
+    : [];
+  return dscIds.includes(normalizedNotionId(session?.sub));
+}
+
+export function withoutRaceReportFiles(page) {
+  if (!page || typeof page !== 'object' || !page.properties) return page;
+  const properties = Object.fromEntries(
+    Object.entries(page.properties).filter(
+      ([key]) =>
+        key.trim().toLowerCase() !== NOTION_RACE_PROPERTIES.files.toLowerCase(),
+    ),
+  );
+  return { ...page, properties };
+}
+
+function withReportFilesOnly(page, reportFiles) {
+  const properties = { ...(page?.properties || {}) };
+  const filesKey =
+    Object.keys(properties).find(
+      (key) =>
+        key.trim().toLowerCase() === NOTION_RACE_PROPERTIES.files.toLowerCase(),
+    ) || NOTION_RACE_PROPERTIES.files;
+  properties[filesKey] = {
+    type: 'files',
+    files: reportFiles,
+  };
+  return { ...page, properties };
+}
+
 export const DEFAULT_REPORT_NOTIFICATION_EMAIL = 'tognoli.mt@gmail.com';
 
 export function isReportReceivedTransition(previousStatus, targetStatus) {
@@ -1363,7 +1427,25 @@ export default async function handler(req, res) {
         'POST',
         queryPayload,
       );
+      if (response.status === 200 && Array.isArray(response.data?.results)) {
+        response.data.results = response.data.results.map(withoutRaceReportFiles);
+      }
       return res.status(response.status).json(response.data);
+    }
+
+    if (action === 'queryReportArchive') {
+      const requestedDatabaseId =
+        typeof safeBody.databaseId === 'string' ? safeBody.databaseId.trim() : '';
+      if (!requestedDatabaseId || !allowedDataDatabaseIds.has(requestedDatabaseId)) {
+        return res.status(403).json({ error: 'Database not allowed' });
+      }
+      const pages = await queryAllDatabasePages(requestedDatabaseId);
+      const results = pages.flatMap((page) => {
+        const reports = reportFilesFromPage(page);
+        if (reports.length === 0 || !canViewRaceReports(page, session)) return [];
+        return [withReportFilesOnly(page, reports)];
+      });
+      return res.status(200).json({ results, has_more: false, next_cursor: null });
     }
 
     if (action === 'retrievePage') {
@@ -1377,6 +1459,8 @@ export default async function handler(req, res) {
       }
       if (response.status === 200 && isUserDatabasePage(response.data)) {
         response.data = sanitizeUserPage(response.data);
+      } else if (response.status === 200) {
+        response.data = withoutRaceReportFiles(response.data);
       }
       return res.status(response.status).json(response.data);
     }
