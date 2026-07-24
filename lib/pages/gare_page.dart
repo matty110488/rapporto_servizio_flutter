@@ -737,10 +737,10 @@ class _GarePageState extends State<GarePage> {
   }
 
   Widget _buildFiltersCard() {
-    final sports = _sportsOptions();
-    final textTheme = Theme.of(context).textTheme;
+    final activeFilters = (assignmentFilter == _AssignmentFilter.all ? 0 : 1) +
+        (sportFilter.isEmpty ? 0 : 1);
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -750,127 +750,238 @@ class _GarePageState extends State<GarePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
+            spacing: 8,
+            runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _filterGroup(
-                label: 'Anno',
-                child: Wrap(
-                  spacing: 6,
-                  children: AppConfig.configuredRaceYears
+              SizedBox(
+                width: 116,
+                child: DropdownButtonFormField<int>(
+                  initialValue: selectedYear,
+                  isDense: true,
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.calendar_month_outlined, size: 20),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: AppConfig.configuredRaceYears
                       .toList()
                       .reversed
                       .map(
-                        (year) => _buildFilterChip(
-                          label: year == DateTime.now().year
-                              ? '$year'
-                              : '$year archivio',
-                          selected: selectedYear == year,
-                          onSelected: (_) => _changeYear(year),
+                        (year) => DropdownMenuItem<int>(
+                          value: year,
+                          child: Text('$year'),
                         ),
                       )
                       .toList(),
+                  onChanged: (year) {
+                    if (year != null) _changeYear(year);
+                  },
                 ),
               ),
-              _filterGroup(
-                label: 'Vista',
-                child: Wrap(
-                  spacing: 6,
-                  children: [
-                    _buildFilterChip(
-                      label: 'Prossime',
-                      selected: calendarPeriod == _CalendarPeriod.upcoming,
-                      onSelected: (_) => setState(() {
-                        calendarPeriod = _CalendarPeriod.upcoming;
-                        expandedMonths = _defaultExpandedMonths(gare);
-                      }),
-                    ),
-                    _buildFilterChip(
-                      label: 'Passate',
-                      selected: calendarPeriod == _CalendarPeriod.past,
-                      onSelected: (_) => setState(() {
-                        calendarPeriod = _CalendarPeriod.past;
-                        expandedMonths = _defaultExpandedMonths(gare);
-                      }),
-                    ),
-                  ],
+              SegmentedButton<_CalendarPeriod>(
+                showSelectedIcon: false,
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text('Filtri',
-              style:
-                  textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildFilterChip(
-                label: 'Tutte le gare',
-                selected: assignmentFilter == _AssignmentFilter.all,
-                onSelected: (_) =>
-                    setState(() => assignmentFilter = _AssignmentFilter.all),
-              ),
-              _buildFilterChip(
-                label: 'Gare dove ho dato disponibilità',
-                selected: assignmentFilter == _AssignmentFilter.disponibilita,
-                onSelected: (_) => setState(
-                  () => assignmentFilter = _AssignmentFilter.disponibilita,
-                ),
-              ),
-              _buildFilterChip(
-                label: 'Gare dove sono designato',
-                selected: assignmentFilter == _AssignmentFilter.designato,
-                onSelected: (_) => setState(
-                    () => assignmentFilter = _AssignmentFilter.designato),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: sportFilter.isEmpty ? '' : sportFilter,
-                  items: [
-                    const DropdownMenuItem<String>(
-                      value: '',
-                      child: Text('Tutti gli sport'),
-                    ),
-                    ...sports.map(
-                      (s) => DropdownMenuItem<String>(
-                        value: s,
-                        child: Text(s, overflow: TextOverflow.ellipsis),
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => sportFilter = value ?? ''),
-                  decoration: const InputDecoration(
-                    labelText: 'Sport',
-                    border: OutlineInputBorder(),
-                    isDense: true,
+                segments: const [
+                  ButtonSegment<_CalendarPeriod>(
+                    value: _CalendarPeriod.upcoming,
+                    icon: Icon(Icons.upcoming_outlined, size: 18),
+                    label: Text('Prossime'),
                   ),
-                  isExpanded: true,
-                ),
+                  ButtonSegment<_CalendarPeriod>(
+                    value: _CalendarPeriod.past,
+                    icon: Icon(Icons.history, size: 18),
+                    label: Text('Passate'),
+                  ),
+                ],
+                selected: {calendarPeriod},
+                onSelectionChanged: (selection) {
+                  setState(() {
+                    calendarPeriod = selection.first;
+                    expandedMonths = _defaultExpandedMonths(gare);
+                  });
+                },
               ),
-              const SizedBox(width: 10),
               OutlinedButton.icon(
-                onPressed: () => setState(() {
-                  sportFilter = '';
-                  assignmentFilter = _AssignmentFilter.all;
-                }),
-                icon: const Icon(Icons.filter_alt_off),
-                label: const Text('Pulisci'),
+                onPressed: _openFiltersSheet,
+                icon: Badge(
+                  isLabelVisible: activeFilters > 0,
+                  label: Text('$activeFilters'),
+                  child: const Icon(Icons.tune, size: 20),
+                ),
+                label: const Text('Filtri'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  visualDensity: VisualDensity.compact,
+                ),
               ),
             ],
           ),
+          if (activeFilters > 0) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (assignmentFilter != _AssignmentFilter.all)
+                  InputChip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text(_assignmentFilterLabel(assignmentFilter)),
+                    onDeleted: () => setState(
+                      () => assignmentFilter = _AssignmentFilter.all,
+                    ),
+                  ),
+                if (sportFilter.isNotEmpty)
+                  InputChip(
+                    visualDensity: VisualDensity.compact,
+                    avatar: const Icon(Icons.sports, size: 17),
+                    label: Text(sportFilter),
+                    onDeleted: () => setState(() => sportFilter = ''),
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<void> _openFiltersSheet() async {
+    var nextAssignment = assignmentFilter;
+    var nextSport = sportFilter;
+    final sports = _sportsOptions();
+
+    final apply = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                0,
+                20,
+                20 + MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Filtra il calendario',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Restringi le gare per il tuo ruolo o per disciplina.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: const Color(0xFF5D7189),
+                        ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Partecipazione',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _AssignmentFilter.values
+                        .map(
+                          (filter) => ChoiceChip(
+                            label: Text(_assignmentFilterLabel(filter)),
+                            selected: nextAssignment == filter,
+                            onSelected: (_) => setSheetState(
+                              () => nextAssignment = filter,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 18),
+                  DropdownButtonFormField<String>(
+                    initialValue: nextSport.isEmpty ? '' : nextSport,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Sport',
+                      prefixIcon: Icon(Icons.sports_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: '',
+                        child: Text('Tutti gli sport'),
+                      ),
+                      ...sports.map(
+                        (sport) => DropdownMenuItem<String>(
+                          value: sport,
+                          child: Text(
+                            sport,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) =>
+                        setSheetState(() => nextSport = value ?? ''),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => setSheetState(() {
+                          nextAssignment = _AssignmentFilter.all;
+                          nextSport = '';
+                        }),
+                        child: const Text('Azzera'),
+                      ),
+                      const Spacer(),
+                      FilledButton.icon(
+                        onPressed: () => Navigator.pop(sheetContext, true),
+                        icon: const Icon(Icons.check),
+                        label: const Text('Applica'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    if (apply == true && mounted) {
+      setState(() {
+        assignmentFilter = nextAssignment;
+        sportFilter = nextSport;
+      });
+    }
+  }
+
+  String _assignmentFilterLabel(_AssignmentFilter filter) {
+    switch (filter) {
+      case _AssignmentFilter.all:
+        return 'Tutte';
+      case _AssignmentFilter.disponibilita:
+        return 'Mia disponibilità';
+      case _AssignmentFilter.designato:
+        return 'Sono designato';
+    }
   }
 
   Widget _buildCalendarHeader(int visibleCount) {
@@ -940,57 +1051,6 @@ class _GarePageState extends State<GarePage> {
             icon: const Icon(Icons.refresh),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _filterGroup({required String label, required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7FBFF),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2ECF8)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF49627E),
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          child,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip({
-    required String label,
-    required bool selected,
-    required ValueChanged<bool> onSelected,
-  }) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: onSelected,
-      selectedColor: const Color(0xFF0A66C2).withOpacity(0.18),
-      backgroundColor: const Color(0xFFF4F8FF),
-      side: BorderSide(
-        color: selected ? const Color(0xFF0A66C2) : const Color(0xFFDCE8F6),
-      ),
-      labelStyle: TextStyle(
-        color: selected ? const Color(0xFF0A66C2) : const Color(0xFF27415F),
-        fontWeight: FontWeight.w600,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(999),
       ),
     );
   }
