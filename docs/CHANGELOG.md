@@ -4,6 +4,16 @@ Questo documento registra le modifiche che cambiano il modo in cui il progetto
 e configurato o gestito. Le modifiche funzionali dettagliate restano disponibili
 anche nella cronologia Git e nelle pull request GitHub.
 
+## 2026-07-24 - Release 2.2.0
+
+- Aggiunto il meteo per le gare da oggi ai successivi sette giorni, con
+  geocodifica della località, cache e riepilogo nel Calendario e nel Cockpit.
+- Riorganizzato il Cockpit gara mettendo Équipe, Organizzatore e Info utili
+  nell'ordine operativo richiesto.
+- Compattati e uniformati i filtri del Calendario.
+- Aggiunti Archivio rapportini, invio PDF tramite email o WhatsApp e azioni
+  standard Aiuto, Aggiorna e Home nelle schermate operative.
+
 ## 2026-07-22 - Caricamento annuale e cache gare
 
 - Home, Designazioni e compilazione rapportini leggono solo l'anno corrente.
