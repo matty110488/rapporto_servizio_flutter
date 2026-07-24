@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../config/app_config.dart';
@@ -22,7 +21,7 @@ import '../widgets/cronometristi_form.dart';
 import '../widgets/danni_form.dart';
 import '../widgets/gara_form.dart';
 import '../widgets/header.dart';
-import '../widgets/help_dialog.dart';
+import '../widgets/standard_app_bar_actions.dart';
 import '../widgets/stopwatch_loading.dart';
 
 class RootScreen extends StatefulWidget {
@@ -508,17 +507,21 @@ class _RootScreenState extends State<RootScreen> {
     };
   }
 
-  Future<bool> _confirmPackageGeneration(GaraPackage package) async {
-    if (!package.isPackage) return true;
+  Future<bool> _confirmReportValidation(GaraPackage package) async {
+    final packageDetails = package.isPackage
+        ? ' Il PDF comprenderà ${package.gare.length} gare e '
+            '${package.activeDates.length} giornate.'
+        : '';
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         icon: const Icon(Icons.fact_check_outlined, size: 38),
-        title: const Text('Generare un unico rapportino?'),
+        title: const Text('Validare il rapportino?'),
         content: Text(
-          'Il PDF comprenderà ${package.gare.length} gare e '
-          '${package.activeDates.length} giornate. Al termine, tutte le gare '
-          'incluse saranno segnate come “Rapportino ricevuto”.',
+          'Stai per validare e salvare il rapportino su Notion.$packageDetails '
+          'Al termine ${package.isPackage ? 'tutte le gare incluse saranno' : 'la gara sarà'} '
+          'contrassegnat${package.isPackage ? 'e' : 'a'} come “Rapportino ricevuto”. '
+          'Potrai quindi scegliere se inviarlo via email o WhatsApp.',
           style: const TextStyle(fontSize: 16, height: 1.35),
         ),
         actions: [
@@ -528,13 +531,112 @@ class _RootScreenState extends State<RootScreen> {
           ),
           FilledButton.icon(
             onPressed: () => Navigator.pop(dialogContext, true),
-            icon: const Icon(Icons.picture_as_pdf),
-            label: const Text('Sì, genera il PDF'),
+            icon: const Icon(Icons.verified_outlined),
+            label: const Text('Valida e salva'),
           ),
         ],
       ),
     );
     return result ?? false;
+  }
+
+  Future<void> _showReportSendOptions({
+    required XFile file,
+    required GaraPackage reportPackage,
+  }) async {
+    if (!mounted) return;
+    final delivery = await showDialog<_ReportDelivery>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.task_alt_rounded, size: 42),
+        title: const Text('Rapportino salvato'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Il rapportino è stato validato e archiviato su Notion.',
+              style: TextStyle(fontSize: 16, height: 1.35),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Scegli come inviarlo. Si aprirà il menu di condivisione del '
+              'dispositivo con il PDF già allegato.',
+              style: TextStyle(
+                color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _ReportDelivery.email),
+              icon: const Icon(Icons.email_outlined),
+              label: const Text('Invia via email'),
+            ),
+            const SizedBox(height: 10),
+            FilledButton.icon(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _ReportDelivery.whatsApp),
+              icon: const Icon(Icons.chat_outlined),
+              label: const Text('Invia via WhatsApp'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF168A45),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Non ora'),
+          ),
+        ],
+      ),
+    );
+    if (delivery == null || !mounted) return;
+    await _shareValidatedReport(
+      file: file,
+      reportPackage: reportPackage,
+      delivery: delivery,
+    );
+  }
+
+  Future<void> _shareValidatedReport({
+    required XFile file,
+    required GaraPackage reportPackage,
+    required _ReportDelivery delivery,
+  }) async {
+    final channel =
+        delivery == _ReportDelivery.email ? 'l’app email' : 'WhatsApp';
+    final renderObject = context.findRenderObject();
+    final shareOrigin = renderObject is RenderBox
+        ? renderObject.localToGlobal(Offset.zero) & renderObject.size
+        : null;
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          subject: delivery == _ReportDelivery.email
+              ? 'Rapporto di servizio - ${reportPackage.title}'
+              : null,
+          text: 'Rapporto di servizio - ${reportPackage.title}',
+          files: [file],
+          sharePositionOrigin: shareOrigin,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Non riesco ad aprire $channel. Puoi inviare il PDF in seguito '
+            'dall’Archivio rapportini.',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _saveDraft({
@@ -1253,7 +1355,7 @@ class _RootScreenState extends State<RootScreen> {
                 return;
               }
 
-              if (!await _confirmPackageGeneration(reportPackage)) return;
+              if (!await _confirmReportValidation(reportPackage)) return;
 
               final gara = garaKey.currentState?.getData() ?? {};
               final cronos = cronometristiKey.currentState?.getData() ?? [];
@@ -1280,6 +1382,7 @@ class _RootScreenState extends State<RootScreen> {
                 );
                 final reportFilename = _notionReportFilename(reportPackage);
                 late final _ReportArchiveResult archiveResult;
+                late final XFile reportFile;
                 if (kIsWeb) {
                   final pdfBytes = await generaPdfBytesConDati(payload);
                   archiveResult = await _archiveReport(
@@ -1287,9 +1390,10 @@ class _RootScreenState extends State<RootScreen> {
                     gare: gareSelezionate,
                     filename: reportFilename,
                   );
-                  await Printing.sharePdf(
-                    bytes: pdfBytes,
-                    filename: 'rapporto_servizio.pdf',
+                  reportFile = XFile.fromData(
+                    pdfBytes,
+                    mimeType: 'application/pdf',
+                    name: 'rapporto_servizio.pdf',
                   );
                   _showArchiveWarning(archiveResult);
                 } else {
@@ -1302,12 +1406,7 @@ class _RootScreenState extends State<RootScreen> {
                     gare: gareSelezionate,
                     filename: reportFilename,
                   );
-                  await SharePlus.instance.share(
-                    ShareParams(
-                      text: 'Rapporto PDF',
-                      files: [XFile(file.path)],
-                    ),
-                  );
+                  reportFile = XFile(file.path);
                   _showArchiveWarning(archiveResult);
                 }
                 if (!archiveResult.uploaded) return;
@@ -1321,20 +1420,24 @@ class _RootScreenState extends State<RootScreen> {
                 if (mounted) {
                   setState(() => _lastDraftSavedAt = null);
                 }
+                await _showReportSendOptions(
+                  file: reportFile,
+                  reportPackage: reportPackage,
+                );
                 await _loadGareDsc();
               } catch (e) {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Errore generazione PDF: $e')),
+                  SnackBar(
+                    content: Text(
+                      'Errore durante il salvataggio del rapportino: $e',
+                    ),
+                  ),
                 );
               }
             },
-            icon: const Icon(Icons.picture_as_pdf),
-            label: Text(
-              _selectedReportPackage?.isPackage == true
-                  ? 'Genera un unico rapportino'
-                  : 'Genera rapportino',
-            ),
+            icon: const Icon(Icons.send_rounded),
+            label: const Text('Salva e invia'),
           ),
         ),
       ],
@@ -1393,56 +1496,6 @@ class _RootScreenState extends State<RootScreen> {
     );
   }
 
-  Widget _buildHeroCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF004E9A), Color(0xFF0A66C2), Color(0xFF338FE5)],
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x300A66C2),
-            blurRadius: 20,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Rapporti di servizio',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          SizedBox(height: 6),
-          Text(
-            'Tre passaggi semplici, con i dati della gara gia pronti.',
-            style: TextStyle(color: Colors.white, fontSize: 15),
-          ),
-          SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _HeroStep(number: '1', label: 'Scegli evento'),
-              _HeroStep(number: '2', label: 'Controlla i dati'),
-              _HeroStep(number: '3', label: 'Genera PDF'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final canFillForm = selectedGara != null;
@@ -1453,34 +1506,26 @@ class _RootScreenState extends State<RootScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Text('Crono Valtellinesi'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.help_outline),
-              tooltip: 'Aiuto',
-              onPressed: () => showHelpDialog(
-                context,
-                'Rapportini',
-                HelpContent.rapportini,
-              ),
-            ),
-            TextButton.icon(
-              onPressed: () async {
-                await _savePendingChangesIfAny();
-                if (!context.mounted) return;
-                setState(() => _allowPop = true);
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  }
-                });
-              },
-              icon: const Icon(Icons.home),
-              label: const Text('Home'),
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ],
+          actions: standardAppBarActions(
+            context,
+            helpTitle: 'Rapportini',
+            helpContent: HelpContent.rapportini,
+            onRefresh: () async {
+              await _savePendingChangesIfAny();
+              if (mounted) await _loadGareDsc();
+            },
+            refreshEnabled: !loadingGareList && !prefilling,
+            onHome: () async {
+              await _savePendingChangesIfAny();
+              if (!context.mounted) return;
+              setState(() => _allowPop = true);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                }
+              });
+            },
+          ),
         ),
         body: SafeArea(
           child: DecoratedBox(
@@ -1500,8 +1545,6 @@ class _RootScreenState extends State<RootScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHeroCard(),
-                  const SizedBox(height: 12),
                   _buildGareSelectionCard(),
                   const SizedBox(height: 12),
                   _buildSelectedGaraInfo(),
@@ -1554,50 +1597,4 @@ class _ReportArchiveResult {
   const _ReportArchiveResult.failure(this.error) : uploaded = false;
 }
 
-class _HeroStep extends StatelessWidget {
-  final String number;
-  final String label;
-
-  const _HeroStep({required this.number, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.34)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 23,
-            height: 23,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              number,
-              style: const TextStyle(
-                color: Color(0xFF0759A8),
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const SizedBox(width: 7),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+enum _ReportDelivery { email, whatsApp }

@@ -4,10 +4,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../config/app_config.dart';
+import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../services/push_notification_service.dart';
 import '../utils/italian_date_formatter.dart';
+import '../widgets/standard_app_bar_actions.dart';
 import 'dettaglio_gara.dart';
 
 class NotificationsPage extends StatefulWidget {
@@ -229,13 +231,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifiche'),
-        actions: [
-          IconButton(
-            onPressed: _loading ? null : _loadAll,
-            tooltip: 'Aggiorna',
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
+        actions: standardAppBarActions(
+          context,
+          helpTitle: 'Notifiche',
+          helpContent: HelpContent.notifiche,
+          onRefresh: _loadAll,
+          refreshEnabled: !_loading,
+        ),
       ),
       body: DecoratedBox(
         decoration: const BoxDecoration(
@@ -394,11 +396,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Widget _card({required Widget child}) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFDCE8F6)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x12000000),
@@ -407,7 +406,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ),
         ],
       ),
-      child: child,
+      child: Material(
+        color: Colors.white,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: Color(0xFFDCE8F6)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: child,
+        ),
+      ),
     );
   }
 }

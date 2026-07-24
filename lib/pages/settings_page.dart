@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../config/app_environment.dart';
+import '../constants/help_content.dart';
 import '../services/app_preferences_service.dart';
 import '../services/app_update_exception.dart';
 import '../services/app_update_service.dart';
 import '../services/auth_service.dart';
 import '../services/push_notification_service.dart';
+import '../widgets/standard_app_bar_actions.dart';
 
 class SettingsPage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
@@ -264,7 +266,16 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Impostazioni')),
+      appBar: AppBar(
+        title: const Text('Impostazioni'),
+        actions: standardAppBarActions(
+          context,
+          helpTitle: 'Impostazioni',
+          helpContent: HelpContent.impostazioni,
+          onRefresh: _loadSettings,
+          refreshEnabled: !_loading,
+        ),
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(

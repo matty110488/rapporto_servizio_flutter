@@ -26,6 +26,154 @@ const ALLOWED_ORIGINS = [
     .filter(Boolean),
 ];
 
+const WEATHER_FORECAST_DAYS = 7;
+const WEATHER_CACHE_TTL_MS = 2 * 60 * 60 * 1000;
+const GEOCODING_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const weatherCache = new Map();
+const geocodingCache = new Map();
+
+export function forecastDayOffset(dateString, now = new Date()) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateString || ''))) return null;
+  const target = new Date(`${dateString}T00:00:00Z`);
+  if (
+    Number.isNaN(target.getTime()) ||
+    target.toISOString().slice(0, 10) !== dateString
+  ) {
+    return null;
+  }
+  const localParts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Europe/Rome',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    })
+      .formatToParts(now)
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, Number(part.value)]),
+  );
+  const today = new Date(
+    Date.UTC(localParts.year, localParts.month - 1, localParts.day),
+  );
+  return Math.round((target.getTime() - today.getTime()) / 86400000);
+}
+
+export function weatherCodeLabel(code) {
+  if (code == null || code === '') return 'Variabile';
+  const value = Number(code);
+  if (value === 0) return 'Sereno';
+  if (value === 1) return 'Prevalentemente sereno';
+  if (value === 2) return 'Parzialmente nuvoloso';
+  if (value === 3) return 'Coperto';
+  if (value === 45 || value === 48) return 'Nebbia';
+  if (value >= 51 && value <= 57) return 'Pioviggine';
+  if (value >= 61 && value <= 67) return 'Pioggia';
+  if (value >= 71 && value <= 77) return 'Neve';
+  if (value >= 80 && value <= 82) return 'Rovesci';
+  if (value >= 85 && value <= 86) return 'Rovesci di neve';
+  if (value >= 95 && value <= 99) return 'Temporali';
+  return 'Variabile';
+}
+
+function cachedValue(cache, key) {
+  const entry = cache.get(key);
+  if (!entry || entry.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function putCachedValue(cache, key, value, ttlMs) {
+  cache.set(key, { value, expiresAt: Date.now() + ttlMs });
+  return value;
+}
+
+async function geocodeWeatherLocation(location) {
+  const cacheKey = location.toLocaleLowerCase('it-IT');
+  const cached = cachedValue(geocodingCache, cacheKey);
+  if (cached) return cached;
+
+  const url = new URL('https://geocoding-api.open-meteo.com/v1/search');
+  url.searchParams.set('name', location);
+  url.searchParams.set('count', '1');
+  url.searchParams.set('language', 'it');
+  url.searchParams.set('format', 'json');
+  const response = await fetch(url, { signal: AbortSignal.timeout(6000) });
+  if (!response.ok) throw new Error(`Weather geocoding failed: ${response.status}`);
+  const data = await response.json();
+  const result = Array.isArray(data?.results) ? data.results[0] : null;
+  if (
+    !result ||
+    !Number.isFinite(Number(result.latitude)) ||
+    !Number.isFinite(Number(result.longitude))
+  ) {
+    return null;
+  }
+  return putCachedValue(
+    geocodingCache,
+    cacheKey,
+    {
+      latitude: Number(result.latitude),
+      longitude: Number(result.longitude),
+      resolvedName: [result.name, result.admin1, result.country]
+        .filter((part) => typeof part === 'string' && part.trim())
+        .join(', '),
+    },
+    GEOCODING_CACHE_TTL_MS,
+  );
+}
+
+async function fetchRaceWeather(location, date) {
+  const cacheKey = `${location.toLocaleLowerCase('it-IT')}|${date}`;
+  const cached = cachedValue(weatherCache, cacheKey);
+  if (cached) return cached;
+
+  const coordinates = await geocodeWeatherLocation(location);
+  if (!coordinates) return null;
+
+  const url = new URL('https://api.open-meteo.com/v1/forecast');
+  url.searchParams.set('latitude', String(coordinates.latitude));
+  url.searchParams.set('longitude', String(coordinates.longitude));
+  url.searchParams.set(
+    'daily',
+    [
+      'weather_code',
+      'temperature_2m_max',
+      'temperature_2m_min',
+      'precipitation_probability_max',
+      'wind_speed_10m_max',
+    ].join(','),
+  );
+  url.searchParams.set('timezone', 'auto');
+  url.searchParams.set('start_date', date);
+  url.searchParams.set('end_date', date);
+  const response = await fetch(url, { signal: AbortSignal.timeout(6000) });
+  if (!response.ok) throw new Error(`Weather forecast failed: ${response.status}`);
+  const data = await response.json();
+  const daily = data?.daily;
+  if (!daily || !Array.isArray(daily.time) || daily.time[0] !== date) return null;
+
+  const numberAt = (key) => {
+    const value = Array.isArray(daily[key]) ? Number(daily[key][0]) : Number.NaN;
+    return Number.isFinite(value) ? value : null;
+  };
+  const weatherCode = numberAt('weather_code');
+  const weather = {
+    date,
+    location: coordinates.resolvedName || location,
+    weatherCode,
+    description: weatherCodeLabel(weatherCode),
+    temperatureMin: numberAt('temperature_2m_min'),
+    temperatureMax: numberAt('temperature_2m_max'),
+    precipitationProbability: numberAt('precipitation_probability_max'),
+    windSpeedMax: numberAt('wind_speed_10m_max'),
+    fetchedAt: new Date().toISOString(),
+    attribution: 'Open-Meteo',
+  };
+  return putCachedValue(weatherCache, cacheKey, weather, WEATHER_CACHE_TTL_MS);
+}
+
 export function visibleNotificationRecords(records) {
   return records.filter((entry) => entry?.hidden !== true);
 }
@@ -53,6 +201,70 @@ export function notificationAlreadyRecorded(records, notification) {
     );
   }
   return false;
+}
+
+function normalizedNotionId(value) {
+  return String(value || '').replace(/-/g, '').toLowerCase();
+}
+
+function propertyByName(properties, name) {
+  if (!properties || typeof properties !== 'object') return null;
+  const key = Object.keys(properties).find(
+    (candidate) => candidate.trim().toLowerCase() === name.toLowerCase(),
+  );
+  return key ? properties[key] : null;
+}
+
+export function reportFilesFromPage(page) {
+  const field = propertyByName(page?.properties, NOTION_RACE_PROPERTIES.files);
+  const files = Array.isArray(field?.files) ? field.files : [];
+  return files.filter((entry) => {
+    const name = typeof entry?.name === 'string' ? entry.name.trim().toLowerCase() : '';
+    const url =
+      typeof entry?.file?.url === 'string'
+        ? entry.file.url
+        : typeof entry?.external?.url === 'string'
+          ? entry.external.url
+          : '';
+    return name.startsWith('rapporto servizio') && name.endsWith('.pdf') && url.length > 0;
+  });
+}
+
+export function canViewRaceReports(page, session) {
+  if (session?.admin === true) return true;
+  const dscField = propertyByName(
+    page?.properties,
+    NOTION_RACE_PROPERTIES.serviceManager,
+  );
+  const dscIds = Array.isArray(dscField?.relation)
+    ? dscField.relation.map((entry) => normalizedNotionId(entry?.id)).filter(Boolean)
+    : [];
+  return dscIds.includes(normalizedNotionId(session?.sub));
+}
+
+export function withoutRaceReportFiles(page) {
+  if (!page || typeof page !== 'object' || !page.properties) return page;
+  const properties = Object.fromEntries(
+    Object.entries(page.properties).filter(
+      ([key]) =>
+        key.trim().toLowerCase() !== NOTION_RACE_PROPERTIES.files.toLowerCase(),
+    ),
+  );
+  return { ...page, properties };
+}
+
+function withReportFilesOnly(page, reportFiles) {
+  const properties = { ...(page?.properties || {}) };
+  const filesKey =
+    Object.keys(properties).find(
+      (key) =>
+        key.trim().toLowerCase() === NOTION_RACE_PROPERTIES.files.toLowerCase(),
+    ) || NOTION_RACE_PROPERTIES.files;
+  properties[filesKey] = {
+    type: 'files',
+    files: reportFiles,
+  };
+  return { ...page, properties };
 }
 
 export const DEFAULT_REPORT_NOTIFICATION_EMAIL = 'tognoli.mt@gmail.com';
@@ -1230,6 +1442,29 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
+    if (action === 'getRaceWeather') {
+      const location =
+        typeof safeBody.location === 'string' ? safeBody.location.trim() : '';
+      const date = typeof safeBody.date === 'string' ? safeBody.date.trim() : '';
+      const dayOffset = forecastDayOffset(date);
+      if (!location || location.length > 160 || dayOffset == null) {
+        return res.status(400).json({ error: 'Invalid weather location or date' });
+      }
+      if (dayOffset < 0 || dayOffset > WEATHER_FORECAST_DAYS) {
+        return res.status(200).json({ weather: null, reason: 'outside_forecast_window' });
+      }
+      try {
+        const weather = await fetchRaceWeather(location, date);
+        return res.status(200).json({
+          weather,
+          reason: weather ? null : 'location_not_found',
+        });
+      } catch (error) {
+        console.warn('Race weather unavailable', error);
+        return res.status(200).json({ weather: null, reason: 'temporarily_unavailable' });
+      }
+    }
+
     if (action === 'passkeyRegistrationOptions') {
       const user = await notionRequest(
         `https://api.notion.com/v1/pages/${session.sub}`,
@@ -1363,7 +1598,25 @@ export default async function handler(req, res) {
         'POST',
         queryPayload,
       );
+      if (response.status === 200 && Array.isArray(response.data?.results)) {
+        response.data.results = response.data.results.map(withoutRaceReportFiles);
+      }
       return res.status(response.status).json(response.data);
+    }
+
+    if (action === 'queryReportArchive') {
+      const requestedDatabaseId =
+        typeof safeBody.databaseId === 'string' ? safeBody.databaseId.trim() : '';
+      if (!requestedDatabaseId || !allowedDataDatabaseIds.has(requestedDatabaseId)) {
+        return res.status(403).json({ error: 'Database not allowed' });
+      }
+      const pages = await queryAllDatabasePages(requestedDatabaseId);
+      const results = pages.flatMap((page) => {
+        const reports = reportFilesFromPage(page);
+        if (reports.length === 0 || !canViewRaceReports(page, session)) return [];
+        return [withReportFilesOnly(page, reports)];
+      });
+      return res.status(200).json({ results, has_more: false, next_cursor: null });
     }
 
     if (action === 'retrievePage') {
@@ -1377,6 +1630,8 @@ export default async function handler(req, res) {
       }
       if (response.status === 200 && isUserDatabasePage(response.data)) {
         response.data = sanitizeUserPage(response.data);
+      } else if (response.status === 200) {
+        response.data = withoutRaceReportFiles(response.data);
       }
       return res.status(response.status).json(response.data);
     }

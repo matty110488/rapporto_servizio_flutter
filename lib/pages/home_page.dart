@@ -23,11 +23,13 @@ import 'statistiche_page.dart';
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
   final VoidCallback onLogout;
+  final NotionService? notionService;
 
   const HomePage({
     super.key,
     required this.loggedUser,
     required this.onLogout,
+    this.notionService,
   });
 
   @override
@@ -51,7 +53,8 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _raceControlController = PageController(viewportFraction: 0.92);
-    _notion = NotionService(databaseId: AppConfig.currentRaceDatabaseId);
+    _notion = widget.notionService ??
+        NotionService(databaseId: AppConfig.currentRaceDatabaseId);
     unawaited(_loadAppVersion());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -812,7 +815,7 @@ class _HomePageState extends State<HomePage> {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(color: Color(0xFF334E68), fontSize: 12),
           ),
-          const Spacer(),
+          const SizedBox(height: 12),
           FilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF0A66C2),

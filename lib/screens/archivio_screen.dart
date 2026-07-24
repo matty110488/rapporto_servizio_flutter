@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../config/app_config.dart';
 import '../constants/help_content.dart';
 import '../models/gara.dart';
-import '../pages/root_screen.dart';
 import '../services/notion_service.dart';
 import '../utils/italian_date_formatter.dart';
-import '../widgets/help_dialog.dart';
+import '../utils/notion_user.dart';
+import '../widgets/standard_app_bar_actions.dart';
 
 class ArchivioScreen extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
@@ -19,7 +20,7 @@ class ArchivioScreen extends StatefulWidget {
 
 class _ArchivioScreenState extends State<ArchivioScreen> {
   late NotionService notion;
-  List<Gara> gareCompletate = [];
+  List<_ArchivedRaceReport> rapportini = [];
   bool loading = true;
   String? errore;
   late int selectedYear;
@@ -40,70 +41,10 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
     return null;
   }
 
-  bool get _isAdmin {
-    final props = widget.loggedUser['properties'];
-    if (props is! Map<String, dynamic>) return false;
+  bool get _isAdmin => isNotionAdmin(widget.loggedUser);
 
-    const adminKeys = [
-      'ADMIN',
-      'Admin',
-      'admin',
-      'RUOLO',
-      'Ruolo',
-      'ROLE',
-      'Role',
-      'role',
-    ];
-
-    bool matchAdminText(String? value) {
-      if (value == null) return false;
-      final lower = value.toLowerCase();
-      return lower == 'admin' || lower == 'amministratore';
-    }
-
-    bool hasAdminValue(Map<String, dynamic> field) {
-      if (field['checkbox'] == true) return true;
-
-      final select = field['select'];
-      if (select is Map<String, dynamic>) {
-        final name = select['name'];
-        if (name is String && matchAdminText(name)) return true;
-      }
-
-      final multi = field['multi_select'];
-      if (multi is List) {
-        for (final entry in multi) {
-          if (entry is Map<String, dynamic>) {
-            final name = entry['name'];
-            if (name is String && matchAdminText(name)) {
-              return true;
-            }
-          }
-        }
-      }
-
-      final rich = field['rich_text'];
-      if (rich is List && rich.isNotEmpty) {
-        final first = rich.first;
-        if (first is Map<String, dynamic>) {
-          final text = first['plain_text'];
-          if (text is String && matchAdminText(text)) {
-            return true;
-          }
-        }
-      }
-
-      return false;
-    }
-
-    for (final key in adminKeys) {
-      final value = props[key];
-      if (value is Map<String, dynamic> && hasAdminValue(value)) {
-        return true;
-      }
-    }
-    return false;
-  }
+  String _normalizedId(String value) =>
+      value.replaceAll('-', '').trim().toLowerCase();
 
   Future<void> _caricaArchivio({bool forceRefresh = false}) async {
     setState(() {
@@ -112,32 +53,43 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
     });
 
     try {
-      final results = await notion.fetchGare(forceRefresh: forceRefresh);
-      final all = results.map((e) => Gara.fromNotion(e)).toList();
+      if (forceRefresh) {
+        NotionService.invalidateRaceDatabaseCache();
+      }
+      final results = await notion.fetchReportArchive();
+      final all = results
+          .map(
+            (page) => _ArchivedRaceReport(
+              gara: Gara.fromNotion(page),
+              files: _reportFiles(page),
+            ),
+          )
+          .where((entry) => entry.files.isNotEmpty)
+          .toList();
 
       final userId = _loggedUserId;
 
-      final filtered = all.where((g) {
-        final isCompleted = RaceStatuses.archivedReports
-            .contains(g.status.trim().toUpperCase());
-        if (!isCompleted) return false;
+      final filtered = all.where((entry) {
         if (_isAdmin) return true;
         if (userId == null) return false;
-        return g.dscIds.contains(userId);
+        final normalizedUserId = _normalizedId(userId);
+        return entry.gara.dscIds.map(_normalizedId).contains(normalizedUserId);
       }).toList();
 
       filtered.sort((a, b) {
-        final da = DateTime.tryParse(a.dataGara);
-        final db = DateTime.tryParse(b.dataGara);
+        final da = DateTime.tryParse(a.gara.dataGara);
+        final db = DateTime.tryParse(b.gara.dataGara);
         if (da != null && db != null) return db.compareTo(da);
         if (da != null) return -1;
         if (db != null) return 1;
-        return a.titolo.toLowerCase().compareTo(b.titolo.toLowerCase());
+        return a.gara.titolo
+            .toLowerCase()
+            .compareTo(b.gara.titolo.toLowerCase());
       });
 
       if (!mounted) return;
       setState(() {
-        gareCompletate = filtered;
+        rapportini = filtered;
         loading = false;
       });
     } catch (e) {
@@ -170,18 +122,38 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
     return start == end ? start : '$start - $end';
   }
 
-  void _apriModifica(Gara gara) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => RootScreen(
-          loggedUser: widget.loggedUser,
-          initialGaraId: gara.id,
-          includeSentReports: true,
-          initialRaceYear: selectedYear,
+  List<_NotionReportFile> _reportFiles(Map<String, dynamic> page) {
+    final properties = page['properties'];
+    if (properties is! Map<String, dynamic>) return const [];
+    Map<String, dynamic>? field;
+    for (final entry in properties.entries) {
+      if (entry.key.trim().toLowerCase() ==
+              NotionRaceProperties.files.toLowerCase() &&
+          entry.value is Map<String, dynamic>) {
+        field = entry.value as Map<String, dynamic>;
+        break;
+      }
+    }
+    final rawFiles = field?['files'];
+    if (rawFiles is! List) return const [];
+    return rawFiles
+        .whereType<Map<String, dynamic>>()
+        .map(_NotionReportFile.fromNotion)
+        .where((file) => file.url.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  Future<void> _apriRapportino(_NotionReportFile file) async {
+    final uri = Uri.tryParse(file.url);
+    if (uri == null ||
+        !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Non riesco ad aprire il rapportino da Notion.'),
         ),
-      ),
-    );
+      );
+    }
   }
 
   @override
@@ -212,29 +184,12 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
               ),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            tooltip: 'Aiuto',
-            onPressed: () => showHelpDialog(
-              context,
-              'Archivio',
-              HelpContent.archivio,
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Aggiorna',
-            onPressed: () => _caricaArchivio(forceRefresh: true),
-          ),
-          TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            },
-            icon: const Icon(Icons.home),
-            label: const Text('Home'),
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.primary,
-            ),
+          ...standardAppBarActions(
+            context,
+            helpTitle: 'Archivio',
+            helpContent: HelpContent.archivio,
+            onRefresh: () => _caricaArchivio(forceRefresh: true),
+            refreshEnabled: !loading,
           ),
         ],
       ),
@@ -247,16 +202,17 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
                     child: Text('Errore nel caricamento: $errore'),
                   ),
                 )
-              : gareCompletate.isEmpty
+              : rapportini.isEmpty
                   ? const Center(
                       child: Text('Nessun rapportino inviato in archivio.'),
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.all(12),
-                      itemCount: gareCompletate.length,
+                      itemCount: rapportini.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
-                        final gara = gareCompletate[index];
+                        final archived = rapportini[index];
+                        final gara = archived.gara;
                         return Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -282,13 +238,26 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
                                 if (gara.sport.isNotEmpty)
                                   Text('Sport: ${gara.sport}'),
                                 const SizedBox(height: 10),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: FilledButton.icon(
-                                    onPressed: () => _apriModifica(gara),
-                                    icon: const Icon(Icons.open_in_new_rounded),
-                                    label: const Text('Apri rapportino'),
-                                  ),
+                                Wrap(
+                                  alignment: WrapAlignment.end,
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: archived.files
+                                      .map(
+                                        (file) => FilledButton.icon(
+                                          onPressed: () =>
+                                              _apriRapportino(file),
+                                          icon: const Icon(
+                                            Icons.picture_as_pdf_rounded,
+                                          ),
+                                          label: Text(
+                                            archived.files.length == 1
+                                                ? 'Apri rapportino'
+                                                : file.name,
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
                                 ),
                               ],
                             ),
@@ -296,6 +265,34 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
                         );
                       },
                     ),
+    );
+  }
+}
+
+class _ArchivedRaceReport {
+  const _ArchivedRaceReport({required this.gara, required this.files});
+
+  final Gara gara;
+  final List<_NotionReportFile> files;
+}
+
+class _NotionReportFile {
+  const _NotionReportFile({required this.name, required this.url});
+
+  final String name;
+  final String url;
+
+  factory _NotionReportFile.fromNotion(Map<String, dynamic> json) {
+    final file = json['file'];
+    final external = json['external'];
+    final url = file is Map
+        ? file['url']
+        : external is Map
+            ? external['url']
+            : null;
+    return _NotionReportFile(
+      name: json['name'] is String ? json['name'] as String : 'Rapportino PDF',
+      url: url is String ? url : '',
     );
   }
 }

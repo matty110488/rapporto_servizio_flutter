@@ -1,5 +1,14 @@
 # Third-party notices
 
+## Open-Meteo weather data
+
+- Source: `https://open-meteo.com/`
+- Usage: race weather forecasts and location geocoding
+- Licence: Creative Commons Attribution 4.0 International (CC BY 4.0)
+
+Weather data is provided by Open-Meteo and its listed national weather-service
+sources. Forecasts are provided without warranty.
+
 ## Corbado Flutter Passkeys web bridge
 
 - Source: `https://github.com/corbado/flutter-passkeys/releases/download/2.4.0/bundle.js`
