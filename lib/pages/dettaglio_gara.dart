@@ -143,20 +143,6 @@ class _DettaglioGaraState extends State<DettaglioGara> {
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
           children: [
             _buildMissionHeader(),
-            if (weather != null) ...[
-              const SizedBox(height: 14),
-              RaceWeatherPanel(weather: weather!),
-            ],
-            const SizedBox(height: 14),
-            _buildQuickActions(),
-            const SizedBox(height: 20),
-            _sectionTitle(
-              eyebrow: 'ORGANIZZATORE',
-              title: 'Contatto organizzatore',
-              subtitle: 'Riferimento della società che organizza la gara.',
-            ),
-            const SizedBox(height: 10),
-            _buildOrganizerPanel(),
             const SizedBox(height: 20),
             _sectionTitle(
               eyebrow: 'DESIGNAZIONE',
@@ -174,6 +160,22 @@ class _DettaglioGaraState extends State<DettaglioGara> {
               const SizedBox(height: 10),
               _buildErrorBox(errorMessage!),
             ],
+            const SizedBox(height: 20),
+            _sectionTitle(
+              eyebrow: 'ORGANIZZATORE',
+              title: 'Contatto organizzatore',
+              subtitle: 'Riferimento della società che organizza la gara.',
+            ),
+            const SizedBox(height: 10),
+            _buildOrganizerPanel(),
+            const SizedBox(height: 20),
+            _sectionTitle(
+              eyebrow: 'LOGISTICA',
+              title: 'Info utili',
+              subtitle: 'Indicazioni per il sito gara e previsioni meteo.',
+            ),
+            const SizedBox(height: 10),
+            _buildUsefulInfo(),
           ],
         ),
       ),
@@ -337,21 +339,25 @@ class _DettaglioGaraState extends State<DettaglioGara> {
     );
   }
 
-  Widget _buildQuickActions() {
+  Widget _buildUsefulInfo() {
     return _CockpitPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Azioni rapide',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: _openDirections,
             icon: const Icon(Icons.navigation_rounded),
-            label: const Text('INDICAZIONI'),
+            label: const Text('INDICAZIONI PER IL SITO GARA'),
           ),
+          if (weather != null) ...[
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: Color(0xFFDDE7F1)),
+            const SizedBox(height: 16),
+            RaceWeatherPanel(
+              weather: weather!,
+              embedded: true,
+            ),
+          ],
         ],
       ),
     );

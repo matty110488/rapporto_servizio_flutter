@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rapporto_servizio/models/gara.dart';
+import 'package:rapporto_servizio/models/race_weather.dart';
 import 'package:rapporto_servizio/pages/dettaglio_gara.dart';
 import 'package:rapporto_servizio/services/notion_service.dart';
+import 'package:rapporto_servizio/services/weather_service.dart';
 
 class _FakeNotionService extends NotionService {
   _FakeNotionService() : super(databaseId: 'test');
@@ -25,6 +27,19 @@ class _FakeNotionService extends NotionService {
     }
     return const NotionPersonContact(name: '', phone: '');
   }
+}
+
+class _FakeWeatherService extends WeatherService {
+  _FakeWeatherService(this.weather);
+
+  final RaceWeather weather;
+
+  @override
+  Future<RaceWeather?> fetchForRace(
+    Gara gara, {
+    bool forceRefresh = false,
+  }) async =>
+      weather;
 }
 
 Gara _gara({required String organizzatore}) => Gara(
@@ -50,6 +65,7 @@ Widget _app(
   Gara gara, {
   String userId = 'crono-id',
   bool admin = false,
+  RaceWeather? weather,
 }) =>
     MaterialApp(
       home: DettaglioGara(
@@ -67,6 +83,7 @@ Widget _app(
           },
         },
         notionService: _FakeNotionService(),
+        weatherService: weather == null ? null : _FakeWeatherService(weather),
       ),
     );
 
@@ -86,11 +103,6 @@ void main() {
     expect(find.text('Cockpit gara'), findsOneWidget);
     expect(find.text('RACE CONTROL'), findsOneWidget);
     expect(find.text('Trofeo Test Technology'), findsOneWidget);
-    expect(find.text('Azioni rapide'), findsOneWidget);
-    expect(find.text('INDICAZIONI'), findsOneWidget);
-    expect(find.text('ORGANIZZATORE'), findsOneWidget);
-    expect(find.text('Sci Club'), findsOneWidget);
-    expect(find.text('CHIAMA ORGANIZZATORE'), findsNothing);
     expect(find.text('Utente Test'), findsOneWidget);
     expect(find.text('Cronometrista'), findsOneWidget);
 
@@ -105,6 +117,17 @@ void main() {
     expect(find.text('TELEFONA'), findsOneWidget);
     expect(find.text('WHATSAPP'), findsOneWidget);
 
+    await tester.scrollUntilVisible(
+      find.text('Info utili'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('ORGANIZZATORE'), findsOneWidget);
+    expect(find.text('Sci Club'), findsOneWidget);
+    expect(find.text('CHIAMA ORGANIZZATORE'), findsNothing);
+    expect(find.text('Info utili'), findsOneWidget);
+    expect(find.text('INDICAZIONI PER IL SITO GARA'), findsOneWidget);
+
     expect(find.text('Avanzamento missione'), findsNothing);
     expect(find.text('Il tuo pass'), findsNothing);
     expect(find.text('Mostra pass'), findsNothing);
@@ -112,15 +135,73 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('cockpit sections follow the operational order', (tester) async {
+    tester.view.physicalSize = const Size(390, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _app(_gara(organizzatore: 'Sci Club Valtellina')),
+    );
+    await tester.pumpAndSettle();
+
+    final raceControlY = tester.getTopLeft(find.text('RACE CONTROL')).dy;
+    final crewY = tester.getTopLeft(find.text('Equipe di Cronometraggio')).dy;
+    final organizerY =
+        tester.getTopLeft(find.text('Contatto organizzatore')).dy;
+    final usefulInfoY = tester.getTopLeft(find.text('Info utili')).dy;
+    expect(raceControlY, lessThan(crewY));
+    expect(crewY, lessThan(organizerY));
+    expect(organizerY, lessThan(usefulInfoY));
+  });
+
   testWidgets('organizer call is hidden when no phone number is provided',
       (tester) async {
     await tester.pumpWidget(_app(_gara(organizzatore: 'Sci Club Valtellina')));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Info utili'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
 
-    expect(find.text('INDICAZIONI'), findsOneWidget);
+    expect(find.text('INDICAZIONI PER IL SITO GARA'), findsOneWidget);
     expect(find.text('ORGANIZZATORE'), findsOneWidget);
     expect(find.text('Sci Club Valtellina'), findsOneWidget);
     expect(find.text('CHIAMA ORGANIZZATORE'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('useful info groups directions and race weather', (tester) async {
+    const weather = RaceWeather(
+      date: '2026-12-20',
+      location: 'Chiesa in Valmalenco, Lombardia, Italia',
+      weatherCode: 2,
+      description: 'Parzialmente nuvoloso',
+      temperatureMin: -3,
+      temperatureMax: 4,
+      precipitationProbability: 20,
+      windSpeedMax: 12,
+      fetchedAt: null,
+    );
+    await tester.pumpWidget(
+      _app(
+        _gara(organizzatore: 'Sci Club Valtellina'),
+        weather: weather,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('PREVISIONI GARA'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Info utili'), findsOneWidget);
+    expect(find.text('INDICAZIONI PER IL SITO GARA'), findsOneWidget);
+    expect(find.text('PREVISIONI GARA'), findsOneWidget);
+    expect(find.text('Parzialmente nuvoloso'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -132,6 +213,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('CHIAMA ORGANIZZATORE'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
 
     expect(find.text('CHIAMA ORGANIZZATORE'), findsOneWidget);
     expect(find.text('+39 333 1234567'), findsOneWidget);
@@ -146,6 +232,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('CHIAMA ORGANIZZATORE'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
 
     expect(find.text('CHIAMA ORGANIZZATORE'), findsOneWidget);
   });

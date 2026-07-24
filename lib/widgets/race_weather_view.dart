@@ -78,13 +78,136 @@ class RaceWeatherPanel extends StatelessWidget {
   const RaceWeatherPanel({
     super.key,
     required this.weather,
+    this.embedded = false,
   });
 
   final RaceWeather weather;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
     final temperature = raceWeatherTemperature(weather);
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F4FF),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(
+                raceWeatherIcon(weather.weatherCode),
+                color: const Color(0xFF0A66C2),
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'PREVISIONI GARA',
+                    style: TextStyle(
+                      color: Color(0xFF647587),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    weather.description,
+                    style: const TextStyle(
+                      color: Color(0xFF1B344F),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (temperature.isNotEmpty)
+              Text(
+                temperature,
+                style: const TextStyle(
+                  color: Color(0xFF0A66C2),
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 720
+                ? 3
+                : constraints.maxWidth >= 460
+                    ? 2
+                    : 1;
+            final width = (constraints.maxWidth - (columns - 1) * 8) / columns;
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (weather.precipitationProbability != null)
+                  SizedBox(
+                    width: width,
+                    child: _WeatherMetric(
+                      icon: Icons.water_drop_outlined,
+                      label: 'Pioggia',
+                      value: '${weather.precipitationProbability}%',
+                    ),
+                  ),
+                if (weather.windSpeedMax != null)
+                  SizedBox(
+                    width: width,
+                    child: _WeatherMetric(
+                      icon: Icons.air_rounded,
+                      label: 'Vento max',
+                      value: '${weather.windSpeedMax!.round()} km/h',
+                    ),
+                  ),
+                if (weather.location.isNotEmpty)
+                  SizedBox(
+                    width: width,
+                    child: _WeatherMetric(
+                      icon: Icons.location_on_outlined,
+                      label: 'Località',
+                      value: weather.location,
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 11),
+        InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: () => launchUrl(
+            Uri.parse('https://open-meteo.com/'),
+            mode: LaunchMode.externalApplication,
+          ),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 3),
+            child: Text(
+              'Previsioni Open-Meteo · aggiornate automaticamente',
+              style: TextStyle(
+                color: Color(0xFF607D9A),
+                fontSize: 11,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+    if (embedded) return content;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -99,127 +222,7 @@ class RaceWeatherPanel extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F4FF),
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Icon(
-                  raceWeatherIcon(weather.weatherCode),
-                  color: const Color(0xFF0A66C2),
-                  size: 26,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'PREVISIONI GARA',
-                      style: TextStyle(
-                        color: Color(0xFF647587),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      weather.description,
-                      style: const TextStyle(
-                        color: Color(0xFF1B344F),
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (temperature.isNotEmpty)
-                Text(
-                  temperature,
-                  style: const TextStyle(
-                    color: Color(0xFF0A66C2),
-                    fontSize: 19,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 720
-                  ? 3
-                  : constraints.maxWidth >= 460
-                      ? 2
-                      : 1;
-              final width =
-                  (constraints.maxWidth - (columns - 1) * 8) / columns;
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  if (weather.precipitationProbability != null)
-                    SizedBox(
-                      width: width,
-                      child: _WeatherMetric(
-                        icon: Icons.water_drop_outlined,
-                        label: 'Pioggia',
-                        value: '${weather.precipitationProbability}%',
-                      ),
-                    ),
-                  if (weather.windSpeedMax != null)
-                    SizedBox(
-                      width: width,
-                      child: _WeatherMetric(
-                        icon: Icons.air_rounded,
-                        label: 'Vento max',
-                        value: '${weather.windSpeedMax!.round()} km/h',
-                      ),
-                    ),
-                  if (weather.location.isNotEmpty)
-                    SizedBox(
-                      width: width,
-                      child: _WeatherMetric(
-                        icon: Icons.location_on_outlined,
-                        label: 'Località',
-                        value: weather.location,
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 11),
-          InkWell(
-            borderRadius: BorderRadius.circular(6),
-            onTap: () => launchUrl(
-              Uri.parse('https://open-meteo.com/'),
-              mode: LaunchMode.externalApplication,
-            ),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 3),
-              child: Text(
-                'Previsioni Open-Meteo · aggiornate automaticamente',
-                style: TextStyle(
-                  color: Color(0xFF607D9A),
-                  fontSize: 11,
-                  decoration: TextDecoration.underline,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: content,
     );
   }
 }
