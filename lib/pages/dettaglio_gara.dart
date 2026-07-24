@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -5,9 +7,12 @@ import '../config/app_config.dart';
 import '../constants/help_content.dart';
 import '../models/designation_role.dart';
 import '../models/gara.dart';
+import '../models/race_weather.dart';
 import '../services/notion_service.dart';
+import '../services/weather_service.dart';
 import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
+import '../widgets/race_weather_view.dart';
 import '../widgets/stopwatch_loading.dart';
 import '../widgets/standard_app_bar_actions.dart';
 
@@ -15,12 +20,14 @@ class DettaglioGara extends StatefulWidget {
   final Gara gara;
   final Map<String, dynamic> loggedUser;
   final NotionService? notionService;
+  final WeatherService? weatherService;
 
   const DettaglioGara({
     super.key,
     required this.gara,
     required this.loggedUser,
     this.notionService,
+    this.weatherService,
   });
 
   @override
@@ -34,8 +41,10 @@ class _DettaglioGaraState extends State<DettaglioGara> {
   String dscPhone = '';
   bool loadingPeople = true;
   String? errorMessage;
+  RaceWeather? weather;
 
   late final NotionService notion;
+  late final WeatherService weatherLoader;
 
   String? get _loggedUserId {
     final id = widget.loggedUser['id'];
@@ -58,7 +67,25 @@ class _DettaglioGaraState extends State<DettaglioGara> {
     super.initState();
     notion = widget.notionService ??
         NotionService(databaseId: AppConfig.currentRaceDatabaseId);
+    weatherLoader = widget.weatherService ?? WeatherService();
     loadPeople();
+    unawaited(loadWeather());
+  }
+
+  Future<void> loadWeather({bool forceRefresh = false}) async {
+    final result = await weatherLoader.fetchForRace(
+      widget.gara,
+      forceRefresh: forceRefresh,
+    );
+    if (!mounted) return;
+    setState(() => weather = result);
+  }
+
+  Future<void> _refresh() async {
+    await Future.wait([
+      loadPeople(),
+      loadWeather(forceRefresh: true),
+    ]);
   }
 
   Future<void> loadPeople() async {
@@ -107,15 +134,19 @@ class _DettaglioGaraState extends State<DettaglioGara> {
           context,
           helpTitle: 'Dettaglio gara',
           helpContent: HelpContent.dettaglioGara,
-          onRefresh: loadPeople,
+          onRefresh: _refresh,
         ),
       ),
       body: RefreshIndicator(
-        onRefresh: loadPeople,
+        onRefresh: _refresh,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
           children: [
             _buildMissionHeader(),
+            if (weather != null) ...[
+              const SizedBox(height: 14),
+              RaceWeatherPanel(weather: weather!),
+            ],
             const SizedBox(height: 14),
             _buildQuickActions(),
             const SizedBox(height: 20),

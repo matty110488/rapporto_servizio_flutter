@@ -7,6 +7,7 @@ class HelpContent {
   static const calendario = [
     "Viene presentato l'elenco completo delle gare; l'utente puo' dare la propria disponibilita' premendo sull'apposito pulsante, visibile solo con stato DA GESTIRE o IN PROGRESS. Per le gare in piu' giornate e' possibile scegliere una singola giornata oppure tutto il pacchetto.",
     'Se sei stato assegnato ad una gara (tramite la pressione del pulsante o dalla Segreteria), visualizzerai il pulsante "Rimuovimi dalla gara" che ti permette di ritirare la tua disponibilita\' PRIMA che lo status della gara sia COPERTA.',
+    'Per le gare da oggi ai prossimi 7 giorni, quando la localita\' e\' disponibile, viene mostrata una previsione meteo sintetica.',
     'Toccare una gara per vedere i dettagli.',
   ];
 
@@ -35,7 +36,8 @@ class HelpContent {
 
   static const dettaglioGara = [
     'Mostra i dati operativi, i contatti e la squadra assegnata alla gara.',
-    'Trascina verso il basso o premi Aggiorna per ricaricare i nominativi.',
+    'Per le gare entro 7 giorni mostra anche temperatura, pioggia e vento previsti.',
+    'Trascina verso il basso o premi Aggiorna per ricaricare nominativi e meteo.',
   ];
 
   static const notifiche = [

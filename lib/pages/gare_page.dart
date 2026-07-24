@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -5,9 +7,12 @@ import '../config/app_config.dart';
 import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../models/gara_package.dart';
+import '../models/race_weather.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
+import '../services/weather_service.dart';
 import '../utils/italian_date_formatter.dart';
+import '../widgets/race_weather_view.dart';
 import '../widgets/standard_app_bar_actions.dart';
 import '../widgets/stopwatch_loading.dart';
 import 'dettaglio_gara.dart';
@@ -26,6 +31,8 @@ class _GarePageState extends State<GarePage> {
   bool loading = true;
   Set<String> updatingGare = {};
   Set<String> expandedMonths = {};
+  final Map<String, RaceWeather> weatherByRaceId = {};
+  final WeatherService weatherService = WeatherService();
   int selectedYear = DateTime.now().year;
   _CalendarPeriod calendarPeriod = _CalendarPeriod.upcoming;
   _AssignmentFilter assignmentFilter = _AssignmentFilter.all;
@@ -68,7 +75,41 @@ class _GarePageState extends State<GarePage> {
     setState(() {
       gare = nextGare;
       expandedMonths = _defaultExpandedMonths(nextGare);
+      weatherByRaceId.clear();
       loading = false;
+    });
+    unawaited(
+      _loadWeatherForRaces(nextGare, forceRefresh: forceRefresh),
+    );
+  }
+
+  Future<void> _loadWeatherForRaces(
+    List<Gara> source, {
+    bool forceRefresh = false,
+  }) async {
+    final candidates = source.where(
+      (gara) =>
+          gara.status.trim().toUpperCase() != 'VENDUTA' &&
+          RaceWeather.isForecastAvailableFor(gara.dataGara) &&
+          (gara.localita.trim().isNotEmpty || gara.sitoGara.trim().isNotEmpty),
+    );
+    final results = await Future.wait(
+      candidates.map(
+        (gara) async => MapEntry(
+          gara.id,
+          await weatherService.fetchForRace(
+            gara,
+            forceRefresh: forceRefresh,
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      for (final result in results) {
+        final weather = result.value;
+        if (weather != null) weatherByRaceId[result.key] = weather;
+      }
     });
   }
 
@@ -1080,7 +1121,7 @@ class _GarePageState extends State<GarePage> {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.18),
+              color: Colors.white.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(Icons.event, color: Colors.white),
@@ -1421,6 +1462,15 @@ class _GarePageState extends State<GarePage> {
                   ),
                 ),
               ],
+              if (weatherByRaceId[gara.id] != null) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: RaceWeatherPill(
+                    weather: weatherByRaceId[gara.id]!,
+                  ),
+                ),
+              ],
               if (_loggedUserId != null && candidabile) ...[
                 const SizedBox(height: 8),
                 SizedBox(
@@ -1528,6 +1578,8 @@ class _GarePageState extends State<GarePage> {
                             _metaPill(Icons.sports, g.sport),
                           if (g.localita.isNotEmpty)
                             _metaPill(Icons.place, g.localita),
+                          if (weatherByRaceId[g.id] != null)
+                            RaceWeatherPill(weather: weatherByRaceId[g.id]!),
                         ],
                       ),
                       if (assigned || designato) ...[

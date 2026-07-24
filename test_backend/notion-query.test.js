@@ -9,8 +9,10 @@ import handler, {
   isReportReceivedTransition,
   notificationAlreadyRecorded,
   canViewRaceReports,
+  forecastDayOffset,
   reportFilesFromPage,
   visibleNotificationRecords,
+  weatherCodeLabel,
   withoutRaceReportFiles,
 } from '../api/notion-query.js';
 
@@ -102,6 +104,92 @@ test('keeps data actions unavailable without a signed session', async () => {
 
   assert.equal(res.statusCode, 401);
   assert.deepEqual(res.body, { error: 'Authentication required' });
+});
+
+test('weather forecasts are limited to today and the following seven days', () => {
+  const now = new Date('2026-07-24T18:30:00Z');
+  assert.equal(forecastDayOffset('2026-07-24', now), 0);
+  assert.equal(forecastDayOffset('2026-07-31', now), 7);
+  assert.equal(forecastDayOffset('2026-08-01', now), 8);
+  assert.equal(
+    forecastDayOffset('2026-07-25', new Date('2026-07-24T22:30:00Z')),
+    0,
+  );
+  assert.equal(forecastDayOffset('not-a-date', now), null);
+  assert.equal(weatherCodeLabel(0), 'Sereno');
+  assert.equal(weatherCodeLabel(63), 'Pioggia');
+  assert.equal(weatherCodeLabel(96), 'Temporali');
+  assert.equal(weatherCodeLabel(null), 'Variabile');
+});
+
+test('returns a compact race weather summary for an authenticated user', async () => {
+  const originalFetch = global.fetch;
+  const forecastDate = new Date();
+  forecastDate.setUTCDate(forecastDate.getUTCDate() + 3);
+  const date = forecastDate.toISOString().slice(0, 10);
+  const requestedUrls = [];
+  global.fetch = async (url) => {
+    requestedUrls.push(String(url));
+    if (String(url).includes('geocoding-api.open-meteo.com')) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            results: [
+              {
+                name: 'Sondrio',
+                admin1: 'Lombardia',
+                country: 'Italia',
+                latitude: 46.17,
+                longitude: 9.87,
+              },
+            ],
+          };
+        },
+      };
+    }
+    return {
+      ok: true,
+      async json() {
+        return {
+          daily: {
+            time: [date],
+            weather_code: [2],
+            temperature_2m_min: [9.4],
+            temperature_2m_max: [18.7],
+            precipitation_probability_max: [20],
+            wind_speed_10m_max: [13.2],
+          },
+        };
+      },
+    };
+  };
+
+  try {
+    const req = {
+      method: 'POST',
+      headers: {
+        origin: 'https://matty110488.github.io',
+        authorization: `Bearer ${signedSession({ sub: 'weather-user' })}`,
+      },
+      body: {
+        action: 'getRaceWeather',
+        location: 'Sondrio weather test',
+        date,
+      },
+    };
+    const res = responseRecorder();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.weather.description, 'Parzialmente nuvoloso');
+    assert.equal(res.body.weather.precipitationProbability, 20);
+    assert.equal(res.body.weather.location, 'Sondrio, Lombardia, Italia');
+    assert.equal(requestedUrls.length, 2);
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 test('first access stays generic when username and email do not match', async () => {
