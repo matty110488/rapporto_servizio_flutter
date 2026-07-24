@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -34,5 +35,19 @@ void main() {
             ),
       ),
     );
+  });
+
+  test('web update manifest matches the compiled app version', () {
+    final pubspec = File('pubspec.yaml').readAsStringSync();
+    final versionMatch =
+        RegExp(r'^version:\s*([^+]+)\+(\d+)\s*$', multiLine: true)
+            .firstMatch(pubspec);
+    final manifest = jsonDecode(
+      File('web/version.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
+
+    expect(versionMatch, isNotNull);
+    expect(manifest['version'], versionMatch!.group(1));
+    expect(manifest['build_number'], versionMatch.group(2));
   });
 }
