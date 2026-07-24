@@ -755,14 +755,18 @@ class _GarePageState extends State<GarePage> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               SizedBox(
-                width: 116,
+                width: 104,
                 child: DropdownButtonFormField<int>(
                   initialValue: selectedYear,
                   isDense: true,
+                  alignment: Alignment.center,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: const Color(0xFF27415F),
+                        fontWeight: FontWeight.w700,
+                      ),
                   decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.calendar_month_outlined, size: 20),
                     contentPadding: EdgeInsets.symmetric(
-                      horizontal: 10,
+                      horizontal: 12,
                       vertical: 10,
                     ),
                     border: OutlineInputBorder(),
@@ -773,7 +777,11 @@ class _GarePageState extends State<GarePage> {
                       .map(
                         (year) => DropdownMenuItem<int>(
                           value: year,
-                          child: Text('$year'),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '$year',
+                            textAlign: TextAlign.center,
+                          ),
                         ),
                       )
                       .toList(),
@@ -784,20 +792,50 @@ class _GarePageState extends State<GarePage> {
               ),
               SegmentedButton<_CalendarPeriod>(
                 showSelectedIcon: false,
-                style: const ButtonStyle(
+                style: ButtonStyle(
+                  alignment: Alignment.center,
                   visualDensity: VisualDensity.compact,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: const WidgetStatePropertyAll(
+                    EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  textStyle: const WidgetStatePropertyAll(
+                    TextStyle(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  foregroundColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? Colors.white
+                        : const Color(0xFF27415F),
+                  ),
+                  backgroundColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? const Color(0xFF0A66C2)
+                        : const Color(0xFFF4F8FF),
+                  ),
+                  side: WidgetStateProperty.resolveWith(
+                    (states) => BorderSide(
+                      color: states.contains(WidgetState.selected)
+                          ? const Color(0xFF0A66C2)
+                          : const Color(0xFFDCE8F6),
+                    ),
+                  ),
                 ),
                 segments: const [
                   ButtonSegment<_CalendarPeriod>(
                     value: _CalendarPeriod.upcoming,
-                    icon: Icon(Icons.upcoming_outlined, size: 18),
-                    label: Text('Prossime'),
+                    label: Text(
+                      'Prossime',
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                   ButtonSegment<_CalendarPeriod>(
                     value: _CalendarPeriod.past,
-                    icon: Icon(Icons.history, size: 18),
-                    label: Text('Passate'),
+                    label: Text(
+                      'Passate',
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ],
                 selected: {calendarPeriod},
@@ -834,6 +872,13 @@ class _GarePageState extends State<GarePage> {
                   InputChip(
                     visualDensity: VisualDensity.compact,
                     label: Text(_assignmentFilterLabel(assignmentFilter)),
+                    backgroundColor: const Color(0xFFEAF3FF),
+                    deleteIconColor: const Color(0xFF0A66C2),
+                    side: const BorderSide(color: Color(0xFFB9D5F3)),
+                    labelStyle: const TextStyle(
+                      color: Color(0xFF27415F),
+                      fontWeight: FontWeight.w600,
+                    ),
                     onDeleted: () => setState(
                       () => assignmentFilter = _AssignmentFilter.all,
                     ),
@@ -843,6 +888,13 @@ class _GarePageState extends State<GarePage> {
                     visualDensity: VisualDensity.compact,
                     avatar: const Icon(Icons.sports, size: 17),
                     label: Text(sportFilter),
+                    backgroundColor: const Color(0xFFEAF3FF),
+                    deleteIconColor: const Color(0xFF0A66C2),
+                    side: const BorderSide(color: Color(0xFFB9D5F3)),
+                    labelStyle: const TextStyle(
+                      color: Color(0xFF27415F),
+                      fontWeight: FontWeight.w600,
+                    ),
                     onDeleted: () => setState(() => sportFilter = ''),
                   ),
               ],
@@ -903,8 +955,25 @@ class _GarePageState extends State<GarePage> {
                     children: _AssignmentFilter.values
                         .map(
                           (filter) => ChoiceChip(
-                            label: Text(_assignmentFilterLabel(filter)),
+                            label: Text(
+                              _assignmentFilterLabel(filter),
+                              textAlign: TextAlign.center,
+                            ),
+                            showCheckmark: false,
                             selected: nextAssignment == filter,
+                            selectedColor: const Color(0xFF0A66C2),
+                            backgroundColor: const Color(0xFFF4F8FF),
+                            side: BorderSide(
+                              color: nextAssignment == filter
+                                  ? const Color(0xFF0A66C2)
+                                  : const Color(0xFFDCE8F6),
+                            ),
+                            labelStyle: TextStyle(
+                              color: nextAssignment == filter
+                                  ? Colors.white
+                                  : const Color(0xFF27415F),
+                              fontWeight: FontWeight.w700,
+                            ),
                             onSelected: (_) => setSheetState(
                               () => nextAssignment = filter,
                             ),
