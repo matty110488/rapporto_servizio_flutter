@@ -8,7 +8,7 @@ import '../models/gara_package.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../utils/italian_date_formatter.dart';
-import '../widgets/help_dialog.dart';
+import '../widgets/standard_app_bar_actions.dart';
 import '../widgets/stopwatch_loading.dart';
 import 'dettaglio_gara.dart';
 
@@ -629,34 +629,13 @@ class _GarePageState extends State<GarePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Calendario gare'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Aggiorna calendario',
-            onPressed: loading
-                ? null
-                : () => load(showSpinner: true, forceRefresh: true),
-          ),
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            tooltip: 'Aiuto',
-            onPressed: () => showHelpDialog(
-              context,
-              'Calendario',
-              HelpContent.calendario,
-            ),
-          ),
-          TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            },
-            icon: const Icon(Icons.home),
-            label: const Text('Home'),
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        ],
+        actions: standardAppBarActions(
+          context,
+          helpTitle: 'Calendario',
+          helpContent: HelpContent.calendario,
+          onRefresh: () => load(showSpinner: true, forceRefresh: true),
+          refreshEnabled: !loading,
+        ),
       ),
       body: DecoratedBox(
         decoration: const BoxDecoration(

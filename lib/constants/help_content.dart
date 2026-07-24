@@ -33,6 +33,34 @@ class HelpContent {
     "Premi Apri rapportino per consultare il PDF archiviato.",
   ];
 
+  static const dettaglioGara = [
+    'Mostra i dati operativi, i contatti e la squadra assegnata alla gara.',
+    'Trascina verso il basso o premi Aggiorna per ricaricare i nominativi.',
+  ];
+
+  static const notifiche = [
+    'Mostra gli avvisi ricevuti per designazioni e aggiornamenti delle gare.',
+    'Puoi attivare le notifiche, aprire la gara collegata o eliminare un avviso.',
+  ];
+
+  static const statistiche = [
+    'Riepiloga i servizi svolti per anno, ruolo e disciplina.',
+    'Gli amministratori possono consultare anche le statistiche complessive.',
+  ];
+
+  static const impostazioni = [
+    'Gestisci notifiche, accesso biometrico, password e aggiornamenti dell’app.',
+  ];
+
+  static const bozze = [
+    'Mostra i rapportini salvati su questo dispositivo e non ancora inviati.',
+    'Puoi riprendere o eliminare ciascuna bozza.',
+  ];
+
+  static const aiuto = [
+    'Questa schermata raccoglie le istruzioni delle principali funzioni.',
+  ];
+
   static const noteUtili = [
     'N/A',
   ];

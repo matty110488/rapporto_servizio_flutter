@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config/app_config.dart';
+import '../constants/help_content.dart';
 import '../models/designation_role.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
 import '../widgets/stopwatch_loading.dart';
+import '../widgets/standard_app_bar_actions.dart';
 
 class DettaglioGara extends StatefulWidget {
   final Gara gara;
@@ -101,6 +103,12 @@ class _DettaglioGaraState extends State<DettaglioGara> {
       appBar: AppBar(
         title: const Text('Cockpit gara'),
         centerTitle: false,
+        actions: standardAppBarActions(
+          context,
+          helpTitle: 'Dettaglio gara',
+          helpContent: HelpContent.dettaglioGara,
+          onRefresh: loadPeople,
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: loadPeople,

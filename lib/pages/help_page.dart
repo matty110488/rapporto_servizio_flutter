@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/help_content.dart';
+import '../widgets/standard_app_bar_actions.dart';
 
 class HelpPage extends StatelessWidget {
   const HelpPage({super.key});
@@ -41,18 +42,16 @@ class HelpPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Aiuto'),
-        actions: [
-          TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            },
-            icon: const Icon(Icons.home),
-            label: const Text('Home'),
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        ],
+        actions: standardAppBarActions(
+          context,
+          helpTitle: 'Aiuto',
+          helpContent: HelpContent.aiuto,
+          onRefresh: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('La guida è già aggiornata.')),
+            );
+          },
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

@@ -5,7 +5,7 @@ import '../constants/help_content.dart';
 import '../screens/archivio_screen.dart';
 import '../services/rapportino_draft_service.dart';
 import '../utils/italian_date_formatter.dart';
-import '../widgets/help_dialog.dart';
+import '../widgets/standard_app_bar_actions.dart';
 import 'root_screen.dart';
 
 class ServiceReportsPage extends StatefulWidget {
@@ -145,17 +145,12 @@ class _ServiceReportsPageState extends State<ServiceReportsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Rapporti di servizio'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline_rounded),
-            tooltip: 'Aiuto',
-            onPressed: () => showHelpDialog(
-              context,
-              'Rapporti di servizio',
-              HelpContent.rapportini,
-            ),
-          ),
-        ],
+        actions: standardAppBarActions(
+          context,
+          helpTitle: 'Rapporti di servizio',
+          helpContent: HelpContent.rapportini,
+          onRefresh: _refreshDraftCount,
+        ),
       ),
       body: SafeArea(
         child: DecoratedBox(
@@ -305,7 +300,16 @@ class _RapportinoDraftsPageState extends State<RapportinoDraftsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Le mie bozze')),
+      appBar: AppBar(
+        title: const Text('Le mie bozze'),
+        actions: standardAppBarActions(
+          context,
+          helpTitle: 'Le mie bozze',
+          helpContent: HelpContent.bozze,
+          onRefresh: _load,
+          refreshEnabled: !_loading,
+        ),
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _drafts.isEmpty

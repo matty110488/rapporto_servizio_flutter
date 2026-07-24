@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../config/app_config.dart';
+import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../utils/italian_date_formatter.dart';
 import '../widgets/stopwatch_loading.dart';
+import '../widgets/standard_app_bar_actions.dart';
 
 class StatistichePage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
@@ -242,23 +244,13 @@ class _StatistichePageState extends State<StatistichePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Statistiche'),
-        actions: [
-          IconButton(
-            tooltip: 'Aggiorna',
-            onPressed: () => _loadStats(forceRefresh: true),
-            icon: const Icon(Icons.refresh),
-          ),
-          TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            },
-            icon: const Icon(Icons.home),
-            label: const Text('Home'),
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        ],
+        actions: standardAppBarActions(
+          context,
+          helpTitle: 'Statistiche',
+          helpContent: HelpContent.statistiche,
+          onRefresh: () => _loadStats(forceRefresh: true),
+          refreshEnabled: !_loading,
+        ),
       ),
       body: DecoratedBox(
         decoration: const BoxDecoration(

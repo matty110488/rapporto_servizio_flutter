@@ -7,7 +7,7 @@ import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
-import '../widgets/help_dialog.dart';
+import '../widgets/standard_app_bar_actions.dart';
 
 class ArchivioScreen extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
@@ -184,29 +184,12 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
               ),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            tooltip: 'Aiuto',
-            onPressed: () => showHelpDialog(
-              context,
-              'Archivio',
-              HelpContent.archivio,
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Aggiorna',
-            onPressed: () => _caricaArchivio(forceRefresh: true),
-          ),
-          TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            },
-            icon: const Icon(Icons.home),
-            label: const Text('Home'),
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.primary,
-            ),
+          ...standardAppBarActions(
+            context,
+            helpTitle: 'Archivio',
+            helpContent: HelpContent.archivio,
+            onRefresh: () => _caricaArchivio(forceRefresh: true),
+            refreshEnabled: !loading,
           ),
         ],
       ),

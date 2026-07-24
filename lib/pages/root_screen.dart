@@ -21,7 +21,7 @@ import '../widgets/cronometristi_form.dart';
 import '../widgets/danni_form.dart';
 import '../widgets/gara_form.dart';
 import '../widgets/header.dart';
-import '../widgets/help_dialog.dart';
+import '../widgets/standard_app_bar_actions.dart';
 import '../widgets/stopwatch_loading.dart';
 
 class RootScreen extends StatefulWidget {
@@ -1496,56 +1496,6 @@ class _RootScreenState extends State<RootScreen> {
     );
   }
 
-  Widget _buildHeroCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF004E9A), Color(0xFF0A66C2), Color(0xFF338FE5)],
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x300A66C2),
-            blurRadius: 20,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Rapporti di servizio',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          SizedBox(height: 6),
-          Text(
-            'Tre passaggi semplici, con i dati della gara gia pronti.',
-            style: TextStyle(color: Colors.white, fontSize: 15),
-          ),
-          SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _HeroStep(number: '1', label: 'Scegli evento'),
-              _HeroStep(number: '2', label: 'Controlla i dati'),
-              _HeroStep(number: '3', label: 'Salva e invia'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final canFillForm = selectedGara != null;
@@ -1556,34 +1506,26 @@ class _RootScreenState extends State<RootScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Text('Crono Valtellinesi'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.help_outline),
-              tooltip: 'Aiuto',
-              onPressed: () => showHelpDialog(
-                context,
-                'Rapportini',
-                HelpContent.rapportini,
-              ),
-            ),
-            TextButton.icon(
-              onPressed: () async {
-                await _savePendingChangesIfAny();
-                if (!context.mounted) return;
-                setState(() => _allowPop = true);
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  }
-                });
-              },
-              icon: const Icon(Icons.home),
-              label: const Text('Home'),
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ],
+          actions: standardAppBarActions(
+            context,
+            helpTitle: 'Rapportini',
+            helpContent: HelpContent.rapportini,
+            onRefresh: () async {
+              await _savePendingChangesIfAny();
+              if (mounted) await _loadGareDsc();
+            },
+            refreshEnabled: !loadingGareList && !prefilling,
+            onHome: () async {
+              await _savePendingChangesIfAny();
+              if (!context.mounted) return;
+              setState(() => _allowPop = true);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                }
+              });
+            },
+          ),
         ),
         body: SafeArea(
           child: DecoratedBox(
@@ -1603,8 +1545,6 @@ class _RootScreenState extends State<RootScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHeroCard(),
-                  const SizedBox(height: 12),
                   _buildGareSelectionCard(),
                   const SizedBox(height: 12),
                   _buildSelectedGaraInfo(),
@@ -1658,51 +1598,3 @@ class _ReportArchiveResult {
 }
 
 enum _ReportDelivery { email, whatsApp }
-
-class _HeroStep extends StatelessWidget {
-  final String number;
-  final String label;
-
-  const _HeroStep({required this.number, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.34)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 23,
-            height: 23,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              number,
-              style: const TextStyle(
-                color: Color(0xFF0759A8),
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const SizedBox(width: 7),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

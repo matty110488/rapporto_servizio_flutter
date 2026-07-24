@@ -4,10 +4,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../config/app_config.dart';
+import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../services/push_notification_service.dart';
 import '../utils/italian_date_formatter.dart';
+import '../widgets/standard_app_bar_actions.dart';
 import 'dettaglio_gara.dart';
 
 class NotificationsPage extends StatefulWidget {
@@ -229,13 +231,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifiche'),
-        actions: [
-          IconButton(
-            onPressed: _loading ? null : _loadAll,
-            tooltip: 'Aggiorna',
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
+        actions: standardAppBarActions(
+          context,
+          helpTitle: 'Notifiche',
+          helpContent: HelpContent.notifiche,
+          onRefresh: _loadAll,
+          refreshEnabled: !_loading,
+        ),
       ),
       body: DecoratedBox(
         decoration: const BoxDecoration(

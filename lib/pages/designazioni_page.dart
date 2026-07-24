@@ -6,7 +6,7 @@ import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../utils/italian_date_formatter.dart';
-import '../widgets/help_dialog.dart';
+import '../widgets/standard_app_bar_actions.dart';
 import '../widgets/stopwatch_loading.dart';
 import 'dettaglio_gara.dart';
 
@@ -114,27 +114,13 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Designazioni'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            tooltip: 'Aiuto',
-            onPressed: () => showHelpDialog(
-              context,
-              'Designazioni',
-              HelpContent.designazioni,
-            ),
-          ),
-          TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            },
-            icon: const Icon(Icons.home),
-            label: const Text('Home'),
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        ],
+        actions: standardAppBarActions(
+          context,
+          helpTitle: 'Designazioni',
+          helpContent: HelpContent.designazioni,
+          onRefresh: () => _caricaGare(forceRefresh: true),
+          refreshEnabled: !loading,
+        ),
       ),
       body: DecoratedBox(
         decoration: const BoxDecoration(
