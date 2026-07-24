@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../config/app_config.dart';
@@ -508,17 +507,21 @@ class _RootScreenState extends State<RootScreen> {
     };
   }
 
-  Future<bool> _confirmPackageGeneration(GaraPackage package) async {
-    if (!package.isPackage) return true;
+  Future<bool> _confirmReportValidation(GaraPackage package) async {
+    final packageDetails = package.isPackage
+        ? ' Il PDF comprenderà ${package.gare.length} gare e '
+            '${package.activeDates.length} giornate.'
+        : '';
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         icon: const Icon(Icons.fact_check_outlined, size: 38),
-        title: const Text('Generare un unico rapportino?'),
+        title: const Text('Validare il rapportino?'),
         content: Text(
-          'Il PDF comprenderà ${package.gare.length} gare e '
-          '${package.activeDates.length} giornate. Al termine, tutte le gare '
-          'incluse saranno segnate come “Rapportino ricevuto”.',
+          'Stai per validare e salvare il rapportino su Notion.$packageDetails '
+          'Al termine ${package.isPackage ? 'tutte le gare incluse saranno' : 'la gara sarà'} '
+          'contrassegnat${package.isPackage ? 'e' : 'a'} come “Rapportino ricevuto”. '
+          'Potrai quindi scegliere se inviarlo via email o WhatsApp.',
           style: const TextStyle(fontSize: 16, height: 1.35),
         ),
         actions: [
@@ -528,13 +531,112 @@ class _RootScreenState extends State<RootScreen> {
           ),
           FilledButton.icon(
             onPressed: () => Navigator.pop(dialogContext, true),
-            icon: const Icon(Icons.picture_as_pdf),
-            label: const Text('Sì, genera il PDF'),
+            icon: const Icon(Icons.verified_outlined),
+            label: const Text('Valida e salva'),
           ),
         ],
       ),
     );
     return result ?? false;
+  }
+
+  Future<void> _showReportSendOptions({
+    required XFile file,
+    required GaraPackage reportPackage,
+  }) async {
+    if (!mounted) return;
+    final delivery = await showDialog<_ReportDelivery>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.task_alt_rounded, size: 42),
+        title: const Text('Rapportino salvato'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Il rapportino è stato validato e archiviato su Notion.',
+              style: TextStyle(fontSize: 16, height: 1.35),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Scegli come inviarlo. Si aprirà il menu di condivisione del '
+              'dispositivo con il PDF già allegato.',
+              style: TextStyle(
+                color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _ReportDelivery.email),
+              icon: const Icon(Icons.email_outlined),
+              label: const Text('Invia via email'),
+            ),
+            const SizedBox(height: 10),
+            FilledButton.icon(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _ReportDelivery.whatsApp),
+              icon: const Icon(Icons.chat_outlined),
+              label: const Text('Invia via WhatsApp'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF168A45),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Non ora'),
+          ),
+        ],
+      ),
+    );
+    if (delivery == null || !mounted) return;
+    await _shareValidatedReport(
+      file: file,
+      reportPackage: reportPackage,
+      delivery: delivery,
+    );
+  }
+
+  Future<void> _shareValidatedReport({
+    required XFile file,
+    required GaraPackage reportPackage,
+    required _ReportDelivery delivery,
+  }) async {
+    final channel =
+        delivery == _ReportDelivery.email ? 'l’app email' : 'WhatsApp';
+    final renderObject = context.findRenderObject();
+    final shareOrigin = renderObject is RenderBox
+        ? renderObject.localToGlobal(Offset.zero) & renderObject.size
+        : null;
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          subject: delivery == _ReportDelivery.email
+              ? 'Rapporto di servizio - ${reportPackage.title}'
+              : null,
+          text: 'Rapporto di servizio - ${reportPackage.title}',
+          files: [file],
+          sharePositionOrigin: shareOrigin,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Non riesco ad aprire $channel. Puoi inviare il PDF in seguito '
+            'dall’Archivio rapportini.',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _saveDraft({
@@ -1253,7 +1355,7 @@ class _RootScreenState extends State<RootScreen> {
                 return;
               }
 
-              if (!await _confirmPackageGeneration(reportPackage)) return;
+              if (!await _confirmReportValidation(reportPackage)) return;
 
               final gara = garaKey.currentState?.getData() ?? {};
               final cronos = cronometristiKey.currentState?.getData() ?? [];
@@ -1280,6 +1382,7 @@ class _RootScreenState extends State<RootScreen> {
                 );
                 final reportFilename = _notionReportFilename(reportPackage);
                 late final _ReportArchiveResult archiveResult;
+                late final XFile reportFile;
                 if (kIsWeb) {
                   final pdfBytes = await generaPdfBytesConDati(payload);
                   archiveResult = await _archiveReport(
@@ -1287,9 +1390,10 @@ class _RootScreenState extends State<RootScreen> {
                     gare: gareSelezionate,
                     filename: reportFilename,
                   );
-                  await Printing.sharePdf(
-                    bytes: pdfBytes,
-                    filename: 'rapporto_servizio.pdf',
+                  reportFile = XFile.fromData(
+                    pdfBytes,
+                    mimeType: 'application/pdf',
+                    name: 'rapporto_servizio.pdf',
                   );
                   _showArchiveWarning(archiveResult);
                 } else {
@@ -1302,12 +1406,7 @@ class _RootScreenState extends State<RootScreen> {
                     gare: gareSelezionate,
                     filename: reportFilename,
                   );
-                  await SharePlus.instance.share(
-                    ShareParams(
-                      text: 'Rapporto PDF',
-                      files: [XFile(file.path)],
-                    ),
-                  );
+                  reportFile = XFile(file.path);
                   _showArchiveWarning(archiveResult);
                 }
                 if (!archiveResult.uploaded) return;
@@ -1321,20 +1420,24 @@ class _RootScreenState extends State<RootScreen> {
                 if (mounted) {
                   setState(() => _lastDraftSavedAt = null);
                 }
+                await _showReportSendOptions(
+                  file: reportFile,
+                  reportPackage: reportPackage,
+                );
                 await _loadGareDsc();
               } catch (e) {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Errore generazione PDF: $e')),
+                  SnackBar(
+                    content: Text(
+                      'Errore durante il salvataggio del rapportino: $e',
+                    ),
+                  ),
                 );
               }
             },
-            icon: const Icon(Icons.picture_as_pdf),
-            label: Text(
-              _selectedReportPackage?.isPackage == true
-                  ? 'Genera un unico rapportino'
-                  : 'Genera rapportino',
-            ),
+            icon: const Icon(Icons.send_rounded),
+            label: const Text('Salva e invia'),
           ),
         ),
       ],
@@ -1435,7 +1538,7 @@ class _RootScreenState extends State<RootScreen> {
             children: [
               _HeroStep(number: '1', label: 'Scegli evento'),
               _HeroStep(number: '2', label: 'Controlla i dati'),
-              _HeroStep(number: '3', label: 'Genera PDF'),
+              _HeroStep(number: '3', label: 'Salva e invia'),
             ],
           ),
         ],
@@ -1553,6 +1656,8 @@ class _ReportArchiveResult {
 
   const _ReportArchiveResult.failure(this.error) : uploaded = false;
 }
+
+enum _ReportDelivery { email, whatsApp }
 
 class _HeroStep extends StatelessWidget {
   final String number;

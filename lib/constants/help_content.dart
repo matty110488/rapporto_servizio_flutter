@@ -23,7 +23,8 @@ class HelpContent {
     "Dal menu a tendina, selezionare la gara della quale si intende compilare il rapportino. Le informazioni della gara vengono compilate automaticamente, cosi' come l'elenco dei cronometristi designati. In caso di gare di piu' giorni, il sistema propone in automatico l'elenco dei cronometristi designati per ogni giornata.",
     "La compilazione viene salvata automaticamente sul dispositivo. Puoi anche usare il pulsante Salva bozza e riprendere il lavoro dalla sezione Le mie bozze.",
     "Gli allegati non vengono conservati nella bozza e devono essere aggiunti prima dell'invio.",
-    "Il rapportino viene generato in formato PDF dopo la pressione dell'apposito pulsante, e puo' essere inviato alla segreteria via email oppure Whatsapp.",
+    "Premendo Salva e invia, il rapportino viene validato, salvato su Notion e contrassegnato come ricevuto.",
+    "Al termine puoi scegliere chiaramente se condividere il PDF via email oppure WhatsApp.",
   ];
 
   static const archivio = [

@@ -394,11 +394,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Widget _card({required Widget child}) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFDCE8F6)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x12000000),
@@ -407,7 +404,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ),
         ],
       ),
-      child: child,
+      child: Material(
+        color: Colors.white,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: Color(0xFFDCE8F6)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: child,
+        ),
+      ),
     );
   }
 }
