@@ -96,7 +96,11 @@ Future<void> initFirebaseMessaging() async {
     );
   }
 
-  FirebaseMessaging.onMessage.listen((message) {
+  FirebaseMessaging.onMessage.listen((message) async {
+    if (globalLoggedUserId == null || !await pushNotificationsAppEnabled()) {
+      print('[PUSH] Foreground message ignored: no active opted-in user.');
+      return;
+    }
     print('[PUSH] Foreground message: ${message.messageId}');
     final title = message.notification?.title ??
         message.data['title'] ??
@@ -214,24 +218,45 @@ Future<void> disableNotificationsForUser(String userId) async {
     if (token != null && token.isNotEmpty) 'token': token,
   });
 
-  final res = await http.post(
-    Uri.parse(apiUrl),
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $sessionToken',
-    },
-    body: payload,
-  );
-
-  if (res.statusCode != 200) {
-    throw PushNotificationSetupException(
+  PushNotificationSetupException? backendError;
+  try {
+    final res = await http.post(
+      Uri.parse(apiUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $sessionToken',
+      },
+      body: payload,
+    );
+    if (res.statusCode != 200) {
+      backendError = PushNotificationSetupException(
+        'Non è stato possibile disattivare le notifiche sul server.',
+        'HTTP ${res.statusCode}: ${res.body}',
+      );
+    }
+  } catch (error) {
+    backendError = PushNotificationSetupException(
       'Non è stato possibile disattivare le notifiche sul server.',
-      'HTTP ${res.statusCode}: ${res.body}',
+      error,
     );
   }
 
+  // Revoca sempre il consenso e il token locale. Anche se la rete fallisce,
+  // un token rimasto sul server non deve più poter ricevere messaggi FCM.
+  await revokePushTokenLocally();
+
+  if (backendError != null) throw backendError;
+}
+
+Future<void> revokePushTokenLocally() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setBool(_pushAppEnabledKey, false);
+  try {
+    await FirebaseMessaging.instance.deleteToken();
+    print('[PUSH] Local token revoked.');
+  } catch (error) {
+    print('[PUSH] Local token revocation failed: $error');
+  }
 }
 
 Future<PushSendResult> sendTestNotificationToCurrentDevice(
