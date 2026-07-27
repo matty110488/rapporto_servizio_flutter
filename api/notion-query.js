@@ -1101,8 +1101,8 @@ export default async function handler(req, res) {
       const details = [garaData, garaLuogo].filter(Boolean).join(' - ');
       const title = 'Nuovo rapportino ricevuto';
       const body = details
-        ? `È stato inviato il rapportino per ${garaTitolo}\n${details}`
-        : `È stato inviato il rapportino per ${garaTitolo}`;
+        ? `È stato ricevuto il rapportino per ${garaTitolo}\n${details}`
+        : `È stato ricevuto il rapportino per ${garaTitolo}`;
       const eventKey = [
         'report-received',
         garaId,
@@ -2059,8 +2059,8 @@ export default async function handler(req, res) {
       }
 
       const bodyText = available
-        ? `${userName} si e reso disponibile per ${garaTitolo}`
-        : `${userName} ha tolto la disponibilita per ${garaTitolo}`;
+        ? `${userName} si è reso disponibile per ${garaTitolo}`
+        : `${userName} ha tolto la disponibilità per ${garaTitolo}`;
       let bodyWithDetails = bodyText;
       let garaData = '';
       let garaLuogo = '';
@@ -2075,7 +2075,7 @@ export default async function handler(req, res) {
       }
       const result = await sendFcmMessages({
         tokens: tokenList,
-        title: available ? 'Nuova disponibilita' : 'Disponibilita rimossa',
+        title: available ? 'Nuova disponibilità' : 'Disponibilità rimossa',
         body: bodyWithDetails,
         data: {
           type: 'availability',
@@ -2091,7 +2091,7 @@ export default async function handler(req, res) {
         await Promise.allSettled(
           [...recipients.keys()].map((recipientId) =>
             appendUserNotification(recipientId, {
-              title: available ? 'Nuova disponibilita' : 'Disponibilita rimossa',
+              title: available ? 'Nuova disponibilità' : 'disponibilità rimossa',
               body: bodyWithDetails,
               type: 'availability',
               garaId,
