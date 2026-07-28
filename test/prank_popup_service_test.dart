@@ -21,6 +21,10 @@ void main() {
 
     expect(find.text('Modalità cronometrista leggendario'), findsOneWidget);
     expect(find.text('Tempo preso!'), findsOneWidget);
+
+    await tester.tap(find.text('Tempo preso!'));
+    await tester.pumpAndSettle();
+    expect(find.text('Modalità cronometrista leggendario'), findsNothing);
   });
 
   testWidgets('checkered flag overlay closes automatically', (tester) async {
@@ -38,15 +42,9 @@ void main() {
     await tester.tap(find.text('Bandiera'));
     await tester.pump();
 
-    expect(
-      find.text('Tempo ufficiale: sempre troppo presto'),
-      findsOneWidget,
-    );
+    expect(find.byIcon(Icons.sports_score), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 3));
-    expect(
-      find.text('Tempo ufficiale: sempre troppo presto'),
-      findsNothing,
-    );
+    expect(find.byIcon(Icons.sports_score), findsNothing);
   });
 }
