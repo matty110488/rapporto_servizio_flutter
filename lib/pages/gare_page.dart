@@ -995,14 +995,18 @@ class _GarePageState extends State<GarePage> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(14),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onLongPress: () => PrankPopupService.showCheckeredFlag(context),
+            child: Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.event, color: Colors.white),
             ),
-            child: const Icon(Icons.event, color: Colors.white),
           ),
           const SizedBox(width: 14),
           Expanded(
