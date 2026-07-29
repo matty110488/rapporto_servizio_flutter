@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../constants/help_content.dart';
 import '../screens/archivio_screen.dart';
 import '../services/rapportino_draft_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/italian_date_formatter.dart';
 import '../widgets/standard_app_bar_actions.dart';
 import 'root_screen.dart';
@@ -52,7 +53,7 @@ class _ServiceReportsPageState extends State<ServiceReportsPage> {
     String? badge,
   }) {
     return Material(
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
@@ -63,7 +64,7 @@ class _ServiceReportsPageState extends State<ServiceReportsPage> {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFDCE8F6)),
+            border: Border.all(color: AppThemeTokens.of(context).cardBorder),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x10000000),
@@ -154,11 +155,11 @@ class _ServiceReportsPageState extends State<ServiceReportsPage> {
       ),
       body: SafeArea(
         child: DecoratedBox(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFEAF3FF), Color(0xFFFFFFFF)],
+              colors: AppThemeTokens.of(context).pageGradient,
             ),
           ),
           child: ListView(

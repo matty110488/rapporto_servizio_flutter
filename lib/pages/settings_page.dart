@@ -10,6 +10,7 @@ import '../services/app_update_exception.dart';
 import '../services/app_update_service.dart';
 import '../services/auth_service.dart';
 import '../services/push_notification_service.dart';
+import '../theme/app_theme.dart';
 import '../widgets/standard_app_bar_actions.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -306,6 +307,60 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                _sectionTitle('Aspetto'),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: ValueListenableBuilder<AppVisualStyle>(
+                      valueListenable: AppThemeController.style,
+                      builder: (context, currentStyle, _) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.palette_outlined),
+                            title: Text('Tema dell’app'),
+                            subtitle: Text(
+                              'Cambia subito colori, superfici e controlli',
+                            ),
+                          ),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: AppVisualStyle.values
+                                .map(
+                                  (style) => ChoiceChip(
+                                    avatar: Icon(style.icon, size: 18),
+                                    label: Text(style.label),
+                                    selected: currentStyle == style,
+                                    showCheckmark: false,
+                                    onSelected: (_) async {
+                                      await AppThemeController.setStyle(style);
+                                    },
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                          const SizedBox(height: 10),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 180),
+                            child: Text(
+                              currentStyle.description,
+                              key: ValueKey(currentStyle),
+                              style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
                 _sectionTitle('Sicurezza'),
                 Card(
                   child: ListTile(
@@ -399,7 +454,7 @@ class _SettingsPageState extends State<SettingsPage> {
             )
           : CupertinoSwitch(
               value: value,
-              activeTrackColor: const Color(0xFF007AFF),
+              activeTrackColor: Theme.of(context).colorScheme.primary,
               onChanged: onChanged,
             ),
     );

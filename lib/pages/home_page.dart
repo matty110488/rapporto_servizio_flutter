@@ -10,6 +10,7 @@ import '../services/app_update_service.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/push_notification_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
 import 'dettaglio_gara.dart';
@@ -423,15 +424,11 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
           body: DecoratedBox(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFEAF3FF),
-                  Color(0xFFF7FBFF),
-                  Color(0xFFFFFFFF),
-                ],
+                colors: AppThemeTokens.of(context).pageGradient,
               ),
             ),
             child: SafeArea(
@@ -489,10 +486,10 @@ class _HomePageState extends State<HomePage> {
             _hero(userName),
             const SizedBox(height: 18),
             if (compact) ...[
-              const Text(
+              Text(
                 'Menu principale',
                 style: TextStyle(
-                  color: Color(0xFF1A2B40),
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
@@ -509,8 +506,8 @@ class _HomePageState extends State<HomePage> {
                 width: double.infinity,
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF0A66C2),
-                    foregroundColor: Colors.white,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   onPressed: widget.onLogout,
@@ -532,8 +529,8 @@ class _HomePageState extends State<HomePage> {
                   padding: const EdgeInsets.all(6),
                   child: Text(
                     _appVersionLabel,
-                    style: const TextStyle(
-                      color: Color(0xFF7B8EA3),
+                    style: TextStyle(
+                      color: AppThemeTokens.of(context).mutedText,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -579,10 +576,10 @@ class _HomePageState extends State<HomePage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF004E9A), Color(0xFF0A66C2), Color(0xFF338FE5)],
+          colors: AppThemeTokens.of(context).heroGradient,
         ),
         boxShadow: const [
           BoxShadow(
@@ -595,10 +592,12 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Benvenuto',
             style: TextStyle(
-              color: Colors.white70,
+              color: AppThemeTokens.of(context)
+                  .heroForeground
+                  .withValues(alpha: 0.75),
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -606,8 +605,8 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 4),
           Text(
             userName,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppThemeTokens.of(context).heroForeground,
               fontSize: 22,
               fontWeight: FontWeight.w800,
             ),
@@ -670,9 +669,11 @@ class _HomePageState extends State<HomePage> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F6FB),
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFD4E2EF)),
+                border: Border.all(
+                  color: AppThemeTokens.of(context).cardBorder,
+                ),
                 boxShadow: const [
                   BoxShadow(
                     color: Color(0x24031324),
@@ -686,18 +687,18 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'RACE CONTROL',
                           style: TextStyle(
-                            color: Color(0xFF0A66C2),
+                            color: Theme.of(context).colorScheme.primary,
                             fontSize: 12,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.8,
                           ),
                         ),
                       ),
-                      refreshButton(const Color(0xFF0A66C2)),
+                      refreshButton(Theme.of(context).colorScheme.primary),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -795,9 +796,9 @@ class _HomePageState extends State<HomePage> {
       width: double.infinity,
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFC9DBE9)),
+        border: Border.all(color: AppThemeTokens.of(context).cardBorder),
         boxShadow: const [
           BoxShadow(
             color: Color(0x180B2942),
@@ -811,8 +812,8 @@ class _HomePageState extends State<HomePage> {
         children: [
           Text(
             formatDate(gara.dataGara),
-            style: const TextStyle(
-              color: Color(0xFF334E68),
+            style: TextStyle(
+              color: AppThemeTokens.of(context).mutedText,
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
@@ -822,8 +823,8 @@ class _HomePageState extends State<HomePage> {
             gara.titolo,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF102A43),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 17,
               height: 1.12,
               fontWeight: FontWeight.w900,
@@ -837,13 +838,16 @@ class _HomePageState extends State<HomePage> {
             ].join(' · '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Color(0xFF334E68), fontSize: 12),
+            style: TextStyle(
+              color: AppThemeTokens.of(context).mutedText,
+              fontSize: 12,
+            ),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF0A66C2),
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
               minimumSize: const Size.fromHeight(40),
             ),
             onPressed: () => _openPage(
@@ -909,9 +913,9 @@ class _HomeSidebar extends StatelessWidget {
       margin: const EdgeInsets.all(14),
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFDCE8F6)),
+        border: Border.all(color: AppThemeTokens.of(context).cardBorder),
         boxShadow: const [
           BoxShadow(
             color: Color(0x16000000),
@@ -935,17 +939,17 @@ class _HomeSidebar extends StatelessWidget {
             'Ciao, $userName',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF1A2B40),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 20,
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Scegli una sezione dal menu.',
             style: TextStyle(
-              color: Color(0xFF49627E),
+              color: AppThemeTokens.of(context).mutedText,
               fontSize: 13,
             ),
           ),
@@ -957,8 +961,8 @@ class _HomeSidebar extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 5),
               child: Text(
                 appVersionLabel,
-                style: const TextStyle(
-                  color: Color(0xFF7B8EA3),
+                style: TextStyle(
+                  color: AppThemeTokens.of(context).mutedText,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -979,8 +983,8 @@ class _HomeSidebar extends StatelessWidget {
           FilledButton.icon(
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(46),
-              backgroundColor: const Color(0xFF0A66C2),
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
               alignment: Alignment.centerLeft,
             ),
             onPressed: onLogout,
@@ -1008,12 +1012,14 @@ class _HomeMenuTile extends StatelessWidget {
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
-            color: item.badgeCount > 0 ? const Color(0xFFFFF1F1) : Colors.white,
+            color: item.badgeCount > 0
+                ? Theme.of(context).colorScheme.errorContainer
+                : Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: item.badgeCount > 0
                   ? const Color(0xFFFFB4B4)
-                  : const Color(0xFFE2ECF8),
+                  : AppThemeTokens.of(context).cardBorder,
             ),
           ),
           child: Row(
@@ -1024,14 +1030,14 @@ class _HomeMenuTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: item.badgeCount > 0
                       ? Colors.red
-                      : const Color(0xFFEAF3FF),
+                      : Theme.of(context).colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   item.icon,
                   color: item.badgeCount > 0
                       ? Colors.white
-                      : const Color(0xFF0A66C2),
+                      : Theme.of(context).colorScheme.onPrimaryContainer,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1043,8 +1049,8 @@ class _HomeMenuTile extends StatelessWidget {
                       item.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF1A2B40),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
                       ),
@@ -1057,7 +1063,7 @@ class _HomeMenuTile extends StatelessWidget {
                       style: TextStyle(
                         color: item.badgeCount > 0
                             ? Colors.red
-                            : const Color(0xFF49627E),
+                            : AppThemeTokens.of(context).mutedText,
                         fontSize: 12,
                         fontWeight: item.badgeCount > 0
                             ? FontWeight.w700
@@ -1108,9 +1114,9 @@ class _DesktopSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFDCE8F6)),
+        border: Border.all(color: AppThemeTokens.of(context).cardBorder),
         boxShadow: const [
           BoxShadow(
             color: Color(0x12000000),
@@ -1127,15 +1133,16 @@ class _DesktopSummaryCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: notificationsCount > 0
                   ? const Color(0xFFFFE7E7)
-                  : const Color(0xFFEAF3FF),
+                  : Theme.of(context).colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               notificationsCount > 0
                   ? Icons.mark_email_unread_outlined
                   : Icons.dashboard_outlined,
-              color:
-                  notificationsCount > 0 ? Colors.red : const Color(0xFF0A66C2),
+              color: notificationsCount > 0
+                  ? Colors.red
+                  : Theme.of(context).colorScheme.primary,
             ),
           ),
           const SizedBox(width: 14),
@@ -1143,10 +1150,10 @@ class _DesktopSummaryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Dashboard',
                   style: TextStyle(
-                    color: Color(0xFF1A2B40),
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
                   ),

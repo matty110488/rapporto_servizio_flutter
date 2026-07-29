@@ -5,6 +5,7 @@ import '../config/app_config.dart';
 import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
 import '../widgets/standard_app_bar_actions.dart';
@@ -215,9 +216,11 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
                         final gara = archived.gara;
                         return Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFDCE8F6)),
+                            border: Border.all(
+                              color: AppThemeTokens.of(context).cardBorder,
+                            ),
                           ),
                           child: Padding(
                             padding: const EdgeInsets.all(12),

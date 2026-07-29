@@ -10,6 +10,7 @@ import '../models/gara.dart';
 import '../models/race_weather.dart';
 import '../services/notion_service.dart';
 import '../services/weather_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
 import '../widgets/race_weather_view.dart';
@@ -188,10 +189,10 @@ class _DettaglioGaraState extends State<DettaglioGara> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(26),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF071E3D), Color(0xFF0A4C8A), Color(0xFF0A72C8)],
+          colors: AppThemeTokens.of(context).heroGradient,
         ),
         boxShadow: const [
           BoxShadow(
@@ -377,12 +378,12 @@ class _DettaglioGaraState extends State<DettaglioGara> {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8F4FF),
+                  color: Theme.of(context).colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.business_rounded,
-                  color: Color(0xFF0A66C2),
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
                 ),
               ),
               const SizedBox(width: 12),
@@ -390,10 +391,10 @@ class _DettaglioGaraState extends State<DettaglioGara> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Organizzatore',
                       style: TextStyle(
-                        color: Color(0xFF647587),
+                        color: AppThemeTokens.of(context).mutedText,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -401,8 +402,8 @@ class _DettaglioGaraState extends State<DettaglioGara> {
                     const SizedBox(height: 3),
                     Text(
                       _organizerName(),
-                      style: const TextStyle(
-                        color: Color(0xFF1B344F),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
                       ),
@@ -485,10 +486,14 @@ class _DettaglioGaraState extends State<DettaglioGara> {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: const Color(0xFFE8F4FF),
+                color: Theme.of(context).colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: const Color(0xFF0A66C2), size: 20),
+              child: Icon(
+                icon,
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 11),
             Expanded(
@@ -504,8 +509,8 @@ class _DettaglioGaraState extends State<DettaglioGara> {
                     values.isEmpty ? 'Non assegnato' : values.join(' · '),
                     style: TextStyle(
                       color: values.isEmpty
-                          ? const Color(0xFF7E8B99)
-                          : const Color(0xFF344E68),
+                          ? AppThemeTokens.of(context).mutedText
+                          : Theme.of(context).colorScheme.onSurface,
                       height: 1.35,
                     ),
                   ),
@@ -553,8 +558,8 @@ class _DettaglioGaraState extends State<DettaglioGara> {
       children: [
         Text(
           eyebrow,
-          style: const TextStyle(
-            color: Color(0xFF0A66C2),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
             fontSize: 11,
             fontWeight: FontWeight.w900,
             letterSpacing: 1.2,
@@ -564,7 +569,10 @@ class _DettaglioGaraState extends State<DettaglioGara> {
         Text(title,
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
         const SizedBox(height: 2),
-        Text(subtitle, style: const TextStyle(color: Color(0xFF647587))),
+        Text(
+          subtitle,
+          style: TextStyle(color: AppThemeTokens.of(context).mutedText),
+        ),
       ],
     );
   }
@@ -726,9 +734,9 @@ class _CockpitPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFDDE7F1)),
+        border: Border.all(color: AppThemeTokens.of(context).cardBorder),
         boxShadow: const [
           BoxShadow(
               color: Color(0x0D000000), blurRadius: 14, offset: Offset(0, 5)),

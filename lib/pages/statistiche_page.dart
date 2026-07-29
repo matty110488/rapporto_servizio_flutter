@@ -4,6 +4,7 @@ import '../config/app_config.dart';
 import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/italian_date_formatter.dart';
 import '../widgets/stopwatch_loading.dart';
 import '../widgets/standard_app_bar_actions.dart';
@@ -253,11 +254,11 @@ class _StatistichePageState extends State<StatistichePage> {
         ),
       ),
       body: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFEAF3FF), Color(0xFFF8FBFF), Color(0xFFFFFFFF)],
+            colors: AppThemeTokens.of(context).pageGradient,
           ),
         ),
         child: RefreshIndicator(
@@ -416,10 +417,10 @@ class _HeroCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF004E9A), Color(0xFF0A66C2), Color(0xFF338FE5)],
+          colors: AppThemeTokens.of(context).heroGradient,
         ),
         boxShadow: const [
           BoxShadow(
@@ -466,24 +467,27 @@ class _YearSelectorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Row(
         children: [
           Container(
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: const Color(0xFFEAF3FF),
+              color: Theme.of(context).colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.calendar_month, color: Color(0xFF0A66C2)),
+            child: Icon(
+              Icons.calendar_month,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Text(
               'Anno statistiche',
               style: TextStyle(
-                color: Color(0xFF1A2B40),
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
               ),
@@ -527,24 +531,24 @@ class _CountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Row(
         children: [
           Container(
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: const Color(0xFFEAF3FF),
+              color: Theme.of(context).colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, color: const Color(0xFF0A66C2)),
+            child: Icon(icon, color: Theme.of(context).colorScheme.primary),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF49627E),
+              style: TextStyle(
+                color: AppThemeTokens.of(context).mutedText,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
@@ -552,8 +556,8 @@ class _CountCard extends StatelessWidget {
           ),
           Text(
             value.toString(),
-            style: const TextStyle(
-              color: Color(0xFF1A2B40),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 24,
               fontWeight: FontWeight.w900,
             ),
@@ -584,18 +588,18 @@ class _BreakdownCard extends StatelessWidget {
     final max = entries.isEmpty ? 1 : entries.first.count;
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: const Color(0xFF0A66C2)),
+              Icon(icon, color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 8),
               Text(
                 title,
-                style: const TextStyle(
-                  color: Color(0xFF1A2B40),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
@@ -606,8 +610,8 @@ class _BreakdownCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               subtitle!,
-              style: const TextStyle(
-                color: Color(0xFF49627E),
+              style: TextStyle(
+                color: AppThemeTokens.of(context).mutedText,
                 fontSize: 12,
               ),
             ),
@@ -616,7 +620,7 @@ class _BreakdownCard extends StatelessWidget {
           if (entries.isEmpty)
             Text(
               emptyText,
-              style: const TextStyle(color: Color(0xFF49627E)),
+              style: TextStyle(color: AppThemeTokens.of(context).mutedText),
             )
           else
             ...entries.map((entry) {
@@ -633,16 +637,16 @@ class _BreakdownCard extends StatelessWidget {
                             entry.label,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFF1A2B40),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
                         Text(
                           entry.count.toString(),
-                          style: const TextStyle(
-                            color: Color(0xFF0A66C2),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -654,9 +658,10 @@ class _BreakdownCard extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: percent,
                         minHeight: 7,
-                        backgroundColor: const Color(0xFFEAF3FF),
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          Color(0xFF0A66C2),
+                        backgroundColor:
+                            Theme.of(context).colorScheme.primaryContainer,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Theme.of(context).colorScheme.primary,
                         ),
                       ),
                     ),
@@ -679,18 +684,18 @@ class _LatestServicesCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.history, color: Color(0xFF0A66C2)),
-              SizedBox(width: 8),
+              Icon(Icons.history, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
               Text(
                 'Ultime designazioni',
                 style: TextStyle(
-                  color: Color(0xFF1A2B40),
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
@@ -699,9 +704,9 @@ class _LatestServicesCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (gare.isEmpty)
-            const Text(
+            Text(
               'Nessuna designazione trovata.',
-              style: TextStyle(color: Color(0xFF49627E)),
+              style: TextStyle(color: AppThemeTokens.of(context).mutedText),
             )
           else
             ...gare.map(
@@ -723,8 +728,8 @@ class _LatestServicesCard extends StatelessWidget {
                             gara.titolo,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFF1A2B40),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -732,8 +737,8 @@ class _LatestServicesCard extends StatelessWidget {
                             '${_formatDate(gara.dataGara)} - ${gara.sport.isEmpty ? 'Sport non indicato' : gara.sport}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFF49627E),
+                            style: TextStyle(
+                              color: AppThemeTokens.of(context).mutedText,
                               fontSize: 12,
                             ),
                           ),
@@ -763,7 +768,10 @@ class _ErrorView extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: _panelDecoration(borderColor: const Color(0xFFFFD8D8)),
+          decoration: _panelDecoration(
+            context,
+            borderColor: Theme.of(context).colorScheme.error,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -822,13 +830,16 @@ class _StatEntry {
   const _StatEntry(this.label, this.count);
 }
 
-BoxDecoration _panelDecoration({
-  Color borderColor = const Color(0xFFDCE8F6),
+BoxDecoration _panelDecoration(
+  BuildContext context, {
+  Color? borderColor,
 }) {
   return BoxDecoration(
-    color: Colors.white,
+    color: Theme.of(context).colorScheme.surface,
     borderRadius: BorderRadius.circular(18),
-    border: Border.all(color: borderColor),
+    border: Border.all(
+      color: borderColor ?? AppThemeTokens.of(context).cardBorder,
+    ),
     boxShadow: const [
       BoxShadow(
         color: Color(0x11000000),

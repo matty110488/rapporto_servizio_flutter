@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/race_weather.dart';
+import '../theme/app_theme.dart';
 
 IconData raceWeatherIcon(int code) {
   if (code == 0) return Icons.wb_sunny_rounded;
@@ -39,9 +40,9 @@ class RaceWeatherPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFFE8F4FF),
+        color: Theme.of(context).colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFBFDCF8)),
+        border: Border.all(color: AppThemeTokens.of(context).cardBorder),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -49,7 +50,7 @@ class RaceWeatherPill extends StatelessWidget {
           Icon(
             raceWeatherIcon(weather.weatherCode),
             size: 16,
-            color: const Color(0xFF0A66C2),
+            color: Theme.of(context).colorScheme.onPrimaryContainer,
           ),
           const SizedBox(width: 5),
           Flexible(
@@ -61,8 +62,8 @@ class RaceWeatherPill extends StatelessWidget {
               ].join(' · '),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF27415F),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
@@ -96,12 +97,12 @@ class RaceWeatherPanel extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: const Color(0xFFE8F4FF),
+                color: Theme.of(context).colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(13),
               ),
               child: Icon(
                 raceWeatherIcon(weather.weatherCode),
-                color: const Color(0xFF0A66C2),
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
                 size: 26,
               ),
             ),
@@ -110,10 +111,10 @@ class RaceWeatherPanel extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'PREVISIONI GARA',
                     style: TextStyle(
-                      color: Color(0xFF647587),
+                      color: AppThemeTokens.of(context).mutedText,
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.8,
@@ -122,8 +123,8 @@ class RaceWeatherPanel extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     weather.description,
-                    style: const TextStyle(
-                      color: Color(0xFF1B344F),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
                     ),
@@ -134,8 +135,8 @@ class RaceWeatherPanel extends StatelessWidget {
             if (temperature.isNotEmpty)
               Text(
                 temperature,
-                style: const TextStyle(
-                  color: Color(0xFF0A66C2),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
                   fontSize: 19,
                   fontWeight: FontWeight.w900,
                 ),
@@ -193,12 +194,12 @@ class RaceWeatherPanel extends StatelessWidget {
             Uri.parse('https://open-meteo.com/'),
             mode: LaunchMode.externalApplication,
           ),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(vertical: 3),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
             child: Text(
               'Previsioni Open-Meteo · aggiornate automaticamente',
               style: TextStyle(
-                color: Color(0xFF607D9A),
+                color: AppThemeTokens.of(context).mutedText,
                 fontSize: 11,
                 decoration: TextDecoration.underline,
               ),
@@ -211,9 +212,9 @@ class RaceWeatherPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFD7E7F7)),
+        border: Border.all(color: AppThemeTokens.of(context).cardBorder),
         boxShadow: const [
           BoxShadow(
             color: Color(0x100A4C8A),
@@ -243,17 +244,17 @@ class _WeatherMetric extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F8FC),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(11),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: const Color(0xFF0A66C2)),
+          Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 6),
           Text(
             '$label: ',
-            style: const TextStyle(
-              color: Color(0xFF647587),
+            style: TextStyle(
+              color: AppThemeTokens.of(context).mutedText,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -263,8 +264,8 @@ class _WeatherMetric extends StatelessWidget {
               value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF27415F),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),

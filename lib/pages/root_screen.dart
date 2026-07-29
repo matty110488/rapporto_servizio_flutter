@@ -14,6 +14,7 @@ import '../pdf/generatore_pdf2.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/rapportino_draft_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/italian_date_formatter.dart';
 import '../widgets/allegati_form.dart';
 import '../widgets/apparecchiatura_form.dart';
@@ -809,9 +810,10 @@ class _RootScreenState extends State<RootScreen> {
     required VoidCallback onTap,
     String? badge,
   }) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final primary = colorScheme.primary;
     return Material(
-      color: selected ? const Color(0xFFE8F3FF) : Colors.white,
+      color: selected ? colorScheme.primaryContainer : colorScheme.surface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -823,7 +825,7 @@ class _RootScreenState extends State<RootScreen> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: selected ? primary : const Color(0xFFD7E1ED),
+              color: selected ? primary : AppThemeTokens.of(context).cardBorder,
               width: selected ? 2 : 1,
             ),
           ),
@@ -834,12 +836,14 @@ class _RootScreenState extends State<RootScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: selected ? primary : const Color(0xFFF0F4F8),
+                  color:
+                      selected ? primary : colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: Icon(
                   selected ? Icons.check_rounded : icon,
-                  color: selected ? Colors.white : const Color(0xFF40556E),
+                  color:
+                      selected ? colorScheme.onPrimary : colorScheme.onSurface,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1171,7 +1175,8 @@ class _RootScreenState extends State<RootScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: const Color(0xFF0A66C2)),
+              Icon(icon,
+                  size: 18, color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 8),
               Text(
                 title,
@@ -1189,12 +1194,13 @@ class _RootScreenState extends State<RootScreen> {
     );
   }
 
-  BoxDecoration _panelDecoration(
-      {Color borderColor = const Color(0xFFDCE8F6)}) {
+  BoxDecoration _panelDecoration({Color? borderColor}) {
     return BoxDecoration(
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface,
       borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: borderColor),
+      border: Border.all(
+        color: borderColor ?? AppThemeTokens.of(context).cardBorder,
+      ),
       boxShadow: const [
         BoxShadow(
           color: Color(0x11000000),
@@ -1529,15 +1535,11 @@ class _RootScreenState extends State<RootScreen> {
         ),
         body: SafeArea(
           child: DecoratedBox(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFEAF3FF),
-                  Color(0xFFF7FBFF),
-                  Color(0xFFFFFFFF)
-                ],
+                colors: AppThemeTokens.of(context).pageGradient,
               ),
             ),
             child: SingleChildScrollView(
