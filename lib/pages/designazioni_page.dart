@@ -5,7 +5,6 @@ import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
-import '../theme/app_theme.dart';
 import '../utils/italian_date_formatter.dart';
 import '../widgets/standard_app_bar_actions.dart';
 import '../widgets/stopwatch_loading.dart';
@@ -124,11 +123,11 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
         ),
       ),
       body: DecoratedBox(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: AppThemeTokens.of(context).pageGradient,
+            colors: [Color(0xFFEAF3FF), Color(0xFFF8FBFF), Color(0xFFFFFFFF)],
           ),
         ),
         child: loading
@@ -168,7 +167,7 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
         Container(
           height: 120,
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(18),
           ),
           child: const Center(
@@ -187,7 +186,7 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: const Color(0xFFFFD8D8)),
           ),
@@ -221,9 +220,9 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppThemeTokens.of(context).cardBorder),
+        border: Border.all(color: const Color(0xFFDCE8F6)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -232,7 +231,7 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
           children: [
             Row(
               children: [
-                Icon(icon, color: Theme.of(context).colorScheme.primary),
+                Icon(icon, color: const Color(0xFF0A66C2)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -336,12 +335,12 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
   Widget _metaRow(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
+        Icon(icon, size: 16, color: const Color(0xFF306AA3)),
         const SizedBox(width: 6),
         Flexible(
           child: Text(
             text,
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            style: const TextStyle(color: Color(0xFF27415F)),
           ),
         ),
       ],

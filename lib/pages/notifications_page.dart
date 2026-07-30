@@ -8,7 +8,6 @@ import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../services/push_notification_service.dart';
-import '../theme/app_theme.dart';
 import '../utils/italian_date_formatter.dart';
 import '../widgets/standard_app_bar_actions.dart';
 import 'dettaglio_gara.dart';
@@ -241,11 +240,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ),
       ),
       body: DecoratedBox(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: AppThemeTokens.of(context).pageGradient,
+            colors: [Color(0xFFEAF3FF), Color(0xFFF7FBFF), Color(0xFFFFFFFF)],
           ),
         ),
         child: SafeArea(
@@ -277,12 +276,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
+              color: const Color(0xFFEAF3FF),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.mark_email_unread_outlined,
-              color: Theme.of(context).colorScheme.primary,
+              color: Color(0xFF0A66C2),
             ),
           ),
           const SizedBox(width: 12),
@@ -290,20 +289,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Notifiche push',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    color: Theme.of(context).colorScheme.onSurface,
+                    color: Color(0xFF1A2B40),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _statusText,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
-                    color: AppThemeTokens.of(context).mutedText,
+                    color: Color(0xFF49627E),
                   ),
                 ),
               ],
@@ -328,13 +327,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Widget _historyHeader() {
     return Row(
       children: [
-        Expanded(
+        const Expanded(
           child: Text(
             'Notifiche ricevute',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
-              color: Theme.of(context).colorScheme.onSurface,
+              color: Color(0xFF1A2B40),
             ),
           ),
         ),
@@ -349,9 +348,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Widget _emptyHistory() {
     return _card(
-      child: Text(
+      child: const Text(
         'Nessuna notifica registrata. Le nuove notifiche compariranno qui anche se l’app era chiusa.',
-        style: TextStyle(color: AppThemeTokens.of(context).mutedText),
+        style: TextStyle(color: Color(0xFF49627E)),
       ),
     );
   }
@@ -363,9 +362,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
         child: ListTile(
           contentPadding: EdgeInsets.zero,
           onTap: notice.garaId.isEmpty ? null : () => _openGara(notice),
-          leading: Icon(
+          leading: const Icon(
             Icons.mark_email_unread_outlined,
-            color: Theme.of(context).colorScheme.primary,
+            color: Color(0xFF0A66C2),
           ),
           title: Text(
             notice.title,
@@ -408,11 +407,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ],
       ),
       child: Material(
-        color: Theme.of(context).colorScheme.surface,
+        color: Colors.white,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: AppThemeTokens.of(context).cardBorder),
+          side: const BorderSide(color: Color(0xFFDCE8F6)),
         ),
         child: Padding(
           padding: const EdgeInsets.all(14),

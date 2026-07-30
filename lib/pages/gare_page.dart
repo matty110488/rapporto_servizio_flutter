@@ -11,7 +11,6 @@ import '../models/race_weather.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/weather_service.dart';
-import '../theme/app_theme.dart';
 import '../utils/italian_date_formatter.dart';
 import '../widgets/race_weather_view.dart';
 import '../widgets/standard_app_bar_actions.dart';
@@ -680,11 +679,11 @@ class _GarePageState extends State<GarePage> {
         ),
       ),
       body: DecoratedBox(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: AppThemeTokens.of(context).pageGradient,
+            colors: [Color(0xFFEAF3FF), Color(0xFFF8FBFF), Color(0xFFFFFFFF)],
           ),
         ),
         child: loading
@@ -717,7 +716,7 @@ class _GarePageState extends State<GarePage> {
           height: 130,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            color: Theme.of(context).colorScheme.surface,
+            color: Colors.white,
           ),
           child: const Center(
             child: StopwatchLoading(label: 'Caricamento calendario gare...'),
@@ -741,7 +740,7 @@ class _GarePageState extends State<GarePage> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(20),
             boxShadow: const [
               BoxShadow(
@@ -783,9 +782,9 @@ class _GarePageState extends State<GarePage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppThemeTokens.of(context).cardBorder),
+        border: Border.all(color: const Color(0xFFDCE8F6)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -802,7 +801,7 @@ class _GarePageState extends State<GarePage> {
                   isDense: true,
                   alignment: Alignment.center,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface,
+                        color: const Color(0xFF27415F),
                         fontWeight: FontWeight.w700,
                       ),
                   decoration: const InputDecoration(
@@ -848,18 +847,18 @@ class _GarePageState extends State<GarePage> {
                   foregroundColor: WidgetStateProperty.resolveWith(
                     (states) => states.contains(WidgetState.selected)
                         ? Colors.white
-                        : Theme.of(context).colorScheme.onSurface,
+                        : const Color(0xFF27415F),
                   ),
                   backgroundColor: WidgetStateProperty.resolveWith(
                     (states) => states.contains(WidgetState.selected)
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.surfaceContainerHighest,
+                        ? const Color(0xFF0A66C2)
+                        : const Color(0xFFF4F8FF),
                   ),
                   side: WidgetStateProperty.resolveWith(
                     (states) => BorderSide(
                       color: states.contains(WidgetState.selected)
-                          ? Theme.of(context).colorScheme.primary
-                          : AppThemeTokens.of(context).cardBorder,
+                          ? const Color(0xFF0A66C2)
+                          : const Color(0xFFDCE8F6),
                     ),
                   ),
                 ),
@@ -889,7 +888,7 @@ class _GarePageState extends State<GarePage> {
               ),
             ],
           ),
-          Divider(height: 17, color: AppThemeTokens.of(context).cardBorder),
+          const Divider(height: 17, color: Color(0xFFDCE8F6)),
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -903,18 +902,17 @@ class _GarePageState extends State<GarePage> {
                   visualDensity: VisualDensity.compact,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   labelPadding: const EdgeInsets.symmetric(horizontal: 5),
-                  selectedColor: Theme.of(context).colorScheme.primary,
-                  backgroundColor:
-                      Theme.of(context).colorScheme.surfaceContainerHighest,
+                  selectedColor: const Color(0xFF0A66C2),
+                  backgroundColor: const Color(0xFFF4F8FF),
                   side: BorderSide(
                     color: assignmentFilter == filter
-                        ? Theme.of(context).colorScheme.primary
-                        : AppThemeTokens.of(context).cardBorder,
+                        ? const Color(0xFF0A66C2)
+                        : const Color(0xFFDCE8F6),
                   ),
                   labelStyle: TextStyle(
                     color: assignmentFilter == filter
-                        ? Theme.of(context).colorScheme.onPrimary
-                        : Theme.of(context).colorScheme.onSurface,
+                        ? Colors.white
+                        : const Color(0xFF27415F),
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
@@ -928,7 +926,7 @@ class _GarePageState extends State<GarePage> {
                   isDense: true,
                   isExpanded: true,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface,
+                        color: const Color(0xFF27415F),
                         fontWeight: FontWeight.w700,
                       ),
                   decoration: const InputDecoration(
@@ -982,10 +980,10 @@ class _GarePageState extends State<GarePage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: AppThemeTokens.of(context).heroGradient,
+          colors: [Color(0xFF004E9A), Color(0xFF0A66C2), Color(0xFF338FE5)],
         ),
         boxShadow: const [
           BoxShadow(
@@ -1007,10 +1005,7 @@ class _GarePageState extends State<GarePage> {
                 color: Colors.white.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(
-                Icons.event,
-                color: AppThemeTokens.of(context).heroForeground,
-              ),
+              child: const Icon(Icons.event, color: Colors.white),
             ),
           ),
           const SizedBox(width: 14),
@@ -1022,8 +1017,8 @@ class _GarePageState extends State<GarePage> {
                   isCurrentYear
                       ? 'Calendario $selectedYear'
                       : 'Archivio $selectedYear',
-                  style: TextStyle(
-                    color: AppThemeTokens.of(context).heroForeground,
+                  style: const TextStyle(
+                    color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1031,10 +1026,8 @@ class _GarePageState extends State<GarePage> {
                 const SizedBox(height: 4),
                 Text(
                   '$visibleCount gare $periodLabel visibili',
-                  style: TextStyle(
-                    color: AppThemeTokens.of(context)
-                        .heroForeground
-                        .withValues(alpha: 0.75),
+                  style: const TextStyle(
+                    color: Colors.white70,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1059,9 +1052,9 @@ class _GarePageState extends State<GarePage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppThemeTokens.of(context).cardBorder),
+        border: Border.all(color: const Color(0xFFDCE8F6)),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -1141,9 +1134,11 @@ class _GarePageState extends State<GarePage> {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: Theme.of(context).colorScheme.surface,
+        color: Colors.white,
         border: Border.all(
-          color: AppThemeTokens.of(context).cardBorder,
+          color: entry.suggested
+              ? const Color(0xFFF1D6A8)
+              : const Color(0xFFCFE2FA),
         ),
         boxShadow: const [
           BoxShadow(
@@ -1165,12 +1160,9 @@ class _GarePageState extends State<GarePage> {
                   width: 62,
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    color:
-                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: const Color(0xFFF9FCFF),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: AppThemeTokens.of(context).cardBorder,
-                    ),
+                    border: Border.all(color: const Color(0xFFDCE8F6)),
                   ),
                   child: _dateBadge(main),
                 ),
@@ -1273,8 +1265,8 @@ class _GarePageState extends State<GarePage> {
                         : 'Mi rendo disponibile per tutte le gare',
                   ),
                   style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    backgroundColor: const Color(0xFF0A66C2),
+                    foregroundColor: Colors.white,
                   ),
                 ),
               ),
@@ -1291,7 +1283,7 @@ class _GarePageState extends State<GarePage> {
     final designato = _isDesignato(gara);
     final updating = updatingGare.contains(gara.id);
     return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      color: const Color(0xFFF7FBFF),
       borderRadius: BorderRadius.circular(13),
       child: InkWell(
         borderRadius: BorderRadius.circular(13),
@@ -1316,8 +1308,8 @@ class _GarePageState extends State<GarePage> {
                     width: 108,
                     child: Text(
                       _fmtDateWithWeekday(gara.dataGara) ?? '-',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface,
+                      style: const TextStyle(
+                        color: Color(0xFF27415F),
                         fontWeight: FontWeight.w800,
                         fontSize: 12,
                       ),
@@ -1419,8 +1411,8 @@ class _GarePageState extends State<GarePage> {
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            border: Border.all(color: AppThemeTokens.of(context).cardBorder),
+            color: const Color(0xFFF9FCFF),
+            border: Border.all(color: const Color(0xFFD9E8FA)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -1431,11 +1423,9 @@ class _GarePageState extends State<GarePage> {
                   width: 62,
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: AppThemeTokens.of(context).cardBorder,
-                    ),
+                    border: Border.all(color: const Color(0xFFDCE8F6)),
                   ),
                   child: _dateBadge(g),
                 ),
@@ -1503,10 +1493,8 @@ class _GarePageState extends State<GarePage> {
                               ? 'Rimuovimi dalla gara'
                               : 'Mi rendo disponibile'),
                           style: FilledButton.styleFrom(
-                            backgroundColor:
-                                Theme.of(context).colorScheme.primary,
-                            foregroundColor:
-                                Theme.of(context).colorScheme.onPrimary,
+                            backgroundColor: const Color(0xFF0A66C2),
+                            foregroundColor: Colors.white,
                           ),
                         ),
                       ],
@@ -1524,18 +1512,15 @@ class _GarePageState extends State<GarePage> {
   Widget _dateBadge(Gara gara) {
     final date = _parseDate(gara.dataGara);
     if (date == null) {
-      return Column(
+      return const Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.event_busy,
-            color: AppThemeTokens.of(context).mutedText,
-          ),
-          const SizedBox(height: 4),
+          Icon(Icons.event_busy, color: Color(0xFF6D7E91)),
+          SizedBox(height: 4),
           Text(
             'N/D',
             style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
+              color: Color(0xFF27415F),
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -1599,21 +1584,21 @@ class _GarePageState extends State<GarePage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppThemeTokens.of(context).cardBorder),
+        border: Border.all(color: const Color(0xFFE2ECF8)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15, color: Theme.of(context).colorScheme.primary),
+          Icon(icon, size: 15, color: const Color(0xFF306AA3)),
           const SizedBox(width: 5),
           Flexible(
             child: Text(
               text,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
+              style: const TextStyle(
+                color: Color(0xFF27415F),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
