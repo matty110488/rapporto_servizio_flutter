@@ -228,6 +228,7 @@ Future<void> disableNotificationsForUser(String userId) async {
       },
       body: payload,
     );
+    await throwIfSessionExpiredResponse(res.statusCode);
     if (res.statusCode != 200) {
       backendError = PushNotificationSetupException(
         'Non è stato possibile disattivare le notifiche sul server.',
@@ -327,6 +328,7 @@ Future<void> sendTokenToBackend(String userId, String token) async {
     },
     body: payload,
   );
+  await throwIfSessionExpiredResponse(res.statusCode);
 
   if (res.statusCode != 200) {
     throw PushNotificationSetupException(
@@ -359,6 +361,7 @@ Future<PushSendResult> _sendPushTestToBackend(
     },
     body: payload,
   );
+  await throwIfSessionExpiredResponse(res.statusCode);
 
   if (res.statusCode != 200) {
     throw PushNotificationSetupException(
@@ -390,6 +393,7 @@ Future<List<PushNotice>> fetchPushNotifications(String userId) async {
       'userId': userId,
     }),
   );
+  await throwIfSessionExpiredResponse(res.statusCode);
 
   if (res.statusCode != 200) {
     throw PushNotificationSetupException(
@@ -426,6 +430,7 @@ Future<void> clearPushNotifications(String userId) async {
       'userId': userId,
     }),
   );
+  await throwIfSessionExpiredResponse(res.statusCode);
 
   if (res.statusCode != 200) {
     throw PushNotificationSetupException(
@@ -454,6 +459,7 @@ Future<void> markPushNotificationsRead(String userId) async {
       'userId': userId,
     }),
   );
+  await throwIfSessionExpiredResponse(res.statusCode);
 
   if (res.statusCode != 200) {
     throw PushNotificationSetupException(
@@ -486,6 +492,7 @@ Future<void> deletePushNotification(
       'notificationId': notificationId,
     }),
   );
+  await throwIfSessionExpiredResponse(res.statusCode);
 
   if (res.statusCode != 200) {
     throw PushNotificationSetupException(

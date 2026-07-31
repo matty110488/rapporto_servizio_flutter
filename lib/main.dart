@@ -40,6 +40,7 @@ class CronoValtellinesiApp extends StatefulWidget {
 class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
   Map<String, dynamic>? loggedUser;
   bool restoringSession = true;
+  String? _loginMessage;
   StreamSubscription<String>? _tokenRefreshSubscription;
 
   bool get _supportsPush {
@@ -85,6 +86,7 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
   @override
   void initState() {
     super.initState();
+    globalSessionExpiredHandler = _handleSessionExpired;
     _restoreSession();
   }
 
@@ -104,7 +106,12 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
     }
 
     final restoredToken = user?['_sessionToken'];
-    if (restoredToken is! String || restoredToken.isEmpty) {
+    if (restoredToken is! String ||
+        restoredToken.isEmpty ||
+        isSessionTokenExpired(restoredToken)) {
+      if (restoredToken is String && restoredToken.isNotEmpty) {
+        _loginMessage = 'Sessione scaduta. Effettua nuovamente il login.';
+      }
       user = null;
       await prefs.remove('logged_user');
     }
@@ -134,6 +141,7 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
 
     setState(() {
       loggedUser = user;
+      _loginMessage = null;
     });
     globalLoggedUserId = user['id'];
     globalSessionToken = user['_sessionToken'];
@@ -162,13 +170,29 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
 
     setState(() {
       loggedUser = null;
+      _loginMessage = null;
     });
     globalLoggedUserId = null;
     globalSessionToken = null;
   }
 
+  Future<void> _handleSessionExpired() async {
+    await _tokenRefreshSubscription?.cancel();
+    _tokenRefreshSubscription = null;
+    await FirebaseAuth.instance.signOut();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('logged_user');
+
+    if (!mounted) return;
+    setState(() {
+      loggedUser = null;
+      _loginMessage = 'Sessione scaduta. Effettua nuovamente il login.';
+    });
+  }
+
   @override
   void dispose() {
+    globalSessionExpiredHandler = null;
     _tokenRefreshSubscription?.cancel();
     super.dispose();
   }
@@ -284,7 +308,10 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
         debugShowCheckedModeBanner: false,
         theme: theme,
         builder: _environmentBanner,
-        home: LoginPage(onLogin: _handleLogin),
+        home: LoginPage(
+          onLogin: _handleLogin,
+          initialMessage: _loginMessage,
+        ),
       );
     }
 

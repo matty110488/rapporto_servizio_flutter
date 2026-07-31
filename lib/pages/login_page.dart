@@ -5,8 +5,13 @@ import '../widgets/stopwatch_loading.dart';
 
 class LoginPage extends StatefulWidget {
   final Function(Map<String, dynamic>) onLogin;
+  final String? initialMessage;
 
-  const LoginPage({super.key, required this.onLogin});
+  const LoginPage({
+    super.key,
+    required this.onLogin,
+    this.initialMessage,
+  });
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -24,6 +29,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
+    errorMsg = widget.initialMessage;
     auth = AuthService();
     _loadPreferences();
   }
