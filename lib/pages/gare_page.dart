@@ -778,8 +778,7 @@ class _GarePageState extends State<GarePage> {
   }
 
   Widget _buildFiltersCard() {
-    final activeFilters = (assignmentFilter == _AssignmentFilter.all ? 0 : 1) +
-        (sportFilter.isEmpty ? 0 : 1);
+    final sports = _sportsOptions();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
@@ -887,200 +886,79 @@ class _GarePageState extends State<GarePage> {
                   });
                 },
               ),
-              OutlinedButton.icon(
-                onPressed: _openFiltersSheet,
-                icon: Badge(
-                  isLabelVisible: activeFilters > 0,
-                  label: Text('$activeFilters'),
-                  child: const Icon(Icons.tune, size: 20),
-                ),
-                label: const Text('Filtri'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(0, 40),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+            ],
+          ),
+          const Divider(height: 17, color: Color(0xFFDCE8F6)),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ..._AssignmentFilter.values.map(
+                (filter) => ChoiceChip(
+                  label: Text(_assignmentFilterLabel(filter)),
+                  showCheckmark: false,
+                  selected: assignmentFilter == filter,
                   visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 5),
+                  selectedColor: const Color(0xFF0A66C2),
+                  backgroundColor: const Color(0xFFF4F8FF),
+                  side: BorderSide(
+                    color: assignmentFilter == filter
+                        ? const Color(0xFF0A66C2)
+                        : const Color(0xFFDCE8F6),
+                  ),
+                  labelStyle: TextStyle(
+                    color: assignmentFilter == filter
+                        ? Colors.white
+                        : const Color(0xFF27415F),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  onSelected: (_) => setState(() => assignmentFilter = filter),
+                ),
+              ),
+              SizedBox(
+                width: 180,
+                child: DropdownButtonFormField<String>(
+                  initialValue: sportFilter,
+                  isDense: true,
+                  isExpanded: true,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: const Color(0xFF27415F),
+                        fontWeight: FontWeight.w700,
+                      ),
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.sports_outlined, size: 19),
+                    prefixIconConstraints: BoxConstraints(minWidth: 36),
+                    contentPadding: EdgeInsets.fromLTRB(8, 9, 10, 9),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: '',
+                      child: Text('Tutti gli sport'),
+                    ),
+                    ...sports.map(
+                      (sport) => DropdownMenuItem<String>(
+                        value: sport,
+                        child: Text(
+                          sport,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => sportFilter = value ?? ''),
                 ),
               ),
             ],
           ),
-          if (activeFilters > 0) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                if (assignmentFilter != _AssignmentFilter.all)
-                  InputChip(
-                    visualDensity: VisualDensity.compact,
-                    label: Text(_assignmentFilterLabel(assignmentFilter)),
-                    backgroundColor: const Color(0xFFEAF3FF),
-                    deleteIconColor: const Color(0xFF0A66C2),
-                    side: const BorderSide(color: Color(0xFFB9D5F3)),
-                    labelStyle: const TextStyle(
-                      color: Color(0xFF27415F),
-                      fontWeight: FontWeight.w600,
-                    ),
-                    onDeleted: () => setState(
-                      () => assignmentFilter = _AssignmentFilter.all,
-                    ),
-                  ),
-                if (sportFilter.isNotEmpty)
-                  InputChip(
-                    visualDensity: VisualDensity.compact,
-                    avatar: const Icon(Icons.sports, size: 17),
-                    label: Text(sportFilter),
-                    backgroundColor: const Color(0xFFEAF3FF),
-                    deleteIconColor: const Color(0xFF0A66C2),
-                    side: const BorderSide(color: Color(0xFFB9D5F3)),
-                    labelStyle: const TextStyle(
-                      color: Color(0xFF27415F),
-                      fontWeight: FontWeight.w600,
-                    ),
-                    onDeleted: () => setState(() => sportFilter = ''),
-                  ),
-              ],
-            ),
-          ],
         ],
       ),
     );
-  }
-
-  Future<void> _openFiltersSheet() async {
-    var nextAssignment = assignmentFilter;
-    var nextSport = sportFilter;
-    final sports = _sportsOptions();
-
-    final apply = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) {
-          return SafeArea(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                0,
-                20,
-                20 + MediaQuery.viewInsetsOf(context).bottom,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Filtra il calendario',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Restringi le gare per il tuo ruolo o per disciplina.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: const Color(0xFF5D7189),
-                        ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Partecipazione',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _AssignmentFilter.values
-                        .map(
-                          (filter) => ChoiceChip(
-                            label: Text(
-                              _assignmentFilterLabel(filter),
-                              textAlign: TextAlign.center,
-                            ),
-                            showCheckmark: false,
-                            selected: nextAssignment == filter,
-                            selectedColor: const Color(0xFF0A66C2),
-                            backgroundColor: const Color(0xFFF4F8FF),
-                            side: BorderSide(
-                              color: nextAssignment == filter
-                                  ? const Color(0xFF0A66C2)
-                                  : const Color(0xFFDCE8F6),
-                            ),
-                            labelStyle: TextStyle(
-                              color: nextAssignment == filter
-                                  ? Colors.white
-                                  : const Color(0xFF27415F),
-                              fontWeight: FontWeight.w700,
-                            ),
-                            onSelected: (_) => setSheetState(
-                              () => nextAssignment = filter,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 18),
-                  DropdownButtonFormField<String>(
-                    initialValue: nextSport.isEmpty ? '' : nextSport,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Sport',
-                      prefixIcon: Icon(Icons.sports_outlined),
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: '',
-                        child: Text('Tutti gli sport'),
-                      ),
-                      ...sports.map(
-                        (sport) => DropdownMenuItem<String>(
-                          value: sport,
-                          child: Text(
-                            sport,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ],
-                    onChanged: (value) =>
-                        setSheetState(() => nextSport = value ?? ''),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: () => setSheetState(() {
-                          nextAssignment = _AssignmentFilter.all;
-                          nextSport = '';
-                        }),
-                        child: const Text('Azzera'),
-                      ),
-                      const Spacer(),
-                      FilledButton.icon(
-                        onPressed: () => Navigator.pop(sheetContext, true),
-                        icon: const Icon(Icons.check),
-                        label: const Text('Applica'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-
-    if (apply == true && mounted) {
-      setState(() {
-        assignmentFilter = nextAssignment;
-        sportFilter = nextSport;
-      });
-    }
   }
 
   String _assignmentFilterLabel(_AssignmentFilter filter) {
@@ -1117,14 +995,18 @@ class _GarePageState extends State<GarePage> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(14),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onLongPress: () => PrankPopupService.showCheckeredFlag(context),
+            child: Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.event, color: Colors.white),
             ),
-            child: const Icon(Icons.event, color: Colors.white),
           ),
           const SizedBox(width: 14),
           Expanded(

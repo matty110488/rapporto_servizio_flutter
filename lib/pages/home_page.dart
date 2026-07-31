@@ -12,6 +12,7 @@ import '../services/prank_popup_service.dart';
 import '../services/push_notification_service.dart';
 import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
+import 'admin_dashboard_page.dart';
 import 'dettaglio_gara.dart';
 import 'designazioni_page.dart';
 import 'gare_page.dart';
@@ -48,6 +49,8 @@ class _HomePageState extends State<HomePage> {
   int _raceControlIndex = 0;
   Timer? _dashboardRefreshTimer;
   Timer? _notificationPollingTimer;
+  Timer? _versionTapResetTimer;
+  int _versionTapCount = 0;
 
   @override
   void initState() {
@@ -84,8 +87,22 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     _dashboardRefreshTimer?.cancel();
     _notificationPollingTimer?.cancel();
+    _versionTapResetTimer?.cancel();
     _raceControlController.dispose();
     super.dispose();
+  }
+
+  void _handleVersionTap() {
+    _versionTapResetTimer?.cancel();
+    _versionTapCount += 1;
+    if (_versionTapCount >= 7) {
+      _versionTapCount = 0;
+      PrankPopupService.showLegendaryMode(context);
+      return;
+    }
+    _versionTapResetTimer = Timer(const Duration(seconds: 3), () {
+      _versionTapCount = 0;
+    });
   }
 
   void _openPage(BuildContext context, Widget page) {
@@ -339,6 +356,19 @@ class _HomePageState extends State<HomePage> {
           ),
         );
     final navItems = [
+      if (isNotionAdmin(widget.loggedUser))
+        _HomeNavData(
+          icon: Icons.admin_panel_settings_rounded,
+          label: 'Centro di controllo Admin',
+          subtitle: 'Criticità, gare e rapportini da gestire',
+          onTap: () => _openPage(
+            context,
+            AdminDashboardPage(
+              loggedUser: widget.loggedUser,
+              notionService: _notion,
+            ),
+          ),
+        ),
       _HomeNavData(
         icon: Icons.flag,
         label: 'Calendario gare',
@@ -427,6 +457,7 @@ class _HomePageState extends State<HomePage> {
                           appVersionLabel: _appVersionLabel,
                           navItems: navItems,
                           onLogout: widget.onLogout,
+                          onVersionTap: _handleVersionTap,
                         ),
                         Expanded(
                           child: _homeContent(
@@ -508,12 +539,19 @@ class _HomePageState extends State<HomePage> {
               ),
             const SizedBox(height: 14),
             Center(
-              child: Text(
-                _appVersionLabel,
-                style: const TextStyle(
-                  color: Color(0xFF7B8EA3),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _handleVersionTap,
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Text(
+                    _appVersionLabel,
+                    style: const TextStyle(
+                      color: Color(0xFF7B8EA3),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -868,12 +906,14 @@ class _HomeSidebar extends StatelessWidget {
   final String appVersionLabel;
   final List<_HomeNavData> navItems;
   final VoidCallback onLogout;
+  final VoidCallback onVersionTap;
 
   const _HomeSidebar({
     required this.userName,
     required this.appVersionLabel,
     required this.navItems,
     required this.onLogout,
+    required this.onVersionTap,
   });
 
   @override
@@ -924,12 +964,19 @@ class _HomeSidebar extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            appVersionLabel,
-            style: const TextStyle(
-              color: Color(0xFF7B8EA3),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onVersionTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Text(
+                appVersionLabel,
+                style: const TextStyle(
+                  color: Color(0xFF7B8EA3),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 22),

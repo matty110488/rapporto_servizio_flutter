@@ -65,9 +65,16 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
       await _tokenRefreshSubscription?.cancel();
       _tokenRefreshSubscription =
           FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-        if (newToken.isNotEmpty) {
+        final currentUserId = loggedUser?['id'];
+        final stillEnabled = await pushNotificationsAppEnabled();
+        if (newToken.isNotEmpty &&
+            currentUserId == userId &&
+            globalSessionToken != null &&
+            stillEnabled) {
           await sendTokenToBackend(userId, newToken);
           print('[PUSH] Refreshed token saved for user $userId');
+        } else {
+          print('[PUSH] Refreshed token ignored: no active opted-in user.');
         }
       });
     } catch (e) {
@@ -112,6 +119,10 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
     globalSessionToken = user?['_sessionToken'];
     if (user != null) {
       await _registerPushTokenForUser(user);
+    } else if (_supportsPush) {
+      // Ripulisce anche le installazioni rimaste sloggate con una versione
+      // precedente, che non revocava il token Firebase durante il logout.
+      await revokePushTokenLocally();
     }
   }
 
@@ -130,9 +141,20 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
   }
 
   Future<void> _handleLogout() async {
-    await FirebaseAuth.instance.signOut();
     await _tokenRefreshSubscription?.cancel();
     _tokenRefreshSubscription = null;
+
+    final userId = loggedUser?['id'];
+    if (_supportsPush && userId is String && userId.isNotEmpty) {
+      try {
+        await disableNotificationsForUser(userId);
+      } catch (error) {
+        // Il logout prosegue: la funzione revoca comunque il token locale.
+        print('[PUSH] Server cleanup during logout failed: $error');
+      }
+    }
+
+    await FirebaseAuth.instance.signOut();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('logged_user');
 

@@ -288,7 +288,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       _switchTile(
                         icon: Icons.notifications_active_outlined,
                         title: 'Notifiche',
-                        subtitle: 'Avvisi per designazioni e aggiornamenti',
+                        subtitle: ' ',
                         value: _notificationsEnabled,
                         busy: _notificationBusy,
                         onChanged: _setNotifications,
@@ -297,7 +297,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       _switchTile(
                         icon: Icons.fingerprint,
                         title: 'Face ID / impronta',
-                        subtitle: 'Accesso rapido protetto dal dispositivo',
+                        subtitle: ' ',
                         value: _biometricEnabled,
                         busy: _biometricBusy,
                         onChanged: _setBiometric,
