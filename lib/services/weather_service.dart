@@ -89,6 +89,7 @@ class WeatherService {
           'date': date,
         }),
       );
+      await throwIfSessionExpiredResponse(response.statusCode);
       if (response.statusCode != 200) return null;
       final data = jsonDecode(response.body);
       if (data is! Map<String, dynamic>) return null;

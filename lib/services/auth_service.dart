@@ -164,6 +164,9 @@ class AuthService {
       },
       body: jsonEncode(payload),
     );
+    if (sessionToken != null) {
+      await throwIfSessionExpiredResponse(res.statusCode);
+    }
     final decoded = jsonDecode(res.body);
     if (res.statusCode != 200 || decoded is! Map) {
       final message = decoded is Map ? decoded['error'] : null;

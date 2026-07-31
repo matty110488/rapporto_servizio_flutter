@@ -438,6 +438,7 @@ class NotionService {
       },
       body: pdfBytes,
     );
+    await throwIfSessionExpiredResponse(response.statusCode);
     if (response.statusCode != 200) {
       throw Exception('Errore archiviazione PDF: ${response.body}');
     }
@@ -470,6 +471,7 @@ class NotionService {
       },
       body: body,
     );
+    await throwIfSessionExpiredResponse(res.statusCode);
 
     return res;
   }
