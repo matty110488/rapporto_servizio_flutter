@@ -50,6 +50,15 @@ class HelpContent {
     'Gli amministratori possono consultare anche le statistiche complessive.',
   ];
 
+  static const adminDashboard = [
+    'La dashboard è visibile esclusivamente agli amministratori.',
+    'Riepiloga le gare dei prossimi 30 giorni, le designazioni incomplete, i rapportini arretrati e i dati essenziali mancanti.',
+    'Usa i filtri Tutte, Designazioni, Rapportini e Dati per restringere le azioni richieste.',
+    'Le etichette di scadenza evidenziano le attività imminenti, in ritardo o senza una data impostata.',
+    'Tocca una criticità o una gara per aprire direttamente il dettaglio.',
+    'Le azioni rapide portano agli strumenti già disponibili senza duplicarne le funzioni.',
+  ];
+
   static const impostazioni = [
     'Gestisci notifiche, accesso biometrico, password e aggiornamenti dell’app.',
   ];

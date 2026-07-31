@@ -12,6 +12,7 @@ import '../services/prank_popup_service.dart';
 import '../services/push_notification_service.dart';
 import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
+import 'admin_dashboard_page.dart';
 import 'dettaglio_gara.dart';
 import 'designazioni_page.dart';
 import 'gare_page.dart';
@@ -355,6 +356,19 @@ class _HomePageState extends State<HomePage> {
           ),
         );
     final navItems = [
+      if (isNotionAdmin(widget.loggedUser))
+        _HomeNavData(
+          icon: Icons.admin_panel_settings_rounded,
+          label: 'Centro di controllo Admin',
+          subtitle: 'Criticità, gare e rapportini da gestire',
+          onTap: () => _openPage(
+            context,
+            AdminDashboardPage(
+              loggedUser: widget.loggedUser,
+              notionService: _notion,
+            ),
+          ),
+        ),
       _HomeNavData(
         icon: Icons.flag,
         label: 'Calendario gare',
