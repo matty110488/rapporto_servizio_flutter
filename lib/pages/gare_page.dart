@@ -12,6 +12,7 @@ import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/weather_service.dart';
 import '../utils/italian_date_formatter.dart';
+import '../utils/person_name_formatter.dart';
 import '../widgets/race_weather_view.dart';
 import '../widgets/standard_app_bar_actions.dart';
 import '../widgets/stopwatch_loading.dart';
@@ -201,10 +202,10 @@ class _GarePageState extends State<GarePage> {
         const ['COGNOME', 'Cognome', 'cognome', 'LAST_NAME'],
       );
       if (nome.isNotEmpty && cognome.isNotEmpty) {
-        return '$nome $cognome';
+        return formatPersonName('$nome $cognome');
       }
-      if (cognome.isNotEmpty) return cognome;
-      if (nome.isNotEmpty) return nome;
+      if (cognome.isNotEmpty) return formatPersonName(cognome);
+      if (nome.isNotEmpty) return formatPersonName(nome);
 
       for (final value in props.values) {
         if (value is! Map<String, dynamic>) continue;
@@ -215,7 +216,7 @@ class _GarePageState extends State<GarePage> {
             if (first is Map<String, dynamic>) {
               final plain = first['plain_text'];
               if (plain is String && plain.trim().isNotEmpty) {
-                return plain.trim();
+                return formatPersonName(plain);
               }
             }
           }
@@ -227,7 +228,7 @@ class _GarePageState extends State<GarePage> {
             if (first is Map<String, dynamic>) {
               final plain = first['plain_text'];
               if (plain is String && plain.trim().isNotEmpty) {
-                return plain.trim();
+                return formatPersonName(plain);
               }
             }
           }

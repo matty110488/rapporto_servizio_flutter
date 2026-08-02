@@ -136,6 +136,26 @@ void main() {
     );
   });
 
+  testWidgets('timekeeper names keep apostrophes and capitalization',
+      (tester) async {
+    final key = GlobalKey<CronometristiFormState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(child: CronometristiForm(key: key)),
+        ),
+      ),
+    );
+
+    key.currentState!.setCronometristiPerDate({
+      'DELL OLIO cosimo': [DateTime(2026, 8, 12)],
+    });
+    await tester.pump();
+
+    expect(find.text("Dell'Olio Cosimo"), findsOneWidget);
+    expect(key.currentState!.getData().single['nome'], "Dell'Olio Cosimo");
+  });
+
   testWidgets('worked hours are calculated from schedule and daily break',
       (tester) async {
     final key = GlobalKey<CronometristiFormState>();

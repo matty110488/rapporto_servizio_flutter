@@ -18,6 +18,7 @@ import '../utils/italian_date_formatter.dart';
 import '../widgets/allegati_form.dart';
 import '../widgets/apparecchiatura_form.dart';
 import '../widgets/cronometristi_form.dart';
+import '../utils/person_name_formatter.dart';
 import '../widgets/danni_form.dart';
 import '../widgets/gara_form.dart';
 import '../widgets/header.dart';
@@ -318,7 +319,7 @@ class _RootScreenState extends State<RootScreen> {
     try {
       final name = await notion.fetchNameFromPage(id);
       if (name.isEmpty) return null;
-      return name;
+      return formatPersonName(name);
     } catch (_) {
       return null;
     }

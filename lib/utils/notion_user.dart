@@ -1,3 +1,5 @@
+import 'person_name_formatter.dart';
+
 String extractNotionUserName(Map<String, dynamic> user) {
   final props = user['properties'];
   if (props is! Map<String, dynamic>) return 'Utente';
@@ -26,13 +28,13 @@ String extractNotionUserName(Map<String, dynamic> user) {
   ];
   for (final key in preferredKeys) {
     final text = readText(props[key]);
-    if (text.isNotEmpty) return text;
+    if (text.isNotEmpty) return formatPersonName(text);
   }
 
   for (final value in props.values) {
     if (value is Map<String, dynamic> && value['type'] == 'title') {
       final text = readText(value);
-      if (text.isNotEmpty) return text;
+      if (text.isNotEmpty) return formatPersonName(text);
     }
   }
   return 'Utente';

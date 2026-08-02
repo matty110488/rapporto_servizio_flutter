@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/cronometristi.dart';
 import '../utils/italian_date_formatter.dart';
+import '../utils/person_name_formatter.dart';
 
 class GaraForm extends StatefulWidget {
   final ValueChanged<String>? onSportChanged;
@@ -60,7 +61,7 @@ class GaraFormState extends State<GaraForm> {
       'dataA': dataA != null
           ? "${dataA!.year}-${_2(dataA!.month)}-${_2(dataA!.day)}"
           : '',
-      'dsc': dscController.text,
+      'dsc': formatPersonName(dscController.text),
     };
   }
 
@@ -178,7 +179,7 @@ class GaraFormState extends State<GaraForm> {
       dataA = end;
       _syncOrariWithRange();
       if (dsc != null) {
-        dscController.text = dsc;
+        dscController.text = formatPersonName(dsc);
       }
     });
     widget.onSportChanged?.call(sport);
@@ -206,7 +207,7 @@ class GaraFormState extends State<GaraForm> {
       sport = sportValue;
       dataDa = ordered.isEmpty ? null : ordered.first;
       dataA = ordered.isEmpty ? null : ordered.last;
-      dscController.text = dsc ?? '';
+      dscController.text = formatPersonName(dsc);
       _syncOrariWithDates(ordered);
     });
     widget.onSportChanged?.call(sport);
@@ -241,7 +242,7 @@ class GaraFormState extends State<GaraForm> {
       organizzatoreController.text =
           (garaData['organizzatore'] ?? '').toString();
       luogoController.text = (garaData['luogo'] ?? '').toString();
-      dscController.text = (garaData['dsc'] ?? '').toString();
+      dscController.text = formatPersonName(garaData['dsc']);
       sport = (garaData['sport'] ?? '').toString();
       dataDa = start;
       dataA = end ?? start;
