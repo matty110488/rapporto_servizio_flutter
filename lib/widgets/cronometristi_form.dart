@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/cronometristi.dart';
 import '../utils/italian_date_formatter.dart';
+import '../utils/person_name_formatter.dart';
 
 class CronometristiForm extends StatefulWidget {
   final VoidCallback? onDataChanged;
@@ -31,7 +32,14 @@ class CronometristiFormState extends State<CronometristiForm> {
     }
   ];
 
-  List<Map<String, dynamic>> getData() => righe;
+  List<Map<String, dynamic>> getData() {
+    for (final row in righe) {
+      final name = row['nome'];
+      if (name != null) row['nome'] = formatPersonName(name);
+    }
+    return righe;
+  }
+
   Map<String, Map<String, String>> getOrariGiornata() =>
       Map<String, Map<String, String>>.from(orariPerData);
 
@@ -162,7 +170,7 @@ class CronometristiFormState extends State<CronometristiForm> {
       } else {
         righe = nomi
             .map((nome) => {
-                  'nome': nome,
+                  'nome': formatPersonName(nome),
                   'giorni': _giorniPerRange(),
                   'segreteria': null,
                   'note': '',
@@ -202,11 +210,16 @@ class CronometristiFormState extends State<CronometristiForm> {
           }
         ];
       } else {
-        final names = datesByName.keys.toList()
+        final normalizedDatesByName = <String, List<DateTime>>{};
+        for (final entry in datesByName.entries) {
+          final name = formatPersonName(entry.key);
+          normalizedDatesByName.putIfAbsent(name, () => []).addAll(entry.value);
+        }
+        final names = normalizedDatesByName.keys.toList()
           ..sort((first, second) =>
               first.toLowerCase().compareTo(second.toLowerCase()));
         righe = names.map((name) {
-          final dates = datesByName[name]!
+          final dates = normalizedDatesByName[name]!
               .map((date) => DateTime(date.year, date.month, date.day))
               .toSet()
               .toList()
@@ -315,7 +328,7 @@ class CronometristiFormState extends State<CronometristiForm> {
           .map<Map<String, dynamic>>(normalizeDay)
           .toList();
       return {
-        'nome': raw['nome'],
+        'nome': raw['nome'] == null ? null : formatPersonName(raw['nome']),
         'giorni': giorni,
         'segreteria': raw['segreteria'],
         'note': (raw['note'] ?? '').toString(),

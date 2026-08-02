@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../config/app_environment.dart';
 import '../state/session_state.dart';
+import '../utils/person_name_formatter.dart';
 
 class NotionPersonContact {
   const NotionPersonContact({required this.name, required this.phone});
@@ -225,7 +226,7 @@ class NotionService {
       }
     }
 
-    return NotionPersonContact(name: name, phone: phone);
+    return NotionPersonContact(name: formatPersonName(name), phone: phone);
   }
 
   Future<Map<String, dynamic>> retrievePage(String pageId) async {

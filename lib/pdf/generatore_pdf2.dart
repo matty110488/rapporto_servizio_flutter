@@ -9,6 +9,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 
 import '../utils/italian_date_formatter.dart';
+import '../utils/person_name_formatter.dart';
 
 const Set<String> _tabelloniDevices = {
   'alge',
@@ -99,7 +100,7 @@ Future<pw.Document> _buildPdfDocument(Map<String, dynamic> dati) async {
   final danni = _txt(dati['danni']);
   final allegati = (dati['allegati'] ?? []) as List;
   final allegatiBytes = await _loadAllegatiBytes(allegati);
-  final direttore = _txt(gara['dsc']).trim();
+  final direttore = formatPersonName(_txt(gara['dsc']));
   final orariGiornata = normalizzaOrariGiornataPdf(dati['orariGiornata']);
   final mostraRiepilogo = pacchetto['attivo'] == true || _isMultiDay(gara);
   final contenuto = <pw.Widget>[
@@ -169,7 +170,7 @@ pw.Widget _sezioneGara(
   final luogo = _txt(gara['luogo']);
   final dataDa = fmt(gara['dataDa']?.toString());
   final dataA = fmt(gara['dataA']?.toString());
-  final dsc = _txt(gara['dsc']);
+  final dsc = formatPersonName(_txt(gara['dsc']));
   final packageDays = (pacchetto['giornate'] as List? ?? const [])
       .map((value) => fmt(value?.toString()))
       .where((value) => value.isNotEmpty)
@@ -281,7 +282,7 @@ pw.Widget _sezioneCronometristi(
     totKm += km;
     totSpese += spese;
     rows.add([
-      _txt(c['nome']),
+      formatPersonName(_txt(c['nome'])),
       ore.toStringAsFixed(1),
       km.toStringAsFixed(1),
       spese.toStringAsFixed(2),
@@ -289,7 +290,7 @@ pw.Widget _sezioneCronometristi(
       note,
     ]);
     if (note.trim().isNotEmpty) {
-      noteRows.add([_txt(c['nome']), note]);
+      noteRows.add([formatPersonName(_txt(c['nome'])), note]);
     }
   }
 
@@ -415,7 +416,7 @@ pw.Widget _sezioneGiornate(
 
   final Map<String, List<Map<String, String>>> perData = {};
   for (final c in elenco) {
-    final nome = _txt(c['nome']);
+    final nome = formatPersonName(_txt(c['nome']));
     final segreteria = _txt(c['segreteria']).toUpperCase();
     final giorni = (c['giorni'] as List?) ?? [];
     for (final g in giorni) {
