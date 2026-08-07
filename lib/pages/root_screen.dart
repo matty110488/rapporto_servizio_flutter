@@ -342,6 +342,14 @@ class _RootScreenState extends State<RootScreen> {
       if (gara.dscIds.isNotEmpty) {
         dscName = await _resolveName(gara.dscIds.first);
       }
+      String? elaborazioneDatiName;
+      final elaborazioneDatiIds = selectedGare
+          .expand((selected) => selected.pcSegreteriaIds)
+          .toSet()
+          .toList();
+      if (elaborazioneDatiIds.isNotEmpty) {
+        elaborazioneDatiName = await _resolveName(elaborazioneDatiIds.first);
+      }
       final datesByKronosId = <String, Set<DateTime>>{};
       for (final selected in selectedGare) {
         final dates = GaraPackage.single(selected).activeDates;
@@ -371,6 +379,7 @@ class _RootScreenState extends State<RootScreen> {
         luogo: gara.localita,
         dates: activeDates,
         dsc: dscName,
+        elaborazioneDati: elaborazioneDatiName,
       );
       await Future<void>.microtask(() {});
       if (!mounted || ticket != _prefillTicket) return false;
@@ -759,6 +768,20 @@ class _RootScreenState extends State<RootScreen> {
         ? Map<String, dynamic>.from(orariRaw)
         : <String, dynamic>{};
     final danni = (danniRaw ?? '').toString();
+
+    // Le bozze create prima del dropdown salvavano il ruolo solo sulla riga
+    // del cronometrista. Lo riportiamo nel nuovo campo globale.
+    if ((garaData['elaborazioneDati'] ?? '').toString().trim().isEmpty) {
+      for (final rawRow in cronos) {
+        if (rawRow is! Map) continue;
+        if ((rawRow['segreteria'] ?? '').toString().toUpperCase() != 'SI') {
+          continue;
+        }
+        final name = formatPersonName(rawRow['nome']);
+        if (name.isNotEmpty) garaData['elaborazioneDati'] = name;
+        break;
+      }
+    }
 
     garaKey.currentState?.applySavedData(
       garaData: garaData,
@@ -1222,6 +1245,9 @@ class _RootScreenState extends State<RootScreen> {
           child: GaraForm(
             key: garaKey,
             onSportChanged: (_) {},
+            onElaborazioneDatiChanged: (nome) {
+              cronometristiKey.currentState?.setElaborazioneDati(nome);
+            },
             onDateRangeChanged: (da, a) {
               cronometristiKey.currentState?.syncDaysWithRange(da, a);
             },

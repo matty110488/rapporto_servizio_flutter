@@ -14,6 +14,7 @@ class CronometristiForm extends StatefulWidget {
 
 class CronometristiFormState extends State<CronometristiForm> {
   int _revision = 0;
+  String? _elaborazioneDati;
   DateTime? _rangeDa;
   DateTime? _rangeA;
   List<DateTime> _activeDates = [];
@@ -36,8 +37,26 @@ class CronometristiFormState extends State<CronometristiForm> {
     for (final row in righe) {
       final name = row['nome'];
       if (name != null) row['nome'] = formatPersonName(name);
+      row['segreteria'] = _isElaborazioneDati(name) ? 'SI' : 'NO';
     }
     return righe;
+  }
+
+  bool _isElaborazioneDati(dynamic name) {
+    final selected = _elaborazioneDati?.trim().toLowerCase();
+    if (selected == null || selected.isEmpty || name == null) return false;
+    return formatPersonName(name).trim().toLowerCase() == selected;
+  }
+
+  void setElaborazioneDati(String? nome) {
+    final normalized = formatPersonName(nome);
+    setState(() {
+      _elaborazioneDati = normalized.isEmpty ? null : normalized;
+      for (final row in righe) {
+        row['segreteria'] = _isElaborazioneDati(row['nome']) ? 'SI' : 'NO';
+      }
+    });
+    _notifyDataChanged();
   }
 
   Map<String, Map<String, String>> getOrariGiornata() =>
@@ -337,6 +356,15 @@ class CronometristiFormState extends State<CronometristiForm> {
 
     setState(() {
       final rows = savedRows.map<Map<String, dynamic>>(normalizeRow).toList();
+      if (_elaborazioneDati == null) {
+        for (final row in rows) {
+          if ((row['segreteria'] ?? '').toString().toUpperCase() == 'SI') {
+            final name = formatPersonName(row['nome']);
+            if (name.isNotEmpty) _elaborazioneDati = name;
+            break;
+          }
+        }
+      }
       righe = rows.isEmpty
           ? [
               {
@@ -695,58 +723,6 @@ class CronometristiFormState extends State<CronometristiForm> {
                       _totalPill('Spese', totali['spese'] ?? 0,
                           Icons.account_balance_wallet_rounded, colorScheme),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surface.withOpacity(0.8),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: colorScheme.outline.withOpacity(0.25)),
-                    ),
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Elaborazione Dati',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: RadioListTile<String>(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: const Text('SI'),
-                                  value: 'SI',
-                                  groupValue: riga['segreteria'],
-                                  onChanged: (val) => setState(() {
-                                    riga['segreteria'] = val;
-                                    _notifyDataChanged();
-                                  }),
-                                  dense: true,
-                                ),
-                              ),
-                              Expanded(
-                                child: RadioListTile<String>(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: const Text('NO'),
-                                  value: 'NO',
-                                  groupValue: riga['segreteria'],
-                                  onChanged: (val) => setState(() {
-                                    riga['segreteria'] = val;
-                                    _notifyDataChanged();
-                                  }),
-                                  dense: true,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
