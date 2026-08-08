@@ -206,12 +206,16 @@ void main() {
     expect(find.text('Scade tra 5 giorni'), findsOneWidget);
     expect(find.text('In ritardo da 3 giorni'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Rapportini 1'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Rapportini 1'));
     await tester.pump();
     expect(find.textContaining('Mancano DSC'), findsNothing);
     expect(
         find.textContaining('Rapportino non ancora ricevuto'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Designazioni 1'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Designazioni 1'));
     await tester.pump();
     expect(find.textContaining('Mancano DSC'), findsOneWidget);
