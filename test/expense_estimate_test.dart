@@ -62,13 +62,22 @@ void main() {
 
     expect(find.text('Preventivi'), findsOneWidget);
     expect(find.text('Personale e trasferta'), findsOneWidget);
-    await tester.ensureVisible(find.text('Calcola preventivo'));
+    await tester.dragUntilVisible(
+      find.text('Calcola preventivo'),
+      find.byType(ListView),
+      const Offset(0, -300),
+    );
     await tester.tap(find.text('Calcola preventivo'));
     await tester.pumpAndSettle();
 
     expect(notion.submittedReport, isNotNull);
     expect(find.text('TOTALE PREVENTIVO'), findsOneWidget);
     expect(find.textContaining('150,00'), findsOneWidget);
+    await tester.dragUntilVisible(
+      find.text('Simulazione non salvata in Notion'),
+      find.byType(ListView),
+      const Offset(0, -250),
+    );
     expect(find.text('Simulazione non salvata in Notion'), findsOneWidget);
   });
 
