@@ -13,6 +13,7 @@ import {
 import {
   calculateExpenseReport,
   parseExpenseTariffs,
+  summarizeExpenseEstimate,
 } from './expense-calculator.js';
 import { DEFAULT_EXPENSE_TARIFFS } from './expense-tariffs.js';
 
@@ -1748,7 +1749,10 @@ export default async function handler(req, res) {
         const expenseTariffs = process.env.EXPENSE_TARIFFS_JSON
           ? parseExpenseTariffs(process.env.EXPENSE_TARIFFS_JSON)
           : DEFAULT_EXPENSE_TARIFFS;
-        const estimate = calculateExpenseReport(report, expenseTariffs);
+        const estimate = summarizeExpenseEstimate(
+          calculateExpenseReport(report, expenseTariffs),
+          report,
+        );
         return res.status(200).json({ estimate });
       } catch (error) {
         return res.status(422).json({

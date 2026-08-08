@@ -5,6 +5,7 @@ import {
   calculateExpenseReport,
   isFederalHoliday,
   parseExpenseTariffs,
+  summarizeExpenseEstimate,
 } from '../api/expense-calculator.js';
 import { DEFAULT_EXPENSE_TARIFFS } from '../api/expense-tariffs.js';
 
@@ -100,6 +101,44 @@ test('marks Rally as requiring manual review', () => {
   const result = calculateExpenseReport(report({ sport: 'Rally' }), config);
   assert.equal(result.requiresManualReview, true);
   assert.match(result.warnings.join(' '), /Rally/);
+});
+
+test('charges scoreboards, transmissions and IDcams for every race day', () => {
+  const multiDayReport = report();
+  multiDayReport.cronometristi = [];
+  multiDayReport.pacchetto.giornate = ['2026-06-03', '2026-06-04'];
+
+  const result = calculateExpenseReport(multiDayReport, config);
+  const equipment = Object.fromEntries(
+    result.lines
+      .filter((line) => line.category === 'equipment')
+      .map((line) => [line.label, line]),
+  );
+
+  assert.equal(equipment['Tabellone standard'].amount, 100);
+  assert.equal(equipment['Dispositivi di trasmissione dati'].amount, 20);
+  assert.equal(equipment.IDcam.amount, 30);
+  assert.equal(equipment['Tabellone standard'].unit, 'unità × 2 giorni');
+  assert.equal(result.totalsByCategory.organization, 100);
+});
+
+test('summarizes personnel and travel lines for estimates', () => {
+  const sourceReport = report();
+  const detailed = calculateExpenseReport(sourceReport, config);
+  const summary = summarizeExpenseEstimate(detailed, sourceReport);
+
+  const personnel = summary.lines.filter((line) => line.category === 'personnel');
+  const travel = summary.lines.filter((line) => line.category === 'travel');
+
+  assert.equal(personnel.length, 2);
+  assert.equal(personnel[0].label, 'Indennità ordinaria per 1 crono');
+  assert.equal(personnel[0].amount, 36);
+  assert.equal(personnel[1].label, 'Indennità specialistica per 1 crono');
+  assert.equal(personnel[1].amount, 40);
+  assert.equal(travel.length, 1);
+  assert.equal(travel[0].label, 'Rimborso chilometrico per 100 km');
+  assert.equal(travel[0].amount, 36);
+  assert.equal(summary.total, detailed.total);
 });
 
 test('requires tariff configuration from the environment', () => {

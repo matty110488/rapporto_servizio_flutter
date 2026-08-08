@@ -474,6 +474,18 @@ test('expense estimates are calculated for administrators without Notion writes'
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.estimate.total, 83.6);
     assert.equal(res.body.estimate.race.title, 'Preventivo corsa');
+    assert.equal(
+      res.body.estimate.lines.find((line) => line.category === 'personnel').label,
+      'Indennità ordinaria per 1 crono',
+    );
+    assert.equal(
+      res.body.estimate.lines.find((line) => line.category === 'travel').label,
+      'Rimborso chilometrico per 10 km',
+    );
+    assert.equal(
+      res.body.estimate.lines.some((line) => line.label.includes('Cronometrista 1')),
+      false,
+    );
     assert.equal(fetchCalled, false);
   } finally {
     global.fetch = originalFetch;

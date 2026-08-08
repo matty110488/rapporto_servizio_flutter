@@ -117,6 +117,7 @@ export function calculateExpenseReport(report, config, { calculatedAt = new Date
       const hourlyAmount = timekeeperAmount(hours, hourlyTariff) * multiplier;
       addLine(lines, {
         category: 'personnel',
+        subtype: specialist ? 'specialist' : 'ordinary',
         label: `${specialist ? 'Indennità specialistica' : 'Indennità ordinaria'} · ${name}`,
         date,
         quantity: hours,
@@ -181,6 +182,9 @@ export function calculateExpenseReport(report, config, { calculatedAt = new Date
     : [];
   const equipment = equipmentRows.find((row) => row?.guidedMode === true) ?? {};
   const equipmentRates = tariff.equipment ?? {};
+  const equipmentDays = Math.max(dates.length, 1);
+  const equipmentUnit =
+    equipmentDays === 1 ? 'unità' : `unità × ${equipmentDays} giorni`;
   const countIfYes = (field, countField) =>
     String(equipment?.[field] ?? '').toUpperCase() === 'SI'
       ? positiveInteger(equipment?.[countField], 1)
@@ -191,9 +195,10 @@ export function calculateExpenseReport(report, config, { calculatedAt = new Date
     category: 'equipment',
     label: 'Tabellone standard',
     quantity: scoreboards,
-    unit: 'unità',
+    unit: equipmentUnit,
     unitRate: numberValue(equipmentRates.standardScoreboard),
-    amount: scoreboards * numberValue(equipmentRates.standardScoreboard),
+    amount:
+      scoreboards * numberValue(equipmentRates.standardScoreboard) * equipmentDays,
   });
 
   const intermediates = countIfYes('intermedi', 'intermediNumero');
@@ -215,9 +220,9 @@ export function calculateExpenseReport(report, config, { calculatedAt = new Date
     category: 'equipment',
     label: 'Dispositivi di trasmissione dati',
     quantity: transmissions,
-    unit: 'unità',
+    unit: equipmentUnit,
     unitRate: numberValue(equipmentRates.transmission),
-    amount: transmissions * numberValue(equipmentRates.transmission),
+    amount: transmissions * numberValue(equipmentRates.transmission) * equipmentDays,
   });
 
   const idCams = countIfYes('IDcam', 'IDcamNumero');
@@ -225,9 +230,9 @@ export function calculateExpenseReport(report, config, { calculatedAt = new Date
     category: 'equipment',
     label: 'IDcam',
     quantity: idCams,
-    unit: 'unità',
+    unit: equipmentUnit,
     unitRate: numberValue(equipmentRates.idCam),
-    amount: idCams * numberValue(equipmentRates.idCam),
+    amount: idCams * numberValue(equipmentRates.idCam) * equipmentDays,
   });
 
   if (String(equipment?.altreApparecchiature ?? '').trim()) {
@@ -260,6 +265,77 @@ export function calculateExpenseReport(report, config, { calculatedAt = new Date
     requiresManualReview: warnings.length > 0,
     warnings,
   };
+}
+
+export function summarizeExpenseEstimate(estimate, report) {
+  const sourceLines = Array.isArray(estimate?.lines) ? estimate.lines : [];
+  const timekeepers = Array.isArray(report?.cronometristi) ? report.cronometristi : [];
+  const activeTimekeepers = timekeepers.filter((row) =>
+    (Array.isArray(row?.giorni) ? row.giorni : []).some(
+      (day) => numberValue(day?.ore) > 0,
+    ),
+  );
+  const countByType = (specialist) =>
+    activeTimekeepers.filter(
+      (row) =>
+        (String(row?.segreteria ?? '').trim().toUpperCase() === 'SI') === specialist,
+    ).length;
+  const sumLines = (category, subtype) =>
+    roundCurrency(
+      sourceLines
+        .filter(
+          (line) =>
+            line?.category === category &&
+            (subtype == null || line?.subtype === subtype),
+        )
+        .reduce((sum, line) => sum + numberValue(line?.amount), 0),
+    );
+
+  const lines = [];
+  const addPersonnelSummary = (subtype, label, count) => {
+    addLine(lines, {
+      category: 'personnel',
+      subtype,
+      label: `${label} per ${count} crono`,
+      quantity: count,
+      unit: 'crono',
+      amount: sumLines('personnel', subtype),
+    });
+  };
+  addPersonnelSummary('ordinary', 'Indennità ordinaria', countByType(false));
+  addPersonnelSummary(
+    'specialist',
+    'Indennità specialistica',
+    countByType(true),
+  );
+
+  const travelLines = sourceLines.filter((line) => line?.category === 'travel');
+  const totalKm = roundCurrency(
+    travelLines.reduce((sum, line) => sum + numberValue(line?.quantity), 0),
+  );
+  addLine(lines, {
+    category: 'travel',
+    label: `Rimborso chilometrico per ${totalKm} km`,
+    quantity: totalKm,
+    unit: 'km',
+    unitRate: travelLines.find((line) => line?.unitRate != null)?.unitRate,
+    amount: sumLines('travel'),
+  });
+
+  addLine(lines, {
+    category: 'other',
+    label: 'Altre spese complessive',
+    quantity: 1,
+    unit: 'voce',
+    amount: sumLines('other'),
+  });
+  lines.push(
+    ...sourceLines.filter(
+      (line) => !['personnel', 'travel', 'other'].includes(line?.category),
+    ),
+  );
+
+  return { ...estimate, lines };
 }
 
 export function parseExpenseTariffs(rawValue) {
