@@ -52,11 +52,12 @@ class HelpContent {
 
   static const adminDashboard = [
     'La dashboard è visibile esclusivamente agli amministratori.',
+    'Le azioni rapide in alto aprono calendario, preventivi, rapportini, note spese, notifiche e statistiche.',
     'Riepiloga le gare dei prossimi 30 giorni, le designazioni incomplete, i rapportini arretrati e i dati essenziali mancanti.',
     'Usa i filtri Tutte, Designazioni, Rapportini e Dati per restringere le azioni richieste.',
     'Le etichette di scadenza evidenziano le attività imminenti, in ritardo o senza una data impostata.',
     'Tocca una criticità o una gara per aprire direttamente il dettaglio.',
-    'Le azioni rapide portano agli strumenti già disponibili senza duplicarne le funzioni.',
+    'Usa Mostra tutte per espandere le criticità e Apri calendario completo per vedere tutte le gare.',
   ];
 
   static const impostazioni = [

@@ -191,6 +191,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Centro di controllo Admin'), findsOneWidget);
+    expect(find.text('Azioni rapide'), findsOneWidget);
+    expect(find.text('Simula il costo di una gara'), findsOneWidget);
     expect(find.text('Designazioni incomplete'), findsOneWidget);
     expect(find.text('Rapportini da ricevere'), findsOneWidget);
     expect(find.text('Gara da coprire'), findsWidgets);
@@ -209,6 +211,28 @@ void main() {
     await tester.pump();
     expect(find.textContaining('Mancano DSC'), findsOneWidget);
     expect(find.textContaining('Rapportino non ancora ricevuto'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('la dashboard admin resta leggibile su mobile', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AdminDashboardPage(
+          loggedUser: _adminUser(),
+          notionService: _FakeNotionService(const []),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('PANORAMICA OPERATIVA'), findsOneWidget);
+    expect(find.text('Preventivi'), findsOneWidget);
+    expect(find.text('Controlla costi e consuntivi'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
