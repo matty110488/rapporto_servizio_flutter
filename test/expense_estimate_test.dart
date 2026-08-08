@@ -71,6 +71,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(notion.submittedReport, isNotNull);
+    await tester.dragUntilVisible(
+      find.text('TOTALE PREVENTIVO'),
+      find.byType(ListView),
+      const Offset(0, -250),
+    );
     expect(find.text('TOTALE PREVENTIVO'), findsOneWidget);
     expect(find.textContaining('150,00'), findsOneWidget);
     await tester.dragUntilVisible(
