@@ -9,6 +9,7 @@ import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
 import '../widgets/standard_app_bar_actions.dart';
 import 'dettaglio_gara.dart';
+import 'expense_reports_page.dart';
 import 'gare_page.dart';
 import 'notifications_page.dart';
 import 'service_reports_page.dart';
@@ -766,6 +767,11 @@ class _QuickActions extends StatelessWidget {
         Icons.insights_outlined,
         'Statistiche',
         () => onOpen(StatistichePage(loggedUser: loggedUser)),
+      ),
+      (
+        Icons.receipt_long_outlined,
+        'Note spese',
+        () => onOpen(ExpenseReportsPage(loggedUser: loggedUser)),
       ),
       (
         Icons.notifications_active_outlined,

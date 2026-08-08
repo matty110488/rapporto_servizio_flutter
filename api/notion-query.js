@@ -10,6 +10,11 @@ import {
   NOTION_RACE_PROPERTIES,
   RACE_STATUSES,
 } from './notion-config.js';
+import {
+  calculateExpenseReport,
+  parseExpenseTariffs,
+} from './expense-calculator.js';
+import { DEFAULT_EXPENSE_TARIFFS } from './expense-tariffs.js';
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://matty110488.github.io',
@@ -247,14 +252,22 @@ export function withoutRaceReportFiles(page) {
   const properties = Object.fromEntries(
     Object.entries(page.properties).filter(
       ([key]) =>
-        key.trim().toLowerCase() !== NOTION_RACE_PROPERTIES.files.toLowerCase(),
+        key.trim().toLowerCase() !== NOTION_RACE_PROPERTIES.files.toLowerCase() &&
+        key.trim().toLowerCase() !==
+          NOTION_RACE_PROPERTIES.expenseReport.toLowerCase(),
     ),
   );
   return { ...page, properties };
 }
 
 function withReportFilesOnly(page, reportFiles) {
-  const properties = { ...(page?.properties || {}) };
+  const properties = Object.fromEntries(
+    Object.entries(page?.properties || {}).filter(
+      ([key]) =>
+        key.trim().toLowerCase() !==
+        NOTION_RACE_PROPERTIES.expenseReport.toLowerCase(),
+    ),
+  );
   const filesKey =
     Object.keys(properties).find(
       (key) =>
@@ -1585,6 +1598,32 @@ export default async function handler(req, res) {
       );
     };
 
+    const ensureExpenseReportProperty = async (databaseId) => {
+      const database = await notionRequest(
+        `https://api.notion.com/v1/databases/${databaseId}`,
+        'GET',
+      );
+      if (database.status !== 200) return database;
+      const existingKey = findKeyByCandidates(database.data?.properties, [
+        NOTION_RACE_PROPERTIES.expenseReport,
+      ]);
+      if (existingKey) return { status: 200, data: { key: existingKey } };
+      const created = await notionRequest(
+        `https://api.notion.com/v1/databases/${databaseId}`,
+        'PATCH',
+        {
+          properties: {
+            [NOTION_RACE_PROPERTIES.expenseReport]: { rich_text: {} },
+          },
+        },
+      );
+      if (created.status !== 200) return created;
+      return {
+        status: 200,
+        data: { key: NOTION_RACE_PROPERTIES.expenseReport },
+      };
+    };
+
     if (action === 'queryDatabase') {
       const requestedDatabaseId =
         typeof safeBody.databaseId === 'string' ? safeBody.databaseId.trim() : '';
@@ -1617,6 +1656,113 @@ export default async function handler(req, res) {
         return [withReportFilesOnly(page, reports)];
       });
       return res.status(200).json({ results, has_more: false, next_cursor: null });
+    }
+
+    if (action === 'saveExpenseReport') {
+      const pageIds = Array.isArray(safeBody.pageIds)
+        ? [...new Set(safeBody.pageIds.map((id) => String(id).trim()).filter(Boolean))]
+        : [];
+      const report =
+        safeBody.report && typeof safeBody.report === 'object' && !Array.isArray(safeBody.report)
+          ? safeBody.report
+          : null;
+      if (pageIds.length === 0 || pageIds.length > 20 || report == null) {
+        return res.status(400).json({ error: 'Invalid expense report request' });
+      }
+
+      const pages = [];
+      for (const pageId of pageIds) {
+        const page = await notionRequest(
+          `https://api.notion.com/v1/pages/${pageId}`,
+          'GET',
+        );
+        if (page.status !== 200) return res.status(page.status).json(page.data);
+        if (!isAllowedPage(page.data)) {
+          return res.status(403).json({ error: 'Expense report page not allowed' });
+        }
+        pages.push(page.data);
+      }
+
+      let expense;
+      try {
+        const expenseTariffs = process.env.EXPENSE_TARIFFS_JSON
+          ? parseExpenseTariffs(process.env.EXPENSE_TARIFFS_JSON)
+          : DEFAULT_EXPENSE_TARIFFS;
+        expense = calculateExpenseReport(
+          report,
+          expenseTariffs,
+        );
+      } catch (error) {
+        return res.status(422).json({
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      const primaryPage = pages[0];
+      const databaseId = primaryPage?.parent?.database_id;
+      if (typeof databaseId !== 'string' || !databaseId) {
+        return res.status(422).json({ error: 'Race database not available' });
+      }
+      const ensured = await ensureExpenseReportProperty(databaseId);
+      if (ensured.status !== 200) {
+        return res.status(ensured.status).json(ensured.data);
+      }
+      const snapshot = {
+        ...expense,
+        racePageId: pageIds[0],
+        sourcePageIds: pageIds,
+      };
+      const serialized = JSON.stringify(snapshot);
+      const chunks = serialized.match(/.{1,1900}/gs) || [];
+      const saved = await notionRequest(
+        `https://api.notion.com/v1/pages/${pageIds[0]}`,
+        'PATCH',
+        {
+          properties: {
+            [ensured.data.key]: {
+              rich_text: chunks.map((content) => ({
+                type: 'text',
+                text: { content },
+              })),
+            },
+          },
+        },
+      );
+      if (saved.status !== 200) return res.status(saved.status).json(saved.data);
+      return res.status(200).json({ saved: true, expense: snapshot });
+    }
+
+    if (action === 'queryAdminExpenseReports') {
+      if (session.admin !== true) {
+        return res.status(403).json({ error: 'Administrator access required' });
+      }
+      const requestedDatabaseId =
+        typeof safeBody.databaseId === 'string' ? safeBody.databaseId.trim() : '';
+      if (!requestedDatabaseId || !allowedDataDatabaseIds.has(requestedDatabaseId)) {
+        return res.status(403).json({ error: 'Database not allowed' });
+      }
+      const pages = await queryAllDatabasePages(requestedDatabaseId);
+      const results = [];
+      for (const page of pages) {
+        const field = propertyByName(
+          page?.properties,
+          NOTION_RACE_PROPERTIES.expenseReport,
+        );
+        const serialized = extractRichText(field);
+        if (!serialized) continue;
+        try {
+          const expense = JSON.parse(serialized);
+          if (expense && typeof expense === 'object') results.push(expense);
+        } catch {
+          // A malformed historical snapshot must not hide the other reports.
+        }
+      }
+      results.sort((left, right) =>
+        String(right?.race?.startDate ?? '').localeCompare(
+          String(left?.race?.startDate ?? ''),
+        ),
+      );
+      return res.status(200).json({ results });
     }
 
     if (action === 'retrievePage') {

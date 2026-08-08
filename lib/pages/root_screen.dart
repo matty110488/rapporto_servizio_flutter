@@ -1437,6 +1437,24 @@ class _RootScreenState extends State<RootScreen> {
                   _showArchiveWarning(archiveResult);
                 }
                 if (!archiveResult.uploaded) return;
+                try {
+                  await notion.saveExpenseReport(
+                    pageIds: gareSelezionate.map((gara) => gara.id).toList(),
+                    report: payload,
+                  );
+                } catch (error) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Rapportino archiviato, ma nota spese non calcolata: '
+                          '$error',
+                        ),
+                        duration: const Duration(seconds: 10),
+                      ),
+                    );
+                  }
+                }
                 for (final gara in gareSelezionate) {
                   await notion.updateGaraStatus(
                     gara.id,
