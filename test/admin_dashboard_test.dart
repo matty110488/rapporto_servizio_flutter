@@ -193,6 +193,11 @@ void main() {
     expect(find.text('Centro di controllo Admin'), findsOneWidget);
     expect(find.text('Azioni rapide'), findsOneWidget);
     expect(find.text('Simula il costo di una gara'), findsOneWidget);
+    await tester.dragUntilVisible(
+      find.text('Azioni richieste'),
+      find.byType(ListView),
+      const Offset(0, -300),
+    );
     expect(find.text('Designazioni incomplete'), findsOneWidget);
     expect(find.text('Rapportini da ricevere'), findsOneWidget);
     expect(find.text('Gara da coprire'), findsWidgets);
