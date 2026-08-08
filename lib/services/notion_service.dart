@@ -173,6 +173,23 @@ class NotionService {
     );
   }
 
+  /// Calculates an admin-only estimate without writing anything to Notion.
+  Future<Map<String, dynamic>> calculateExpenseEstimate({
+    required Map<String, dynamic> report,
+  }) async {
+    final res = await _postViaWebProxy({
+      'action': 'calculateExpenseEstimate',
+      'report': report,
+    });
+    if (res.statusCode != 200) {
+      throw Exception('Errore calcolo preventivo: ${res.body}');
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return Map<String, dynamic>.from(
+      data['estimate'] as Map? ?? const <String, dynamic>{},
+    );
+  }
+
   /// Fetches the title of an arbitrary related page so we can show a readable
   /// name instead of the Notion relation ID.
   Future<String> fetchNameFromPage(String pageId) async {

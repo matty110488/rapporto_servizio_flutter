@@ -1732,6 +1732,31 @@ export default async function handler(req, res) {
       return res.status(200).json({ saved: true, expense: snapshot });
     }
 
+    if (action === 'calculateExpenseEstimate') {
+      if (session.admin !== true) {
+        return res.status(403).json({ error: 'Administrator access required' });
+      }
+      const report =
+        safeBody.report && typeof safeBody.report === 'object' && !Array.isArray(safeBody.report)
+          ? safeBody.report
+          : null;
+      const serializedReport = report == null ? '' : JSON.stringify(report);
+      if (!report || serializedReport.length > 100000) {
+        return res.status(400).json({ error: 'Invalid expense estimate request' });
+      }
+      try {
+        const expenseTariffs = process.env.EXPENSE_TARIFFS_JSON
+          ? parseExpenseTariffs(process.env.EXPENSE_TARIFFS_JSON)
+          : DEFAULT_EXPENSE_TARIFFS;
+        const estimate = calculateExpenseReport(report, expenseTariffs);
+        return res.status(200).json({ estimate });
+      } catch (error) {
+        return res.status(422).json({
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
     if (action === 'queryAdminExpenseReports') {
       if (session.admin !== true) {
         return res.status(403).json({ error: 'Administrator access required' });

@@ -435,6 +435,68 @@ test('expense report summaries are restricted to administrators', async () => {
   assert.equal(res.body.error, 'Administrator access required');
 });
 
+test('expense estimates are calculated for administrators without Notion writes', async () => {
+  const originalFetch = global.fetch;
+  let fetchCalled = false;
+  global.fetch = async () => {
+    fetchCalled = true;
+    throw new Error('Notion should not be called while calculating an estimate');
+  };
+  try {
+    const req = {
+      method: 'POST',
+      headers: {
+        origin: 'https://appkronos-1d181.web.app',
+        authorization: `Bearer ${signedSession({ sub: 'admin-user', admin: true })}`,
+      },
+      body: {
+        action: 'calculateExpenseEstimate',
+        report: {
+          gara: { nome: 'Preventivo corsa', sport: 'Corsa' },
+          cronometristi: [
+            {
+              nome: 'Cronometrista 1',
+              segreteria: 'NO',
+              giorni: [
+                { data: '2026-08-01', ore: 4, km: 10, spese: 0 },
+              ],
+            },
+          ],
+          pacchetto: { giornate: ['2026-08-01'] },
+          apparecchiature: [],
+        },
+      },
+    };
+    const res = responseRecorder();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.estimate.total, 83.6);
+    assert.equal(res.body.estimate.race.title, 'Preventivo corsa');
+    assert.equal(fetchCalled, false);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('expense estimates are restricted to administrators', async () => {
+  const req = {
+    method: 'POST',
+    headers: {
+      origin: 'https://appkronos-1d181.web.app',
+      authorization: `Bearer ${signedSession({ sub: 'ordinary-user' })}`,
+    },
+    body: { action: 'calculateExpenseEstimate', report: {} },
+  };
+  const res = responseRecorder();
+
+  await handler(req, res);
+
+  assert.equal(res.statusCode, 403);
+  assert.equal(res.body.error, 'Administrator access required');
+});
+
 test('freezes a server-calculated expense snapshot on the primary race', async () => {
   const originalFetch = global.fetch;
   const originalTariffs = process.env.EXPENSE_TARIFFS_JSON;
