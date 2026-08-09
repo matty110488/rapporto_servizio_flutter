@@ -334,7 +334,7 @@ class GaraFormState extends State<GaraForm> {
     final sportList = [
       'Atletica - Strada',
       'Atletica - Pista',
-      'Ciclismo su strada',
+      'Ciclismo',
       'Corsa',
       'Corsa - FIDAL',
       'Corsa in montagna',

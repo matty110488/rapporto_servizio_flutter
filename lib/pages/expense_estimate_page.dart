@@ -25,7 +25,7 @@ class _ExpenseEstimatePageState extends State<ExpenseEstimatePage> {
   static const _sports = [
     'Atletica - Strada',
     'Atletica - Pista',
-    'Ciclismo su strada',
+    'Ciclismo',
     'Corsa',
     'Corsa - FIDAL',
     'Corsa in montagna',

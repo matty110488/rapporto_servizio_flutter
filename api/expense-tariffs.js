@@ -15,7 +15,7 @@ export const DEFAULT_EXPENSE_TARIFFS = Object.freeze({
       sports: {
         'atletica - strada': { dailyOrganization: 50, intermediate: 20 },
         'atletica - pista': { dailyOrganization: 50 },
-        'ciclismo su strada': { dailyOrganization: 50, intermediate: 20 },
+        'ciclismo': { dailyOrganization: 50, intermediate: 20 },
         corsa: { dailyOrganization: 50, intermediate: 20 },
         'corsa - fidal': {
           manualReview: true,
