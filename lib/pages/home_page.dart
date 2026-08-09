@@ -404,12 +404,6 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
       notificationItem,
-      _HomeNavData(
-        icon: Icons.settings_outlined,
-        label: 'Impostazioni',
-        subtitle: 'Notifiche, sicurezza e password',
-        onTap: openSettings,
-      ),
     ];
 
     return LayoutBuilder(
@@ -456,6 +450,7 @@ class _HomePageState extends State<HomePage> {
                           userName: userName,
                           appVersionLabel: _appVersionLabel,
                           navItems: navItems,
+                          onOpenSettings: openSettings,
                           onLogout: widget.onLogout,
                           onVersionTap: _handleVersionTap,
                         ),
@@ -905,6 +900,7 @@ class _HomeSidebar extends StatelessWidget {
   final String userName;
   final String appVersionLabel;
   final List<_HomeNavData> navItems;
+  final VoidCallback onOpenSettings;
   final VoidCallback onLogout;
   final VoidCallback onVersionTap;
 
@@ -912,6 +908,7 @@ class _HomeSidebar extends StatelessWidget {
     required this.userName,
     required this.appVersionLabel,
     required this.navItems,
+    required this.onOpenSettings,
     required this.onLogout,
     required this.onVersionTap,
   });
@@ -945,15 +942,26 @@ class _HomeSidebar extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 22),
-          Text(
-            'Ciao, $userName',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF1A2B40),
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Ciao, $userName',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF1A2B40),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: onOpenSettings,
+                tooltip: 'Impostazioni',
+                icon: const Icon(Icons.settings_outlined),
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           const Text(
