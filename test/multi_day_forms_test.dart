@@ -156,6 +156,32 @@ void main() {
     expect(key.currentState!.getData().single['nome'], "Dell'Olio Cosimo");
   });
 
+  testWidgets('data processing role is assigned from the global selection',
+      (tester) async {
+    final key = GlobalKey<CronometristiFormState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(child: CronometristiForm(key: key)),
+        ),
+      ),
+    );
+
+    key.currentState!.setElaborazioneDati('Mario Rossi');
+    key.currentState!.setCronometristiPerDate({
+      'Mario Rossi': [DateTime(2026, 8, 12)],
+      'Luigi Bianchi': [DateTime(2026, 8, 12)],
+    });
+    await tester.pump();
+
+    final byName = {
+      for (final row in key.currentState!.getData()) row['nome']: row,
+    };
+    expect(byName['Mario Rossi']?['segreteria'], 'SI');
+    expect(byName['Luigi Bianchi']?['segreteria'], 'NO');
+    expect(find.byType(RadioListTile<String>), findsNothing);
+  });
+
   testWidgets('worked hours are calculated from schedule and daily break',
       (tester) async {
     final key = GlobalKey<CronometristiFormState>();

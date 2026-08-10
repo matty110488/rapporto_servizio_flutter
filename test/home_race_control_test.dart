@@ -62,6 +62,8 @@ void main() {
     expect(find.text('RACE CONTROL'), findsOneWidget);
     expect(find.text('Gara singola'), findsOneWidget);
     expect(find.text('APRI DETTAGLI GARA'), findsOneWidget);
+    expect(find.text('Impostazioni'), findsNothing);
+    expect(find.byTooltip('Impostazioni'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

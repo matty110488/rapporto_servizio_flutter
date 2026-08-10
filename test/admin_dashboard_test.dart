@@ -191,6 +191,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Centro di controllo Admin'), findsOneWidget);
+    expect(find.text('Azioni rapide'), findsOneWidget);
+    expect(find.text('Simula il costo di una gara'), findsOneWidget);
+    await tester.dragUntilVisible(
+      find.text('Azioni richieste'),
+      find.byType(ListView),
+      const Offset(0, -300),
+    );
     expect(find.text('Designazioni incomplete'), findsOneWidget);
     expect(find.text('Rapportini da ricevere'), findsOneWidget);
     expect(find.text('Gara da coprire'), findsWidgets);
@@ -199,16 +206,42 @@ void main() {
     expect(find.text('Scade tra 5 giorni'), findsOneWidget);
     expect(find.text('In ritardo da 3 giorni'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Rapportini 1'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Rapportini 1'));
     await tester.pump();
     expect(find.textContaining('Mancano DSC'), findsNothing);
     expect(
         find.textContaining('Rapportino non ancora ricevuto'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Designazioni 1'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Designazioni 1'));
     await tester.pump();
     expect(find.textContaining('Mancano DSC'), findsOneWidget);
     expect(find.textContaining('Rapportino non ancora ricevuto'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('la dashboard admin resta leggibile su mobile', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AdminDashboardPage(
+          loggedUser: _adminUser(),
+          notionService: _FakeNotionService(const []),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('PANORAMICA OPERATIVA'), findsOneWidget);
+    expect(find.text('Preventivi'), findsOneWidget);
+    expect(find.text('Controlla costi e consuntivi'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

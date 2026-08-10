@@ -9,6 +9,8 @@ import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
 import '../widgets/standard_app_bar_actions.dart';
 import 'dettaglio_gara.dart';
+import 'expense_estimate_page.dart';
+import 'expense_reports_page.dart';
 import 'gare_page.dart';
 import 'notifications_page.dart';
 import 'service_reports_page.dart';
@@ -148,6 +150,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                             children: [
                               _Header(data: _data),
                               const SizedBox(height: 16),
+                              _QuickActions(
+                                loggedUser: widget.loggedUser,
+                                onOpen: _open,
+                              ),
+                              const SizedBox(height: 16),
                               _KpiGrid(data: _data),
                               const SizedBox(height: 24),
                               if (constraints.maxWidth >= 980)
@@ -169,11 +176,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                           _UpcomingPanel(
                                             races: _data.upcomingRaces,
                                             onOpenRace: _openRace,
-                                          ),
-                                          const SizedBox(height: 16),
-                                          _QuickActions(
-                                            loggedUser: widget.loggedUser,
-                                            onOpen: _open,
+                                            onOpenCalendar: () => _open(
+                                              GarePage(
+                                                loggedUser: widget.loggedUser,
+                                              ),
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -189,11 +196,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                                 _UpcomingPanel(
                                   races: _data.upcomingRaces,
                                   onOpenRace: _openRace,
-                                ),
-                                const SizedBox(height: 16),
-                                _QuickActions(
-                                  loggedUser: widget.loggedUser,
-                                  onOpen: _open,
+                                  onOpenCalendar: () => _open(
+                                    GarePage(loggedUser: widget.loggedUser),
+                                  ),
                                 ),
                               ],
                             ],
@@ -254,7 +259,7 @@ class _Header extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'CENTRO DI CONTROLLO ADMIN',
+                  'PANORAMICA OPERATIVA',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 12,
@@ -274,8 +279,10 @@ class _Header extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 3),
-                const Text(
-                  'Riepilogo delle gare e dei rapportini da gestire.',
+                Text(
+                  hasAttention
+                      ? 'Parti dalle azioni richieste e apri direttamente la gara.'
+                      : 'Gare, rapportini e dati risultano aggiornati.',
                   style: TextStyle(color: Colors.white70),
                 ),
               ],
@@ -296,11 +303,7 @@ class _KpiGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 850
-            ? 4
-            : constraints.maxWidth >= 520
-                ? 2
-                : 1;
+        final columns = constraints.maxWidth >= 850 ? 4 : 2;
         const spacing = 12.0;
         final width =
             (constraints.maxWidth - (spacing * (columns - 1))) / columns;
@@ -362,43 +365,45 @@ class _KpiCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: width,
-      padding: const EdgeInsets.all(16),
+      constraints: const BoxConstraints(minHeight: 108),
+      padding: const EdgeInsets.all(14),
       decoration: _panelDecoration(),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.11),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: color),
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.11),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 21),
+              ),
+              const Spacer(),
+              Text(
+                value.toString(),
+                style: TextStyle(
+                  color: color,
+                  fontSize: 27,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value.toString(),
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 25,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: Color(0xFF41566E),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 10),
+          Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF41566E),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              height: 1.15,
             ),
           ),
         ],
@@ -424,6 +429,7 @@ class _AttentionPanel extends StatefulWidget {
 
 class _AttentionPanelState extends State<_AttentionPanel> {
   _AttentionFilter _filter = _AttentionFilter.all;
+  bool _showAll = false;
 
   List<AdminAttentionItem> get _filteredItems {
     return widget.data.attentionItems.where((item) {
@@ -441,7 +447,7 @@ class _AttentionPanelState extends State<_AttentionPanel> {
   @override
   Widget build(BuildContext context) {
     final filteredItems = _filteredItems;
-    final items = filteredItems.take(8).toList();
+    final items = _showAll ? filteredItems : filteredItems.take(5).toList();
     final filters = [
       (
         _AttentionFilter.all,
@@ -501,7 +507,10 @@ class _AttentionPanelState extends State<_AttentionPanel> {
                         ),
                         showCheckmark: false,
                         onSelected: (_) {
-                          setState(() => _filter = filter.$1);
+                          setState(() {
+                            _filter = filter.$1;
+                            _showAll = false;
+                          });
                         },
                       ),
                     ),
@@ -527,15 +536,20 @@ class _AttentionPanelState extends State<_AttentionPanel> {
                 onTap: () => widget.onOpenRace(item.gara),
               ),
             ),
-            if (filteredItems.length > items.length)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'Altre ${filteredItems.length - items.length} attività '
-                  'non mostrate.',
-                  style: const TextStyle(
-                    color: Color(0xFF52657B),
-                    fontWeight: FontWeight.w700,
+            if (filteredItems.length > 5)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => setState(() => _showAll = !_showAll),
+                  icon: Icon(
+                    _showAll
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                  ),
+                  label: Text(
+                    _showAll
+                        ? 'Mostra meno'
+                        : 'Mostra tutte (${filteredItems.length})',
                   ),
                 ),
               ),
@@ -663,10 +677,12 @@ class _UpcomingPanel extends StatelessWidget {
   const _UpcomingPanel({
     required this.races,
     required this.onOpenRace,
+    required this.onOpenCalendar,
   });
 
   final List<Gara> races;
   final ValueChanged<Gara> onOpenRace;
+  final VoidCallback onOpenCalendar;
 
   @override
   Widget build(BuildContext context) {
@@ -734,6 +750,17 @@ class _UpcomingPanel extends StatelessWidget {
                 ),
               ),
             ),
+          if (visible.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: onOpenCalendar,
+                icon: const Icon(Icons.arrow_forward_rounded),
+                label: const Text('Apri calendario completo'),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -755,22 +782,44 @@ class _QuickActions extends StatelessWidget {
       (
         Icons.edit_calendar_outlined,
         'Calendario',
+        'Gestisci gare e designazioni',
+        const Color(0xFF0A66C2),
         () => onOpen(GarePage(loggedUser: loggedUser)),
+      ),
+      (
+        Icons.calculate_outlined,
+        'Preventivi',
+        'Simula il costo di una gara',
+        const Color(0xFF176B42),
+        () => onOpen(ExpenseEstimatePage(loggedUser: loggedUser)),
       ),
       (
         Icons.assignment_outlined,
         'Rapportini',
+        'Consulta i rapporti di servizio',
+        const Color(0xFF6B4EA0),
         () => onOpen(ServiceReportsPage(loggedUser: loggedUser)),
       ),
       (
-        Icons.insights_outlined,
-        'Statistiche',
-        () => onOpen(StatistichePage(loggedUser: loggedUser)),
+        Icons.receipt_long_outlined,
+        'Note spese',
+        'Controlla costi e consuntivi',
+        const Color(0xFFC46B00),
+        () => onOpen(ExpenseReportsPage(loggedUser: loggedUser)),
       ),
       (
         Icons.notifications_active_outlined,
         'Notifiche',
+        'Visualizza gli avvisi ricevuti',
+        const Color(0xFFB3261E),
         () => onOpen(NotificationsPage(loggedUser: loggedUser)),
+      ),
+      (
+        Icons.insights_outlined,
+        'Statistiche',
+        'Analizza attività e servizi',
+        const Color(0xFF087E8B),
+        () => onOpen(StatistichePage(loggedUser: loggedUser)),
       ),
     ];
     return Container(
@@ -785,36 +834,29 @@ class _QuickActions extends StatelessWidget {
             subtitle: 'Apri gli strumenti amministrativi',
           ),
           const SizedBox(height: 14),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: actions.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 1.8,
-            ),
-            itemBuilder: (context, index) {
-              final action = actions[index];
-              return OutlinedButton(
-                onPressed: action.$3,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(action.$1),
-                    const SizedBox(width: 8),
-                    Text(
-                      action.$2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  ],
-                ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 640 ? 3 : 2;
+              const spacing = 10.0;
+              final tileWidth =
+                  (constraints.maxWidth - spacing * (columns - 1)) / columns;
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: actions
+                    .map(
+                      (action) => SizedBox(
+                        width: tileWidth,
+                        child: _QuickActionTile(
+                          icon: action.$1,
+                          title: action.$2,
+                          subtitle: action.$3,
+                          color: action.$4,
+                          onTap: action.$5,
+                        ),
+                      ),
+                    )
+                    .toList(),
               );
             },
           ),
@@ -822,6 +864,82 @@ class _QuickActions extends StatelessWidget {
       ),
     );
   }
+}
+
+class _QuickActionTile extends StatelessWidget {
+  const _QuickActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(15),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(15),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 112),
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: color.withValues(alpha: 0.22)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: Icon(icon, color: color, size: 21),
+                    ),
+                    const Spacer(),
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      color: color,
+                      size: 19,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF52657B),
+                    fontSize: 11,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 }
 
 class _PanelTitle extends StatelessWidget {

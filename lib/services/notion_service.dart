@@ -139,6 +139,57 @@ class NotionService {
     );
   }
 
+  /// Loads frozen expense calculations. The server enforces admin access.
+  Future<List<Map<String, dynamic>>> fetchAdminExpenseReports() async {
+    final res = await _postViaWebProxy({
+      'action': 'queryAdminExpenseReports',
+      'databaseId': databaseId,
+    });
+    if (res.statusCode != 200) {
+      throw Exception('Errore riepilogo note spese: ${res.body}');
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return List<Map<String, dynamic>>.from(
+      data['results'] as List<dynamic>? ?? const [],
+    );
+  }
+
+  /// Calculates and freezes the expense report on the primary Notion race.
+  Future<Map<String, dynamic>> saveExpenseReport({
+    required List<String> pageIds,
+    required Map<String, dynamic> report,
+  }) async {
+    final res = await _postViaWebProxy({
+      'action': 'saveExpenseReport',
+      'pageIds': pageIds,
+      'report': report,
+    });
+    if (res.statusCode != 200) {
+      throw Exception('Errore calcolo nota spese: ${res.body}');
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return Map<String, dynamic>.from(
+      data['expense'] as Map? ?? const <String, dynamic>{},
+    );
+  }
+
+  /// Calculates an admin-only estimate without writing anything to Notion.
+  Future<Map<String, dynamic>> calculateExpenseEstimate({
+    required Map<String, dynamic> report,
+  }) async {
+    final res = await _postViaWebProxy({
+      'action': 'calculateExpenseEstimate',
+      'report': report,
+    });
+    if (res.statusCode != 200) {
+      throw Exception('Errore calcolo preventivo: ${res.body}');
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return Map<String, dynamic>.from(
+      data['estimate'] as Map? ?? const <String, dynamic>{},
+    );
+  }
+
   /// Fetches the title of an arbitrary related page so we can show a readable
   /// name instead of the Notion relation ID.
   Future<String> fetchNameFromPage(String pageId) async {

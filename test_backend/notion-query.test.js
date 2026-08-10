@@ -348,6 +348,9 @@ test('report archive endpoint returns Notion PDFs only to an authorized DSC', as
             id: 'race-page',
             properties: {
               DSC: { relation: [{ id: 'race-dsc' }] },
+              'NOTA SPESE APP': {
+                rich_text: [{ plain_text: '{"total":100}' }],
+              },
               'Files & media': {
                 files: [
                   {
@@ -381,6 +384,13 @@ test('report archive endpoint returns Notion PDFs only to an authorized DSC', as
     await handler(request('race-dsc'), dscResponse);
     assert.equal(dscResponse.statusCode, 200);
     assert.equal(dscResponse.body.results.length, 1);
+    assert.equal(
+      Object.hasOwn(
+        dscResponse.body.results[0].properties,
+        'NOTA SPESE APP',
+      ),
+      false,
+    );
 
     const otherResponse = responseRecorder();
     await handler(request('another-user'), otherResponse);
@@ -388,5 +398,196 @@ test('report archive endpoint returns Notion PDFs only to an authorized DSC', as
     assert.deepEqual(otherResponse.body.results, []);
   } finally {
     global.fetch = originalFetch;
+  }
+});
+
+test('private expense snapshots are stripped from ordinary race reads', () => {
+  const page = {
+    properties: {
+      GARA: { title: [{ plain_text: 'Gara' }] },
+      'NOTA SPESE APP': { rich_text: [{ plain_text: '{"total":100}' }] },
+    },
+  };
+
+  const sanitized = withoutRaceReportFiles(page);
+
+  assert.equal(Object.hasOwn(sanitized.properties, 'GARA'), true);
+  assert.equal(Object.hasOwn(sanitized.properties, 'NOTA SPESE APP'), false);
+});
+
+test('expense report summaries are restricted to administrators', async () => {
+  const req = {
+    method: 'POST',
+    headers: {
+      origin: 'https://appkronos-1d181.web.app',
+      authorization: `Bearer ${signedSession({ sub: 'ordinary-user' })}`,
+    },
+    body: {
+      action: 'queryAdminExpenseReports',
+      databaseId: '2b1de089ef9580729622ff9543046cbc',
+    },
+  };
+  const res = responseRecorder();
+
+  await handler(req, res);
+
+  assert.equal(res.statusCode, 403);
+  assert.equal(res.body.error, 'Administrator access required');
+});
+
+test('expense estimates are calculated for administrators without Notion writes', async () => {
+  const originalFetch = global.fetch;
+  let fetchCalled = false;
+  global.fetch = async () => {
+    fetchCalled = true;
+    throw new Error('Notion should not be called while calculating an estimate');
+  };
+  try {
+    const req = {
+      method: 'POST',
+      headers: {
+        origin: 'https://appkronos-1d181.web.app',
+        authorization: `Bearer ${signedSession({ sub: 'admin-user', admin: true })}`,
+      },
+      body: {
+        action: 'calculateExpenseEstimate',
+        report: {
+          gara: { nome: 'Preventivo corsa', sport: 'Corsa' },
+          cronometristi: [
+            {
+              nome: 'Cronometrista 1',
+              segreteria: 'NO',
+              giorni: [
+                { data: '2026-08-01', ore: 4, km: 10, spese: 0 },
+              ],
+            },
+          ],
+          pacchetto: { giornate: ['2026-08-01'] },
+          apparecchiature: [],
+        },
+      },
+    };
+    const res = responseRecorder();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.estimate.total, 83.6);
+    assert.equal(res.body.estimate.race.title, 'Preventivo corsa');
+    assert.equal(
+      res.body.estimate.lines.find((line) => line.category === 'personnel').label,
+      'Indennità ordinaria per 1 crono',
+    );
+    assert.equal(
+      res.body.estimate.lines.find((line) => line.category === 'travel').label,
+      'Rimborso chilometrico per 10 km',
+    );
+    assert.equal(
+      res.body.estimate.lines.some((line) => line.label.includes('Cronometrista 1')),
+      false,
+    );
+    assert.equal(fetchCalled, false);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('expense estimates are restricted to administrators', async () => {
+  const req = {
+    method: 'POST',
+    headers: {
+      origin: 'https://appkronos-1d181.web.app',
+      authorization: `Bearer ${signedSession({ sub: 'ordinary-user' })}`,
+    },
+    body: { action: 'calculateExpenseEstimate', report: {} },
+  };
+  const res = responseRecorder();
+
+  await handler(req, res);
+
+  assert.equal(res.statusCode, 403);
+  assert.equal(res.body.error, 'Administrator access required');
+});
+
+test('freezes a server-calculated expense snapshot on the primary race', async () => {
+  const originalFetch = global.fetch;
+  const originalTariffs = process.env.EXPENSE_TARIFFS_JSON;
+  const calls = [];
+  process.env.EXPENSE_TARIFFS_JSON = JSON.stringify({
+    versions: [
+      {
+        id: 'test-2026',
+        validFrom: '2026-04-01',
+        kmRate: 0.36,
+        ordinary: { baseHours: 4, baseAmount: 30, additionalHourly: 6 },
+        specialist: { baseHours: 4, baseAmount: 40, additionalHourly: 10 },
+        dataProcessingDaily: 70,
+        equipment: {},
+        sports: { nuoto: { dailyOrganization: 50 } },
+      },
+    ],
+  });
+  global.fetch = async (url, options) => {
+    calls.push({ url: String(url), options });
+    if (String(url).includes('/pages/') && options.method === 'GET') {
+      return {
+        status: 200,
+        async json() {
+          return {
+            parent: { database_id: '2b1de089ef9580729622ff9543046cbc' },
+            properties: { DSC: { relation: [] } },
+          };
+        },
+      };
+    }
+    if (String(url).includes('/databases/') && options.method === 'GET') {
+      return { status: 200, async json() { return { properties: {} }; } };
+    }
+    return { status: 200, async json() { return { ok: true }; } };
+  };
+
+  try {
+    const req = {
+      method: 'POST',
+      headers: {
+        origin: 'https://appkronos-1d181.web.app',
+        authorization: `Bearer ${signedSession({ sub: 'report-author' })}`,
+      },
+      body: {
+        action: 'saveExpenseReport',
+        pageIds: ['race-page'],
+        report: {
+          gara: { nome: 'Nuoto test', sport: 'Nuoto' },
+          cronometristi: [
+            {
+              nome: 'Mario Rossi',
+              segreteria: 'NO',
+              giorni: [
+                { data: '2026-08-01', ore: '4', km: '10', spese: '' },
+              ],
+            },
+          ],
+          apparecchiature: [],
+        },
+      },
+    };
+    const res = responseRecorder();
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.expense.total, 83.6);
+    const pagePatch = calls.find(
+      (call) => call.url.includes('/pages/') && call.options.method === 'PATCH',
+    );
+    assert.ok(pagePatch);
+    const body = JSON.parse(pagePatch.options.body);
+    assert.ok(body.properties['NOTA SPESE APP'].rich_text.length > 0);
+  } finally {
+    global.fetch = originalFetch;
+    if (originalTariffs == null) {
+      delete process.env.EXPENSE_TARIFFS_JSON;
+    } else {
+      process.env.EXPENSE_TARIFFS_JSON = originalTariffs;
+    }
   }
 });

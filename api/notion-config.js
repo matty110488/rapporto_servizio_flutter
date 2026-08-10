@@ -14,6 +14,7 @@ export const NOTION_RACE_PROPERTIES = Object.freeze({
   status: 'STATUS',
   files: 'Files & media',
   serviceManager: 'DSC',
+  expenseReport: 'NOTA SPESE APP',
 });
 
 export const RACE_STATUSES = Object.freeze({

@@ -1,0 +1,397 @@
+DESCRIZIONE COMPLETA DELL'APP “RAPPORTO DI SERVIZIO - CRONO VALTELLINESI”
+
+Documento aggiornato in base alle funzioni attualmente presenti nell'app.
+
+
+1. A COSA SERVE L'APP
+
+L'app è uno strumento operativo destinato ai cronometristi e alla segreteria dei Crono Valtellinesi. Riunisce in un unico posto il calendario delle gare, la raccolta delle disponibilità, le designazioni personali, i dettagli operativi dei servizi, la compilazione dei rapporti di servizio, l'archivio dei PDF, le notifiche e le statistiche.
+
+I dati organizzativi delle gare e degli utenti sono gestiti tramite Notion. L'app legge e aggiorna tali dati attraverso un backend protetto: il token segreto di Notion non è contenuto nell'app e non viene mostrato agli utenti.
+
+L'interfaccia è adattabile a smartphone e computer. La versione web può essere usata dal browser e installata come PWA, cioè come icona sulla schermata Home del dispositivo. Il progetto è inoltre predisposto per le principali piattaforme Flutter.
+
+
+2. ACCESSO E SICUREZZA DELL'ACCOUNT
+
+L'utente può accedere inserendo email o username e password, in base al tipo di credenziali già attivato per il proprio account.
+
+Sono disponibili i seguenti percorsi:
+
+- accesso normale con email/username e password;
+- primo accesso, indicando username ed email già registrati presso la segreteria; se i dati coincidono, l'utente riceve via email un collegamento sicuro per scegliere la propria password personale;
+- recupero della password dimenticata tramite email;
+- accesso con Face ID, Touch ID o impronta, dopo avere attivato una passkey nelle impostazioni.
+
+La nuova password personale è gestita da Firebase Authentication e non viene salvata in Notion né resa leggibile alla segreteria. La biometria resta sul dispositivo: per le passkey vengono conservate solamente la chiave pubblica e informazioni tecniche non segrete.
+
+La sessione di accesso è firmata e ha una durata massima prevista di sette giorni. L'app conserva l'accesso fino alla scadenza della sessione o fino al logout. Dalla Home è sempre possibile eseguire il logout.
+
+L'accesso biometrico costituisce una modalità aggiuntiva, non l'unico modo di entrare: se Face ID o l'impronta non funzionano, si può sempre tornare alle credenziali normali.
+
+
+3. HOME E RIEPILOGO IMMEDIATO
+
+Dopo il login, la Home saluta l'utente per nome e mostra il menu principale.
+
+La sezione “Race Control” della Home presenta fino a due servizi personali rilevanti, privilegiando le prossime designazioni. Per ciascuno mostra data, nome della gara, località e disciplina. Toccando “Apri dettagli gara” si entra direttamente nel Cockpit della gara. Se non risultano designazioni, l'app invita a consultare il calendario e a comunicare la propria disponibilità.
+
+I dati di questo riepilogo possono essere aggiornati manualmente. Su schermi piccoli le funzioni sono presentate come elenco; su schermi larghi viene utilizzata una disposizione con barra laterale e riepilogo centrale.
+
+Dalla Home si accede a:
+
+- Centro di controllo Admin, solo per gli amministratori;
+- Calendario gare;
+- Le tue designazioni;
+- Rapporti di Servizio;
+- Statistiche;
+- Notifiche;
+- Impostazioni;
+- Logout.
+
+La Home mostra anche il numero di notifiche non lette e controlla la disponibilità di nuove versioni dell'app.
+
+
+4. CALENDARIO GARE
+
+Il Calendario gare permette di consultare gli eventi presenti nei database annuali configurati. Al momento l'app gestisce le stagioni 2025 e 2026 e consente di cambiare anno dal selettore.
+
+Il calendario può essere filtrato in diversi modi:
+
+- gare prossime oppure passate;
+- tutte le gare;
+- gare per cui l'utente ha già dato disponibilità;
+- gare in cui l'utente è stato designato;
+- disciplina sportiva.
+
+Gli eventi sono ordinati per data e raggruppati per mese. Ogni scheda può mostrare nome, data o intervallo di date, stato, sport, località e coinvolgimento personale. Le etichette “Disponibilità data” e “Sei designato” rendono immediatamente visibile la posizione dell'utente.
+
+Per le gare che si svolgono entro i successivi sette giorni, se la località è disponibile e riconoscibile, l'app può mostrare una previsione meteo sintetica.
+
+Toccando una gara si apre il relativo Cockpit con tutti i dettagli operativi.
+
+
+5. RACCOLTA DELLE DISPONIBILITÀ
+
+Quando lo stato della gara lo consente, normalmente “DA GESTIRE” o “IN PROGRESS”, l'utente può premere “Mi rendo disponibile”. La disponibilità viene registrata sulla gara in Notion e gli amministratori possono ricevere una notifica dell'aggiornamento.
+
+Finché la gara non passa a uno stato che blocca le modifiche, l'utente può ritirare la disponibilità con “Rimuovimi dalla gara”. Una designazione ufficiale è distinta da una semplice disponibilità e viene mostrata con un'etichetta specifica.
+
+Per eventi articolati su più giornate, l'app raggruppa le gare in un pacchetto. L'utente può:
+
+- rendersi disponibile per una singola giornata;
+- rimuoversi da una singola giornata;
+- rendersi disponibile per tutte le giornate del pacchetto;
+- rimuoversi da tutte le giornate ancora modificabili.
+
+L'app distingue i pacchetti esplicitamente definiti nei dati da quelli suggeriti automaticamente perché titolo, organizzatore, sport, luogo e vicinanza delle date fanno pensare a un unico evento su più giorni.
+
+
+6. LE TUE DESIGNAZIONI
+
+Questa sezione non mostra tutto il calendario, ma soltanto le gare nelle quali l'utente risulta effettivamente designato come cronometrista.
+
+Le gare sono divise in:
+
+- “Servizi da svolgere”, per gli incarichi ancora operativi;
+- “Servizi conclusi”, per le gare completate o con stato SICWIN OK.
+
+Ogni scheda riporta nome, data, stato, località e sport. Toccandola si apre il Cockpit gara.
+
+
+7. COCKPIT GARA
+
+Il Cockpit è la schermata di dettaglio operativo di una gara. Serve prima e durante il servizio e può essere aperto dalla Home, dal Calendario, dalle Designazioni, dalle Notifiche o dal Centro di controllo Admin.
+
+Mostra:
+
+- nome e stato della gara;
+- data o intervallo di date;
+- località e disciplina;
+- nome dell'utente collegato e suo ruolo nella gara, quando applicabile;
+- DSC assegnato;
+- elenco dei cronometristi;
+- personale di Elaborazione Dati;
+- organizzatore;
+- informazioni logistiche;
+- previsioni meteo disponibili.
+
+Il ruolo personale viene ricavato dai dati della gara, distinguendo DSC, Elaborazione Dati, Cronometrista e semplice visualizzazione.
+
+Dal Cockpit è possibile:
+
+- aprire le indicazioni stradali verso il sito gara;
+- chiamare l'organizzatore, se nei dati è presente un numero utilizzabile;
+- telefonare al DSC, quando il contatto è disponibile e l'utente è autorizzato a vederlo;
+- aprire WhatsApp per contattare il DSC;
+- trascinare verso il basso o usare Aggiorna per ricaricare squadra, contatti e meteo.
+
+Il meteo, quando disponibile per gare vicine nel tempo, comprende informazioni quali temperatura, probabilità o quantità di pioggia e vento.
+
+Nota importante: l'integrazione automatica con Apple Wallet e Google Wallet non è una funzione attualmente disponibile. È prevista come possibile evoluzione futura e non va confusa con le funzioni già operative del Cockpit.
+
+
+8. AREA RAPPORTI DI SERVIZIO
+
+L'area è divisa in tre percorsi ben separati:
+
+- Nuovo rapportino;
+- Le mie bozze;
+- Archivio inviati.
+
+Un utente normale può compilare il rapportino soltanto per le gare nelle quali è indicato come DSC e che hanno uno stato abilitato, cioè “DESIGNAZIONE INVIATA” o “GARA COMPLETATA”. Gli amministratori possono compilare rapportini per tutte le gare ammesse.
+
+Per le gare su più giornate è possibile scegliere se produrre il rapporto per una singola gara/giornata oppure per l'intero pacchetto. Nel secondo caso il PDF comprende tutte le gare e tutte le giornate selezionate.
+
+
+9. PRECOMPILAZIONE DEL RAPPORTINO
+
+Dopo la scelta della gara, l'app recupera automaticamente dal calendario:
+
+- nome della gara o del pacchetto;
+- organizzatore;
+- sport;
+- luogo;
+- date;
+- DSC;
+- cronometristi designati;
+- associazione dei cronometristi alle singole giornate.
+
+I dati rimangono modificabili nel modulo, così il DSC può correggere o completare ciò che serve prima dell'invio.
+
+È disponibile anche il comando per ripristinare i dati originali del calendario. Il ripristino ricarica dati gara, date e cronometristi e sostituisce ore, chilometri, spese e note inseriti nella sezione cronometristi. Orari generali della gara, apparecchiature, danni e allegati restano invece invariati.
+
+
+10. DATI INSERIBILI NEL RAPPORTINO
+
+Il modulo è suddiviso nelle seguenti sezioni.
+
+A) Dati gara
+
+Si possono indicare o modificare:
+
+- nome gara;
+- organizzatore;
+- disciplina sportiva;
+- luogo;
+- data iniziale e data finale;
+- DSC.
+
+Per ogni giornata si possono impostare ora di inizio, ora di fine e presenza della pausa. Se la pausa è stata effettuata, si può specificarne la durata in ore e minuti. Gli orari sono selezionati a intervalli di cinque minuti.
+
+B) Cronometristi
+
+Si possono aggiungere o rimuovere cronometristi e, per ogni persona e giornata, registrare:
+
+- ore di servizio;
+- chilometri;
+- spese in euro;
+- partecipazione all'Elaborazione Dati, con scelta SÌ/NO;
+- note varie.
+
+Quando sono presenti gli orari della giornata, l'app può calcolare automaticamente le ore sottraendo l'eventuale pausa. Per ogni cronometrista vengono mostrati i totali di ore, chilometri e spese.
+
+C) Apparecchiature
+
+Si può dichiarare l'utilizzo e la quantità di:
+
+- tabelloni;
+- Elaborazione Dati e relativo numero di giorni;
+- punti intermedi;
+- sistemi di trasmissione dati;
+- IDcam;
+- altre apparecchiature, tramite campo libero.
+
+D) Note e malfunzionamenti
+
+È disponibile un campo esteso per descrivere problemi, danni, malfunzionamenti, osservazioni o altre note di servizio.
+
+E) Allegati fotografici
+
+È possibile:
+
+- scattare una foto direttamente dal dispositivo;
+- selezionare una o più immagini dalla galleria;
+- vedere l'anteprima delle immagini;
+- rimuovere gli allegati prima dell'invio.
+
+Le immagini vengono ridimensionate e compresse per contenere il peso del rapporto.
+
+
+11. BOZZE E SALVATAGGIO AUTOMATICO
+
+Durante la compilazione l'app salva automaticamente le modifiche sul dispositivo, normalmente ogni dieci secondi quando rileva dati cambiati. È anche disponibile il pulsante “Salva bozza”. Prima di cambiare gara o uscire dalla pagina, l'app prova a conservare le modifiche pendenti.
+
+La sezione “Le mie bozze” mostra i rapportini non ancora inviati presenti sul dispositivo. Per ogni bozza vengono visualizzati titolo, data della gara e data/ora dell'ultimo salvataggio. L'utente può:
+
+- riaprire la bozza e continuare la compilazione;
+- eliminare la bozza dopo conferma.
+
+Le bozze sono locali: una bozza creata su un telefono non compare automaticamente su un altro telefono o computer.
+
+Gli allegati fotografici non vengono conservati nelle bozze. Devono quindi essere aggiunti o selezionati nuovamente prima dell'invio definitivo.
+
+
+12. VALIDAZIONE, PDF, ARCHIVIAZIONE E CONDIVISIONE
+
+Premendo “Salva e invia”, l'app chiede una conferma esplicita. Per un evento multiplo indica anche quante gare e quante giornate saranno comprese.
+
+Dopo la conferma l'app:
+
+1) raccoglie tutti i dati del modulo;
+2) genera il rapporto di servizio in formato PDF;
+3) carica il PDF nella scheda della gara su Notion;
+4) in caso di pacchetto, collega il PDF a tutte le gare incluse;
+5) aggiorna lo stato a “RAPPORTINO RICEVUTO”;
+6) elimina la bozza locale soltanto dopo il caricamento riuscito;
+7) propone la condivisione del PDF via email oppure WhatsApp, usando il menu di condivisione del dispositivo.
+
+Se il PDF non viene archiviato correttamente, lo stato della gara non viene completato e la bozza viene mantenuta, in modo da non perdere il lavoro. Il PDF non può superare circa 4,5 MB; se è troppo pesante, l'app chiede di ridurre il numero di foto.
+
+La condivisione via email o WhatsApp non spedisce autonomamente il documento: apre il pannello di condivisione del sistema con il PDF già allegato, lasciando all'utente la scelta del destinatario e la conferma dell'invio.
+
+
+13. ARCHIVIO DEI RAPPORTINI INVIATI
+
+L'Archivio inviati recupera i PDF già salvati nelle schede delle gare su Notion.
+
+Un utente normale può vedere soltanto i rapportini delle gare nelle quali risulta DSC. Gli amministratori possono consultare l'archivio completo.
+
+Per ogni voce l'archivio mostra i principali dati della gara, come nome, date, località e sport, e offre il comando “Apri rapportino” per consultare il PDF memorizzato.
+
+
+14. NOTIFICHE
+
+La sezione Notifiche consente di attivare o disattivare le notifiche push e mostra lo stato corrente del servizio.
+
+L'app conserva una cronologia degli avvisi ricevuti, fino al limite previsto dal sistema. Ogni avviso mostra titolo, testo e data/ora. Se la notifica è collegata a una gara, toccandola si apre direttamente il relativo Cockpit.
+
+L'utente può:
+
+- aggiornare manualmente l'elenco;
+- aprire la gara collegata;
+- eliminare una singola notifica;
+- attivare o disattivare il servizio push.
+
+Le nuove notifiche possono comparire nella cronologia anche quando l'app era chiusa. La Home mostra un contatore degli avvisi non letti e lo aggiorna periodicamente.
+
+Tra gli usi previsti ci sono gli avvisi di designazione, gli aggiornamenti delle gare e le comunicazioni agli amministratori quando un utente modifica la propria disponibilità.
+
+
+15. STATISTICHE
+
+La pagina Statistiche riepiloga l'attività personale su tutti gli anni configurati oppure su un singolo anno scelto dall'utente.
+
+Mostra:
+
+- numero di designazioni come cronometrista;
+- numero di servizi in Elaborazione Dati;
+- numero di servizi come DSC;
+- numero di sport diversi praticati;
+- distribuzione delle designazioni per sport;
+- distribuzione dei servizi di Elaborazione Dati per sport;
+- distribuzione delle designazioni per anno;
+- elenco delle designazioni più recenti.
+
+Gli amministratori vedono inoltre il totale complessivo delle gare per disciplina nell'anno selezionato, non limitato alla propria attività personale.
+
+
+16. CENTRO DI CONTROLLO ADMIN
+
+Questa funzione è visibile esclusivamente agli utenti riconosciuti come amministratori.
+
+La dashboard analizza le gare e mette in evidenza:
+
+- gare previste nei successivi 30 giorni;
+- designazioni incomplete, per esempio senza DSC o senza cronometristi;
+- rapportini arretrati, cioè gare già passate il cui rapporto non risulta ancora ricevuto;
+- gare con dati essenziali mancanti, come titolo, data, sport o località.
+
+Ogni criticità riceve un'indicazione temporale e di urgenza, ad esempio “Scade oggi”, “Scade domani”, “Scade tra X giorni”, “In ritardo da X giorni” oppure “Nessuna data impostata”.
+
+L'amministratore può filtrare le azioni richieste per:
+
+- tutte le criticità;
+- designazioni;
+- rapportini;
+- dati mancanti.
+
+Toccando una voce si apre direttamente la gara interessata. La dashboard contiene inoltre azioni rapide verso Calendario, Designazioni, Rapportini, Statistiche e Notifiche. La funzione riassume e indirizza il lavoro amministrativo, ma non sostituisce le schermate operative già presenti.
+
+Gli amministratori hanno anche permessi più ampi nella compilazione dei rapportini, nella consultazione dell'archivio e nelle statistiche complessive.
+
+
+17. IMPOSTAZIONI
+
+Nelle Impostazioni l'utente può:
+
+- attivare o disattivare le notifiche;
+- attivare l'accesso con Face ID o impronta creando una passkey;
+- disattivare la biometria e rimuovere le passkey associate all'account;
+- richiedere via email il collegamento per cambiare password;
+- vedere il nome e la versione installata dell'app;
+- avviare l'aggiornamento dell'app, sulle piattaforme che supportano questa funzione.
+
+Quando è disponibile una nuova versione, la Home può mostrare un messaggio con le opzioni “Aggiorna” e “Più tardi”. Durante l'aggiornamento viene chiesto di non chiudere l'app.
+
+
+18. AIUTO, AGGIORNAMENTO DATI E GESTIONE DEGLI ERRORI
+
+Le principali schermate includono un pulsante di aiuto contestuale che spiega brevemente il funzionamento della sezione aperta.
+
+Molte pagine dispongono inoltre del comando Aggiorna oppure del gesto di trascinamento verso il basso. Questo permette di ricaricare i dati da Notion, aggiornare il meteo, recuperare nuovi nominativi o sincronizzare le notifiche.
+
+In caso di problemi di rete o di caricamento, l'app mostra un messaggio e, dove opportuno, un pulsante per riprovare. Per i rapportini adotta un comportamento prudente: conserva la bozza se il caricamento del PDF non viene confermato.
+
+
+19. DIFFERENZE TRA UTENTE NORMALE E AMMINISTRATORE
+
+UTENTE NORMALE
+
+- consulta il calendario;
+- comunica o ritira la propria disponibilità quando lo stato lo consente;
+- vede le proprie designazioni;
+- consulta il Cockpit e i contatti consentiti;
+- compila rapportini soltanto per le gare in cui è DSC e con stato ammesso;
+- consulta nell'archivio soltanto i rapportini delle proprie gare come DSC;
+- vede le proprie statistiche;
+- gestisce notifiche, biometria e password.
+
+AMMINISTRATORE
+
+- dispone di tutte le funzioni ordinarie;
+- accede al Centro di controllo Admin;
+- vede criticità, dati mancanti, designazioni incomplete e rapportini arretrati;
+- può compilare rapportini per tutte le gare ammesse;
+- può consultare tutti i rapportini archiviati;
+- può vedere statistiche complessive sulle gare.
+
+
+20. LIMITI E ASPETTI DA SAPERE
+
+- Le funzioni dipendono dai dati presenti in Notion: contatti, meteo, indicazioni e ruoli possono essere mostrati soltanto se le informazioni necessarie sono state inserite correttamente.
+- Alcune azioni dipendono dallo stato della gara. Per esempio non è sempre possibile dare o ritirare la disponibilità e non tutte le gare consentono la compilazione del rapportino.
+- Le bozze sono memorizzate sul singolo dispositivo e non sincronizzate tra dispositivi.
+- Le foto non sono incluse nel salvataggio della bozza.
+- Il PDF archiviabile ha un limite di circa 4,5 MB.
+- Email e WhatsApp vengono aperti tramite il menu di condivisione del dispositivo; l'invio finale resta sotto il controllo dell'utente.
+- Il meteo è mostrato soltanto per gare sufficientemente vicine nel tempo e con una località utilizzabile.
+- Face ID e impronta richiedono un dispositivo/browser compatibile e la preventiva attivazione della passkey.
+- L'eventuale installazione della PWA non trasforma l'app in un'app pubblicata automaticamente sugli store.
+- Apple Wallet e Google Wallet non sono attualmente integrati.
+
+
+21. ESEMPIO DI UTILIZZO COMPLETO
+
+Un cronometrista accede all'app e controlla nella Home le prossime designazioni. Apre il Calendario, filtra le gare future e comunica la propria disponibilità per una gara o per tutte le giornate di un evento. Quando la segreteria lo designa, la gara compare in “Le tue designazioni” e può arrivare una notifica.
+
+Prima del servizio apre il Cockpit, controlla data, località, squadra e meteo, avvia le indicazioni stradali e, se necessario, contatta il DSC o l'organizzatore.
+
+Se ricopre il ruolo di DSC, al termine della gara entra in “Rapporti di Servizio”, sceglie la gara e trova i dati già precompilati. Inserisce orari, ore, chilometri, spese, apparecchiature, note e fotografie. Può interrompere il lavoro e riprenderlo dalle bozze locali.
+
+Quando il rapporto è completo, lo valida. L'app genera il PDF, lo archivia in Notion, aggiorna lo stato della gara e propone di condividerlo via email o WhatsApp. In seguito il documento resta consultabile nell'Archivio inviati e l'attività confluisce nelle statistiche.
+
+
+IN SINTESI
+
+L'app copre l'intero flusso operativo del servizio di cronometraggio: dalla consultazione della gara e comunicazione della disponibilità, passando per la designazione e il supporto sul campo, fino alla compilazione, archiviazione e condivisione del rapporto finale. A questo aggiunge notifiche, statistiche personali, strumenti di sicurezza e un cruscotto amministrativo per tenere sotto controllo le attività ancora da completare.

@@ -5,11 +5,13 @@ import '../utils/person_name_formatter.dart';
 
 class GaraForm extends StatefulWidget {
   final ValueChanged<String>? onSportChanged;
+  final ValueChanged<String?>? onElaborazioneDatiChanged;
   final void Function(DateTime?, DateTime?)? onDateRangeChanged;
   final ValueChanged<Map<String, Map<String, String>>>? onOrariChanged;
   const GaraForm({
     super.key,
     this.onSportChanged,
+    this.onElaborazioneDatiChanged,
     this.onDateRangeChanged,
     this.onOrariChanged,
   });
@@ -23,10 +25,17 @@ class GaraFormState extends State<GaraForm> {
   final TextEditingController organizzatoreController = TextEditingController();
   final TextEditingController luogoController = TextEditingController();
   final TextEditingController dscController = TextEditingController();
+  final TextEditingController elaborazioneDatiController =
+      TextEditingController();
   String sport = '';
   DateTime? dataDa;
   DateTime? dataA;
   Map<String, Map<String, String>> orariPerData = {};
+
+  String? get _elaborazioneDatiValue {
+    final value = elaborazioneDatiController.text.trim();
+    return value.isEmpty ? null : value;
+  }
 
   Future<void> _selezionaData(BuildContext context, bool isDa) async {
     final picked = await showDatePicker(
@@ -62,6 +71,7 @@ class GaraFormState extends State<GaraForm> {
           ? "${dataA!.year}-${_2(dataA!.month)}-${_2(dataA!.day)}"
           : '',
       'dsc': formatPersonName(dscController.text),
+      'elaborazioneDati': formatPersonName(elaborazioneDatiController.text),
     };
   }
 
@@ -74,6 +84,7 @@ class GaraFormState extends State<GaraForm> {
     organizzatoreController.dispose();
     luogoController.dispose();
     dscController.dispose();
+    elaborazioneDatiController.dispose();
     super.dispose();
   }
 
@@ -167,6 +178,7 @@ class GaraFormState extends State<GaraForm> {
     required String dataInizio,
     required String dataFine,
     String? dsc,
+    String? elaborazioneDati,
   }) {
     final start = _parseDate(dataInizio);
     final end = _parseDate(dataFine.isNotEmpty ? dataFine : dataInizio);
@@ -181,10 +193,12 @@ class GaraFormState extends State<GaraForm> {
       if (dsc != null) {
         dscController.text = formatPersonName(dsc);
       }
+      elaborazioneDatiController.text = formatPersonName(elaborazioneDati);
     });
     widget.onSportChanged?.call(sport);
     widget.onDateRangeChanged?.call(dataDa, dataA);
     widget.onOrariChanged?.call(getOrariGiornata());
+    widget.onElaborazioneDatiChanged?.call(_elaborazioneDatiValue);
   }
 
   void applyPackageData({
@@ -194,6 +208,7 @@ class GaraFormState extends State<GaraForm> {
     required String luogo,
     required List<DateTime> dates,
     String? dsc,
+    String? elaborazioneDati,
   }) {
     final ordered = dates
         .map((date) => DateTime(date.year, date.month, date.day))
@@ -208,11 +223,13 @@ class GaraFormState extends State<GaraForm> {
       dataDa = ordered.isEmpty ? null : ordered.first;
       dataA = ordered.isEmpty ? null : ordered.last;
       dscController.text = formatPersonName(dsc);
+      elaborazioneDatiController.text = formatPersonName(elaborazioneDati);
       _syncOrariWithDates(ordered);
     });
     widget.onSportChanged?.call(sport);
     widget.onDateRangeChanged?.call(dataDa, dataA);
     widget.onOrariChanged?.call(getOrariGiornata());
+    widget.onElaborazioneDatiChanged?.call(_elaborazioneDatiValue);
   }
 
   void applySavedData({
@@ -243,6 +260,8 @@ class GaraFormState extends State<GaraForm> {
           (garaData['organizzatore'] ?? '').toString();
       luogoController.text = (garaData['luogo'] ?? '').toString();
       dscController.text = formatPersonName(garaData['dsc']);
+      elaborazioneDatiController.text =
+          formatPersonName(garaData['elaborazioneDati']);
       sport = (garaData['sport'] ?? '').toString();
       dataDa = start;
       dataA = end ?? start;
@@ -255,6 +274,7 @@ class GaraFormState extends State<GaraForm> {
     widget.onSportChanged?.call(sport);
     widget.onDateRangeChanged?.call(dataDa, dataA);
     widget.onOrariChanged?.call(getOrariGiornata());
+    widget.onElaborazioneDatiChanged?.call(_elaborazioneDatiValue);
   }
 
   @override
@@ -292,6 +312,7 @@ class GaraFormState extends State<GaraForm> {
         ),
         _buildOrariGiornate(),
         _buildDropdownDsc(),
+        _buildDropdownElaborazioneDati(),
       ],
     );
   }
@@ -313,7 +334,7 @@ class GaraFormState extends State<GaraForm> {
     final sportList = [
       'Atletica - Strada',
       'Atletica - Pista',
-      'Ciclismo su strada',
+      'Ciclismo',
       'Corsa',
       'Corsa - FIDAL',
       'Corsa in montagna',
@@ -379,6 +400,34 @@ class GaraFormState extends State<GaraForm> {
         onChanged: (val) => setState(() => dscController.text = val ?? ''),
         decoration: const InputDecoration(
           labelText: 'DSC',
+          border: OutlineInputBorder(),
+        ),
+        isExpanded: true,
+      ),
+    );
+  }
+
+  Widget _buildDropdownElaborazioneDati() {
+    final options = availableCronometristi;
+    final items = options
+        .map((nome) => DropdownMenuItem(value: nome, child: Text(nome)))
+        .toList();
+    final current = elaborazioneDatiController.text;
+    if (current.isNotEmpty && !options.contains(current)) {
+      items.insert(0, DropdownMenuItem(value: current, child: Text(current)));
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<String>(
+        key: ValueKey('elaborazione-dati-$current'),
+        initialValue: current.isEmpty ? null : current,
+        items: items,
+        onChanged: (value) {
+          setState(() => elaborazioneDatiController.text = value ?? '');
+          widget.onElaborazioneDatiChanged?.call(value);
+        },
+        decoration: const InputDecoration(
+          labelText: 'Elaborazione Dati',
           border: OutlineInputBorder(),
         ),
         isExpanded: true,
