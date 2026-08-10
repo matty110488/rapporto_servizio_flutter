@@ -97,11 +97,12 @@ void main() {
       await tester.pumpAndSettle();
 
       final selector = find.byType(DropdownButtonFormField<String>);
-      await tester.dragUntilVisible(
-        selector,
-        find.byType(ListView),
-        const Offset(0, -300),
+      await Scrollable.ensureVisible(
+        tester.element(selector),
+        alignment: 0.5,
+        duration: const Duration(milliseconds: 200),
       );
+      await tester.pumpAndSettle();
       await tester.tap(selector);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Mario Rossi').last);
