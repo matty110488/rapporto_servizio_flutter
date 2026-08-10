@@ -48,6 +48,7 @@ class HelpContent {
   static const statistiche = [
     'Riepiloga i servizi svolti per anno, ruolo e disciplina.',
     'Gli amministratori possono consultare anche le statistiche complessive.',
+    'Gli amministratori possono selezionare un cronometrista per vedere il totale dei servizi e la suddivisione per sport.',
   ];
 
   static const adminDashboard = [

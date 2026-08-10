@@ -10,8 +10,13 @@ import '../widgets/standard_app_bar_actions.dart';
 
 class StatistichePage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
+  final NotionService? notionService;
 
-  const StatistichePage({super.key, required this.loggedUser});
+  const StatistichePage({
+    super.key,
+    required this.loggedUser,
+    this.notionService,
+  });
 
   @override
   State<StatistichePage> createState() => _StatistichePageState();
@@ -24,6 +29,10 @@ class _StatistichePageState extends State<StatistichePage> {
   _StatsData _stats = const _StatsData();
   List<int> _availableYears = const [];
   int? _selectedYear;
+  String? _selectedAdminPersonId;
+  List<Gara> _loadedGare = const [];
+  Map<String, String> _adminPersonNames = const {};
+  final Map<String, String> _personNameCache = {};
   int _loadRequestId = 0;
 
   String? get _loggedUserId {
@@ -129,15 +138,25 @@ class _StatistichePageState extends State<StatistichePage> {
               .where((id) => id != selectedDatabaseId)
               .toList()
           : const <String>[];
-      _notion = NotionService(databaseId: selectedDatabaseId);
+      _notion =
+          widget.notionService ?? NotionService(databaseId: selectedDatabaseId);
       final results = await _notion.fetchGare(
         additionalDatabaseIds: additionalDatabaseIds,
         forceRefresh: forceRefresh,
       );
       final gare = results.map((e) => Gara.fromNotion(e)).toList();
+      final filteredGare = _filterByYear(gare, selectedYear);
+      final adminPersonNames = _isAdmin
+          ? await _loadAdminPersonNames(filteredGare)
+          : const <String, String>{};
 
       if (!mounted || requestId != _loadRequestId) return;
       setState(() {
+        _loadedGare = gare;
+        _adminPersonNames = adminPersonNames;
+        if (!adminPersonNames.containsKey(_selectedAdminPersonId)) {
+          _selectedAdminPersonId = null;
+        }
         _stats = _buildStats(gare, userId, selectedYear);
         _loading = false;
       });
@@ -150,6 +169,40 @@ class _StatistichePageState extends State<StatistichePage> {
     }
   }
 
+  Future<Map<String, String>> _loadAdminPersonNames(List<Gara> gare) async {
+    final ids = <String>{
+      for (final gara in gare) ...gara.kronosIds,
+      for (final gara in gare) ...gara.dscIds,
+      for (final gara in gare) ...gara.pcSegreteriaIds,
+    }.where((id) => id.isNotEmpty).toList();
+
+    // Resolve the names sequentially: Notion applies a fairly strict request
+    // rate limit and this list can include the whole association.
+    for (final id in ids) {
+      if (_personNameCache.containsKey(id)) continue;
+      try {
+        final name = (await _notion.fetchNameFromPage(id)).trim();
+        _personNameCache[id] = name.isEmpty ? 'Persona non identificata' : name;
+      } catch (_) {
+        // Keep the fallback label and retry name resolution on the next load.
+      }
+    }
+
+    final entries = ids
+        .map(
+          (id) => MapEntry(
+            id,
+            _personNameCache[id] ?? 'Persona non identificata',
+          ),
+        )
+        .toList()
+      ..sort((a, b) {
+        final byName = a.value.toLowerCase().compareTo(b.value.toLowerCase());
+        return byName != 0 ? byName : a.key.compareTo(b.key);
+      });
+    return Map<String, String>.fromEntries(entries);
+  }
+
   void _selectYear(int? year) {
     setState(() {
       _selectedYear = year;
@@ -159,6 +212,15 @@ class _StatistichePageState extends State<StatistichePage> {
     _loadStats();
   }
 
+  void _selectAdminPerson(String? personId) {
+    final userId = _loggedUserId;
+    if (userId == null) return;
+    setState(() {
+      _selectedAdminPersonId = personId;
+      _stats = _buildStats(_loadedGare, userId, _selectedYear);
+    });
+  }
+
   _StatsData _buildStats(List<Gara> gare, String userId, int? year) {
     final filteredGare = _filterByYear(gare, year);
     final asCrono =
@@ -166,6 +228,12 @@ class _StatistichePageState extends State<StatistichePage> {
     final asDsc = filteredGare.where((g) => g.dscIds.contains(userId)).toList();
     final asElaborazioneDati =
         filteredGare.where((g) => g.pcSegreteriaIds.contains(userId)).toList();
+    final selectedPersonId = _selectedAdminPersonId;
+    final selectedPersonGare = selectedPersonId == null
+        ? const <Gara>[]
+        : filteredGare
+            .where((gara) => _isPersonAssigned(gara, selectedPersonId))
+            .toList();
 
     return _StatsData(
       selectedYear: year,
@@ -180,8 +248,22 @@ class _StatistichePageState extends State<StatistichePage> {
         gare.where((g) => g.kronosIds.contains(userId)).toList(),
       ),
       adminSportCounts: _isAdmin ? _countBySport(filteredGare) : const [],
+      adminPeople: _adminPersonNames.entries
+          .map((entry) => _AdminPerson(entry.key, entry.value))
+          .toList(),
+      selectedAdminPersonId: selectedPersonId,
+      selectedAdminPersonName:
+          selectedPersonId == null ? null : _adminPersonNames[selectedPersonId],
+      selectedAdminPersonServiceCount: selectedPersonGare.length,
+      selectedAdminPersonSportCounts: _countBySport(selectedPersonGare),
       latestServices: _latest(asCrono, 5),
     );
+  }
+
+  bool _isPersonAssigned(Gara gara, String personId) {
+    return gara.kronosIds.contains(personId) ||
+        gara.dscIds.contains(personId) ||
+        gara.pcSegreteriaIds.contains(personId);
   }
 
   List<Gara> _filterByYear(List<Gara> gare, int? year) {
@@ -283,6 +365,7 @@ class _StatistichePageState extends State<StatistichePage> {
                       availableYears: _availableYears,
                       selectedYear: _selectedYear,
                       onYearChanged: _selectYear,
+                      onAdminPersonChanged: _selectAdminPerson,
                     ),
         ),
       ),
@@ -295,12 +378,14 @@ class _StatsView extends StatelessWidget {
   final List<int> availableYears;
   final int? selectedYear;
   final ValueChanged<int?> onYearChanged;
+  final ValueChanged<String?> onAdminPersonChanged;
 
   const _StatsView({
     required this.stats,
     required this.availableYears,
     required this.selectedYear,
     required this.onYearChanged,
+    required this.onAdminPersonChanged,
   });
 
   @override
@@ -386,6 +471,11 @@ class _StatsView extends StatelessWidget {
         _LatestServicesCard(gare: stats.latestServices),
         if (stats.isAdmin) ...[
           const SizedBox(height: 12),
+          _AdminPersonStatsCard(
+            stats: stats,
+            onChanged: onAdminPersonChanged,
+          ),
+          const SizedBox(height: 12),
           _BreakdownCard(
             title: 'Gare totali per sport (${stats.allGareCount}) - solo admin',
             icon: Icons.admin_panel_settings_outlined,
@@ -395,6 +485,94 @@ class _StatsView extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _AdminPersonStatsCard extends StatelessWidget {
+  const _AdminPersonStatsCard({
+    required this.stats,
+    required this.onChanged,
+  });
+
+  final _StatsData stats;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _panelDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.person_search_outlined, color: Color(0xFF0A66C2)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Servizi per cronometrista',
+                  style: TextStyle(
+                    color: Color(0xFF1A2B40),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Include le designazioni come cronometrista, DSC ed Elaborazione Dati.',
+            style: TextStyle(color: Color(0xFF49627E), fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            key: ValueKey('admin-person-selector-${stats.selectedYear}'),
+            initialValue: stats.selectedAdminPersonId,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Cronometrista',
+              border: OutlineInputBorder(),
+            ),
+            hint: const Text('Seleziona una persona'),
+            items: stats.adminPeople
+                .map(
+                  (person) => DropdownMenuItem<String>(
+                    value: person.id,
+                    child: Text(
+                      person.name,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: stats.adminPeople.isEmpty ? null : onChanged,
+          ),
+          if (stats.adminPeople.isEmpty) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Nessun cronometrista assegnato nell\'anno selezionato.',
+              style: TextStyle(color: Color(0xFF49627E)),
+            ),
+          ] else if (stats.selectedAdminPersonId != null) ...[
+            const SizedBox(height: 16),
+            _CountCard(
+              icon: Icons.sports_score,
+              label: 'Servizi di ${stats.selectedAdminPersonName}',
+              value: stats.selectedAdminPersonServiceCount,
+            ),
+            const SizedBox(height: 12),
+            _BreakdownCard(
+              title: 'Servizi per sport',
+              icon: Icons.pie_chart_outline,
+              entries: stats.selectedAdminPersonSportCounts,
+              emptyText: 'Nessun servizio trovato.',
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -798,6 +976,11 @@ class _StatsData {
   final List<_StatEntry> elaborazioneDatiSportCounts;
   final List<_StatEntry> yearCounts;
   final List<_StatEntry> adminSportCounts;
+  final List<_AdminPerson> adminPeople;
+  final String? selectedAdminPersonId;
+  final String? selectedAdminPersonName;
+  final int selectedAdminPersonServiceCount;
+  final List<_StatEntry> selectedAdminPersonSportCounts;
   final List<Gara> latestServices;
 
   const _StatsData({
@@ -811,8 +994,20 @@ class _StatsData {
     this.elaborazioneDatiSportCounts = const [],
     this.yearCounts = const [],
     this.adminSportCounts = const [],
+    this.adminPeople = const [],
+    this.selectedAdminPersonId,
+    this.selectedAdminPersonName,
+    this.selectedAdminPersonServiceCount = 0,
+    this.selectedAdminPersonSportCounts = const [],
     this.latestServices = const [],
   });
+}
+
+class _AdminPerson {
+  const _AdminPerson(this.id, this.name);
+
+  final String id;
+  final String name;
 }
 
 class _StatEntry {
