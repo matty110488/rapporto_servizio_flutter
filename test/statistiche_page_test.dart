@@ -105,7 +105,7 @@ void main() {
       await Scrollable.ensureVisible(
         tester.element(selector),
         alignment: 0.5,
-        duration: const Duration(milliseconds: 200),
+        duration: Duration.zero,
       );
       await tester.pumpAndSettle();
       await tester.tap(selector);
