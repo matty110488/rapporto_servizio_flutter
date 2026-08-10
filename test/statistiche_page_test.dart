@@ -97,6 +97,11 @@ void main() {
       await tester.pumpAndSettle();
 
       final selector = find.byType(DropdownButtonFormField<String>);
+      await tester.dragUntilVisible(
+        selector,
+        find.byType(ListView),
+        const Offset(0, -300),
+      );
       await Scrollable.ensureVisible(
         tester.element(selector),
         alignment: 0.5,
