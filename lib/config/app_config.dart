@@ -10,6 +10,7 @@ abstract final class AppConfig {
   static const Map<int, String> raceDatabaseIds = {
     2025: '2afde089ef9580e2b0e7d19d44f3a3f6',
     2026: '2b1de089ef9580729622ff9543046cbc',
+    2027: '39bde089ef958021a47cd012c593d249',
   };
 
   static List<int> get configuredRaceYears =>

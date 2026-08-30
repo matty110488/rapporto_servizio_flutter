@@ -8,6 +8,7 @@
 export const DEFAULT_RACE_DATABASE_IDS = [
   '2afde089ef9580e2b0e7d19d44f3a3f6',
   '2b1de089ef9580729622ff9543046cbc',
+  '39bde089ef958021a47cd012c593d249',
 ];
 
 export const NOTION_RACE_PROPERTIES = Object.freeze({
