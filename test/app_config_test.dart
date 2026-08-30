@@ -7,7 +7,7 @@ void main() {
     final sortedYears = [...years]..sort();
 
     expect(years, sortedYears);
-    expect(years, containsAll(<int>[2025, 2026]));
+    expect(years, containsAll(<int>[2025, 2026, 2027]));
     expect(AppConfig.raceDatabaseIds.values.toSet().length,
         AppConfig.raceDatabaseIds.length);
     for (final id in AppConfig.allRaceDatabaseIds) {
@@ -29,7 +29,7 @@ void main() {
   test('operational year prefers today and falls back to latest configured',
       () {
     expect(AppConfig.raceYearFor(DateTime(2026, 7, 1)), 2026);
-    expect(AppConfig.raceYearFor(DateTime(2030, 1, 1)), 2026);
+    expect(AppConfig.raceYearFor(DateTime(2030, 1, 1)), 2027);
     expect(
       AppConfig.currentRaceDatabaseId,
       AppConfig.raceDatabaseIds[AppConfig.currentRaceYear],
