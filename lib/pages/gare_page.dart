@@ -974,7 +974,6 @@ class _GarePageState extends State<GarePage> {
   }
 
   Widget _buildCalendarHeader(int visibleCount) {
-    final isCurrentYear = selectedYear == DateTime.now().year;
     final periodLabel =
         calendarPeriod == _CalendarPeriod.upcoming ? 'prossime' : 'passate';
     return Container(
@@ -1015,9 +1014,7 @@ class _GarePageState extends State<GarePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isCurrentYear
-                      ? 'Calendario $selectedYear'
-                      : 'Archivio $selectedYear',
+                  'Calendario $selectedYear',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
