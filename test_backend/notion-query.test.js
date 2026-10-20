@@ -3,6 +3,7 @@ import { createHmac } from 'node:crypto';
 import test from 'node:test';
 
 import handler, {
+  availabilityUserFullName,
   DEFAULT_REPORT_NOTIFICATION_EMAIL,
   hideAllNotificationRecords,
   hideNotificationRecord,
@@ -55,6 +56,29 @@ function signedSession({ sub, admin = false }) {
     .digest('base64url');
   return `${payload}.${signature}`;
 }
+
+test('availability notifications use first name and surname from the user profile', () => {
+  const user = {
+    properties: {
+      USERNAME: { rich_text: [{ plain_text: 'Mario' }] },
+      NOME: { rich_text: [{ plain_text: 'Mario' }] },
+      COGNOME: { rich_text: [{ plain_text: 'Rossi' }] },
+    },
+  };
+
+  assert.equal(availabilityUserFullName(user), 'Mario Rossi');
+});
+
+test('availability notifications support a combined full-name property', () => {
+  const user = {
+    properties: {
+      USERNAME: { rich_text: [{ plain_text: 'Mario' }] },
+      'NOME E COGNOME': { title: [{ plain_text: 'Mario Rossi' }] },
+    },
+  };
+
+  assert.equal(availabilityUserFullName(user), 'Mario Rossi');
+});
 
 test('creates passkey authentication options for the production web origin', async () => {
   const req = {

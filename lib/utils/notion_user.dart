@@ -20,12 +20,20 @@ String extractNotionUserName(Map<String, dynamic> user) {
         .trim();
   }
 
-  const preferredKeys = [
-    'NOME E COGNOME',
-    'NOME',
-    'NAME',
-    'USERNAME',
-  ];
+  final fullName = readText(props['NOME E COGNOME']);
+  if (fullName.isNotEmpty) return formatPersonName(fullName);
+
+  final firstName = readText(props['NOME']).isNotEmpty
+      ? readText(props['NOME'])
+      : readText(props['FIRST_NAME']);
+  final lastName = readText(props['COGNOME']).isNotEmpty
+      ? readText(props['COGNOME'])
+      : readText(props['LAST_NAME']);
+  if (firstName.isNotEmpty && lastName.isNotEmpty) {
+    return formatPersonName('$firstName $lastName');
+  }
+
+  const preferredKeys = ['NOME', 'COGNOME', 'NAME', 'USERNAME'];
   for (final key in preferredKeys) {
     final text = readText(props[key]);
     if (text.isNotEmpty) return formatPersonName(text);
