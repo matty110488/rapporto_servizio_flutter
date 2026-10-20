@@ -221,6 +221,60 @@ function propertyByName(properties, name) {
   return key ? properties[key] : null;
 }
 
+function notionPropertyText(field) {
+  if (!field || typeof field !== 'object') return '';
+  for (const key of ['title', 'rich_text']) {
+    const values = Array.isArray(field[key]) ? field[key] : [];
+    const text = values.map((entry) => entry?.plain_text || '').join('').trim();
+    if (text) return text;
+  }
+  return '';
+}
+
+function notionPropertyByCandidates(properties, candidates) {
+  if (!properties || typeof properties !== 'object') return null;
+  const normalizedCandidates = new Set(
+    candidates.map((value) => value.replace(/[^a-z0-9]/gi, '').toLowerCase()),
+  );
+  for (const [key, value] of Object.entries(properties)) {
+    const normalizedKey = key.replace(/[^a-z0-9]/gi, '').toLowerCase();
+    if (normalizedCandidates.has(normalizedKey)) return value;
+  }
+  return null;
+}
+
+export function availabilityUserFullName(page, fallback = 'Un utente') {
+  const properties = page?.properties;
+  if (!properties || typeof properties !== 'object') return fallback;
+
+  const firstName = notionPropertyText(
+    notionPropertyByCandidates(properties, ['NOME', 'FIRST NAME', 'FIRST_NAME']),
+  );
+  const lastName = notionPropertyText(
+    notionPropertyByCandidates(properties, ['COGNOME', 'LAST NAME', 'LAST_NAME']),
+  );
+  if (firstName && lastName) return `${firstName} ${lastName}`;
+
+  const fullName = notionPropertyText(
+    notionPropertyByCandidates(properties, [
+      'NOME E COGNOME',
+      'NOME COMPLETO',
+      'FULL NAME',
+      'FULL_NAME',
+      'NAME',
+    ]),
+  );
+  if (fullName) return fullName;
+
+  if (firstName || lastName) return firstName || lastName;
+  for (const value of Object.values(properties)) {
+    if (value?.type !== 'title') continue;
+    const title = notionPropertyText(value);
+    if (title) return title;
+  }
+  return fallback;
+}
+
 export function reportFilesFromPage(page) {
   const field = propertyByName(page?.properties, NOTION_RACE_PROPERTIES.files);
   const files = Array.isArray(field?.files) ? field.files : [];
@@ -2185,7 +2239,10 @@ export default async function handler(req, res) {
       }
 
       const userId = typeof safeBody.userId === 'string' ? safeBody.userId.trim() : '';
-      const userName = typeof safeBody.userName === 'string' ? safeBody.userName.trim() : 'Un utente';
+      const requestedUserName =
+        typeof safeBody.userName === 'string' && safeBody.userName.trim()
+          ? safeBody.userName.trim()
+          : 'Un utente';
       const available = safeBody.available;
       const garaId = typeof safeBody.garaId === 'string' ? safeBody.garaId.trim() : '';
       const garaTitolo =
@@ -2198,6 +2255,10 @@ export default async function handler(req, res) {
       }
 
       const users = await queryAllDatabasePages(DATABASE_ID);
+      const currentUser = users.find(
+        (row) => normalizedNotionId(row?.id) === normalizedNotionId(userId),
+      );
+      const userName = availabilityUserFullName(currentUser, requestedUserName);
       const tokenCandidates = ['FCM_TOKEN', 'PUSH_TOKEN', 'TOKEN_PUSH'];
       const recipients = new Map();
 

@@ -12,7 +12,7 @@ import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/weather_service.dart';
 import '../utils/italian_date_formatter.dart';
-import '../utils/person_name_formatter.dart';
+import '../utils/notion_user.dart';
 import '../widgets/race_weather_view.dart';
 import '../widgets/standard_app_bar_actions.dart';
 import '../widgets/stopwatch_loading.dart';
@@ -165,80 +165,7 @@ class _GarePageState extends State<GarePage> {
   }
 
   String _loggedUserName() {
-    final props = widget.loggedUser['properties'];
-    if (props is Map<String, dynamic>) {
-      String propertyText(List<String> keys) {
-        for (final key in keys) {
-          final value = props[key];
-          if (value is! Map<String, dynamic>) continue;
-
-          final title = value['title'];
-          if (title is List && title.isNotEmpty) {
-            final first = title.first;
-            if (first is Map<String, dynamic>) {
-              final plain = first['plain_text'];
-              if (plain is String && plain.trim().isNotEmpty) {
-                return plain.trim();
-              }
-            }
-          }
-
-          final richText = value['rich_text'];
-          if (richText is List && richText.isNotEmpty) {
-            final first = richText.first;
-            if (first is Map<String, dynamic>) {
-              final plain = first['plain_text'];
-              if (plain is String && plain.trim().isNotEmpty) {
-                return plain.trim();
-              }
-            }
-          }
-        }
-        return '';
-      }
-
-      final nome = propertyText(const ['NOME', 'Nome', 'nome', 'FIRST_NAME']);
-      final cognome = propertyText(
-        const ['COGNOME', 'Cognome', 'cognome', 'LAST_NAME'],
-      );
-      if (nome.isNotEmpty && cognome.isNotEmpty) {
-        return formatPersonName('$nome $cognome');
-      }
-      if (cognome.isNotEmpty) return formatPersonName(cognome);
-      if (nome.isNotEmpty) return formatPersonName(nome);
-
-      for (final value in props.values) {
-        if (value is! Map<String, dynamic>) continue;
-        if (value['type'] == 'title') {
-          final titles = value['title'] as List<dynamic>? ?? const [];
-          if (titles.isNotEmpty) {
-            final first = titles.first;
-            if (first is Map<String, dynamic>) {
-              final plain = first['plain_text'];
-              if (plain is String && plain.trim().isNotEmpty) {
-                return formatPersonName(plain);
-              }
-            }
-          }
-        }
-        if (value['type'] == 'rich_text') {
-          final texts = value['rich_text'] as List<dynamic>? ?? const [];
-          if (texts.isNotEmpty) {
-            final first = texts.first;
-            if (first is Map<String, dynamic>) {
-              final plain = first['plain_text'];
-              if (plain is String && plain.trim().isNotEmpty) {
-                return formatPersonName(plain);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    final id = _loggedUserId;
-    if (id != null && id.isNotEmpty) return id;
-    return 'Utente';
+    return extractNotionUserName(widget.loggedUser);
   }
 
   List<String> _parseDisponibilitaNames(String raw) {
