@@ -61,6 +61,14 @@ class HelpContent {
     'Usa Mostra tutte per espandere le criticità e Apri calendario completo per vedere tutte le gare.',
   ];
 
+  static const inventario = [
+    'La sezione Inventario è disponibile esclusivamente agli amministratori.',
+    'Usa la ricerca per trovare un’apparecchiatura tramite ID, tipologia, marca, modello o numero seriale.',
+    'Premi Nuovo per inserire uno strumento oppure tocca una scheda per modificarlo.',
+    'Puoi allegare fotografie scattate dall’app, immagini dalla galleria e documenti.',
+    'Il campo Radiato va attivato solo quando lo strumento non è più in servizio.',
+  ];
+
   static const impostazioni = [
     'Gestisci notifiche, accesso biometrico, password e aggiornamenti dell’app.',
   ];
