@@ -44,4 +44,15 @@ void main() {
     expect(NotionRaceProperties.files, 'Files & media');
     expect(NotionRaceProperties.packageId, 'ID SIC WIN');
   });
+
+  test('inventory databases and schema contract are configured', () {
+    expect(
+        AppConfig.testInventoryDatabaseId, matches(RegExp(r'^[0-9a-f]{32}$')));
+    expect(AppConfig.productionInventoryDatabaseId,
+        matches(RegExp(r'^[0-9a-f]{32}$')));
+    expect(AppConfig.testInventoryDatabaseId,
+        isNot(AppConfig.productionInventoryDatabaseId));
+    expect(NotionInventoryProperties.id, 'ID');
+    expect(NotionInventoryProperties.documentation, 'Documentazione');
+  });
 }

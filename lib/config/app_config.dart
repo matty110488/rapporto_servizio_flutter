@@ -1,3 +1,5 @@
+import 'app_environment.dart';
+
 /// Central configuration for non-secret application parameters.
 ///
 /// Secrets and environment-specific credentials must stay in Vercel, GitHub,
@@ -47,6 +49,34 @@ abstract final class AppConfig {
 
   /// Vercel accepts request bodies up to 4.5 MB for this upload flow.
   static const int maxNotionPdfBytes = 4500000;
+
+  /// Inventory databases use the same schema in test and production.
+  static const String testInventoryDatabaseId =
+      '403de089ef9580b38b92f90a77b42df5';
+  static const String productionInventoryDatabaseId =
+      '403de089ef9580298884dbbc72fab383';
+
+  static String get inventoryDatabaseId => isTestEnvironment
+      ? testInventoryDatabaseId
+      : productionInventoryDatabaseId;
+
+  /// Vercel request bodies are limited to roughly 4.5 MB.
+  static const int maxInventoryAttachmentBytes = 4500000;
+}
+
+/// Notion property names used by the equipment inventory.
+abstract final class NotionInventoryProperties {
+  static const id = 'ID';
+  static const type = 'Tipologia';
+  static const brand = 'Marca';
+  static const model = 'Modello';
+  static const serialNumber = 'Numero seriale';
+  static const ownership = 'Proprietà';
+  static const purchaseDate = 'Data acquisto';
+  static const lastMaintenanceDate = 'Data Ultima Manutenzione';
+  static const retired = 'Radiato';
+  static const notes = 'Note';
+  static const documentation = 'Documentazione';
 }
 
 /// Notion property names that form the contract between the cloned annual

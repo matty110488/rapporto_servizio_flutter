@@ -7,8 +7,11 @@ import handler, {
   DEFAULT_REPORT_NOTIFICATION_EMAIL,
   hideAllNotificationRecords,
   hideNotificationRecord,
+  inventoryPropertiesPayload,
+  inventorySchemaFields,
   isReportReceivedTransition,
   notificationAlreadyRecorded,
+  nextInventoryId,
   canViewRaceReports,
   forecastDayOffset,
   reportFilesFromPage,
@@ -16,6 +19,55 @@ import handler, {
   weatherCodeLabel,
   withoutRaceReportFiles,
 } from '../api/notion-query.js';
+
+test('inventory payload follows the configured Notion property types', () => {
+  const schema = {
+    ID: { type: 'unique_id', unique_id: {} },
+    Tipologia: { type: 'select', select: { options: [] } },
+    Marca: { type: 'rich_text', rich_text: {} },
+    Modello: { type: 'title', title: {} },
+    Proprietà: { type: 'select', select: { options: [] } },
+    Radiato: { type: 'checkbox', checkbox: {} },
+    Note: { type: 'rich_text', rich_text: {} },
+  };
+  const fields = inventorySchemaFields(schema);
+  assert.equal(fields.ownership.name, 'Proprietà');
+  const payload = inventoryPropertiesPayload(schema, {
+    type: 'Fotocellula',
+    brand: 'Acme',
+    model: 'Fast',
+    ownership: 'NOSTRO',
+    retired: true,
+    notes: 'Verificata',
+  });
+  assert.equal(payload.Tipologia.select.name, 'Fotocellula');
+  assert.equal(payload.Marca.rich_text[0].text.content, 'Acme');
+  assert.equal(payload.Modello.title[0].text.content, 'Fast');
+  assert.equal(payload.Radiato.checkbox, true);
+  assert.equal(payload.ID, undefined);
+});
+
+test('inventory IDs continue after the highest existing progressive number', () => {
+  assert.equal(nextInventoryId([
+    { properties: { ID: { title: [{ plain_text: 'INV-9' }] } } },
+    { properties: { ID: { number: 14 } } },
+  ], 'ID'), 15);
+});
+
+test('inventory endpoints are restricted to administrators', async () => {
+  const req = {
+    method: 'POST',
+    headers: { authorization: `Bearer ${signedSession({ sub: 'user-1' })}` },
+    body: {
+      action: 'queryInventory',
+      databaseId: '403de089ef9580298884dbbc72fab383',
+    },
+  };
+  const res = responseRecorder();
+  await handler(req, res);
+  assert.equal(res.statusCode, 403);
+  assert.equal(res.body.error, 'Administrator access required');
+});
 
 process.env.NOTION_TOKEN = 'test-notion-token';
 process.env.DATABASE_ID = 'test-users-database';

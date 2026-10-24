@@ -6,7 +6,9 @@ import {
   verifyRegistrationResponse,
 } from '@simplewebauthn/server';
 import {
+  allowedInventoryDatabaseIds,
   allowedRaceDatabaseIds,
+  NOTION_INVENTORY_PROPERTIES,
   NOTION_RACE_PROPERTIES,
   RACE_STATUSES,
 } from './notion-config.js';
@@ -16,6 +18,81 @@ import {
   summarizeExpenseEstimate,
 } from './expense-calculator.js';
 import { DEFAULT_EXPENSE_TARIFFS } from './expense-tariffs.js';
+
+function normalizedPropertyName(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/gi, '').toLowerCase();
+}
+
+export function inventorySchemaFields(properties) {
+  const entries = Object.entries(properties || {});
+  return Object.fromEntries(
+    Object.entries(NOTION_INVENTORY_PROPERTIES).map(([semanticName, candidates]) => {
+      const wanted = new Set(candidates.map(normalizedPropertyName));
+      const match = entries.find(([name]) => wanted.has(normalizedPropertyName(name)));
+      return [semanticName, match ? { name: match[0], ...match[1] } : null];
+    }),
+  );
+}
+
+function notionText(content) {
+  return content ? [{ type: 'text', text: { content } }] : [];
+}
+
+export function inventoryPropertiesPayload(schemaProperties, rawItem, generatedId = 1) {
+  const fields = inventorySchemaFields(schemaProperties);
+  const item = rawItem && typeof rawItem === 'object' ? rawItem : {};
+  const result = {};
+  const setValue = (field, value) => {
+    if (!field) return;
+    switch (field.type) {
+      case 'title': result[field.name] = { title: notionText(String(value || '')) }; break;
+      case 'rich_text': result[field.name] = { rich_text: notionText(String(value || '')) }; break;
+      case 'number': result[field.name] = { number: value === '' || value == null ? null : Number(value) }; break;
+      case 'select': result[field.name] = { select: value ? { name: String(value) } : null }; break;
+      case 'status': result[field.name] = { status: value ? { name: String(value) } : null }; break;
+      case 'date': result[field.name] = { date: value ? { start: String(value) } : null }; break;
+      case 'checkbox': result[field.name] = { checkbox: value === true }; break;
+      default: break;
+    }
+  };
+
+  if (fields.id && fields.id.type !== 'unique_id') setValue(fields.id, generatedId);
+  setValue(fields.type, String(item.type || '').slice(0, 200));
+  setValue(fields.brand, String(item.brand || '').slice(0, 500));
+  setValue(fields.model, String(item.model || '').slice(0, 500));
+  setValue(fields.serialNumber, String(item.serialNumber || '').slice(0, 500));
+  setValue(fields.ownership, String(item.ownership || 'NOSTRO').slice(0, 100));
+  setValue(fields.purchaseDate, item.purchaseDate || null);
+  setValue(fields.lastMaintenanceDate, item.lastMaintenanceDate || null);
+  setValue(fields.retired, item.retired === true);
+  setValue(fields.notes, String(item.notes || '').slice(0, 4000));
+
+  const titleEntry = Object.entries(schemaProperties || {}).find(([, field]) => field?.type === 'title');
+  if (titleEntry && !Object.hasOwn(result, titleEntry[0])) {
+    const label = [item.type, item.brand, item.model].filter(Boolean).join(' - ') || `Apparecchiatura ${generatedId}`;
+    result[titleEntry[0]] = { title: notionText(label.slice(0, 500)) };
+  }
+  return result;
+}
+
+export function nextInventoryId(pages, idFieldName) {
+  let maximum = 0;
+  for (const page of pages || []) {
+    const field = page?.properties?.[idFieldName];
+    const values = [
+      field?.number,
+      field?.unique_id?.number,
+      ...(Array.isArray(field?.title) ? field.title.map((entry) => entry?.plain_text) : []),
+    ];
+    for (const value of values) {
+      const match = String(value ?? '').match(/\d+/g);
+      if (!match) continue;
+      maximum = Math.max(maximum, Number(match.at(-1)) || 0);
+    }
+  }
+  return maximum + 1;
+}
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://matty110488.github.io',
@@ -1633,6 +1710,10 @@ export default async function handler(req, res) {
     const allowedDataDatabaseIds = new Set(
       allowedRaceDatabaseIds(process.env.ALLOWED_DATABASE_IDS),
     );
+    const allowedInventoryIds = new Set(
+      allowedInventoryDatabaseIds(process.env.ALLOWED_INVENTORY_DATABASE_IDS)
+        .map(normalizedNotionId),
+    );
     const isAllowedPage = (page) => {
       const parent = page && typeof page === 'object' ? page.parent : null;
       const databaseId =
@@ -1678,6 +1759,84 @@ export default async function handler(req, res) {
         data: { key: NOTION_RACE_PROPERTIES.expenseReport },
       };
     };
+
+    if (action === 'queryInventory') {
+      if (session.admin !== true) {
+        return res.status(403).json({ error: 'Administrator access required' });
+      }
+      const databaseId = typeof safeBody.databaseId === 'string'
+        ? safeBody.databaseId.trim()
+        : '';
+      if (!allowedInventoryIds.has(normalizedNotionId(databaseId))) {
+        return res.status(403).json({ error: 'Inventory database not allowed' });
+      }
+      const [database, results] = await Promise.all([
+        notionRequest(`https://api.notion.com/v1/databases/${databaseId}`, 'GET'),
+        queryAllDatabasePages(databaseId),
+      ]);
+      if (database.status !== 200) return res.status(database.status).json(database.data);
+      const fields = inventorySchemaFields(database.data?.properties);
+      const typeOptions = fields.type?.type === 'select'
+        ? (fields.type.select?.options || []).map((option) => option.name).filter(Boolean)
+        : fields.type?.type === 'status'
+          ? (fields.type.status?.options || []).map((option) => option.name).filter(Boolean)
+          : [];
+      return res.status(200).json({ results, typeOptions });
+    }
+
+    if (action === 'saveInventoryItem') {
+      if (session.admin !== true) {
+        return res.status(403).json({ error: 'Administrator access required' });
+      }
+      const databaseId = typeof safeBody.databaseId === 'string'
+        ? safeBody.databaseId.trim()
+        : '';
+      const pageId = typeof safeBody.pageId === 'string' ? safeBody.pageId.trim() : '';
+      const item = safeBody.item && typeof safeBody.item === 'object' && !Array.isArray(safeBody.item)
+        ? safeBody.item
+        : null;
+      if (!allowedInventoryIds.has(normalizedNotionId(databaseId)) || !item) {
+        return res.status(400).json({ error: 'Invalid inventory request' });
+      }
+      if (!String(item.type || '').trim()) {
+        return res.status(422).json({ error: 'Equipment type is required' });
+      }
+      const database = await notionRequest(
+        `https://api.notion.com/v1/databases/${databaseId}`,
+        'GET',
+      );
+      if (database.status !== 200) return res.status(database.status).json(database.data);
+
+      const schema = database.data?.properties || {};
+      let generatedId = 1;
+      if (!pageId) {
+        const pages = await queryAllDatabasePages(databaseId);
+        const idField = inventorySchemaFields(schema).id;
+        generatedId = nextInventoryId(pages, idField?.name);
+      }
+      const properties = inventoryPropertiesPayload(schema, item, generatedId);
+      if (pageId) {
+        const existing = await notionRequest(`https://api.notion.com/v1/pages/${pageId}`, 'GET');
+        if (existing.status !== 200) return res.status(existing.status).json(existing.data);
+        if (normalizedNotionId(existing.data?.parent?.database_id) !== normalizedNotionId(databaseId)) {
+          return res.status(403).json({ error: 'Inventory page not allowed' });
+        }
+        const idField = inventorySchemaFields(schema).id;
+        if (idField) delete properties[idField.name];
+        const updated = await notionRequest(
+          `https://api.notion.com/v1/pages/${pageId}`,
+          'PATCH',
+          { properties },
+        );
+        return res.status(updated.status).json(updated.data);
+      }
+      const created = await notionRequest(
+        'https://api.notion.com/v1/pages',
+        'POST',
+        { parent: { database_id: databaseId }, properties },
+      );
+      return res.status(created.status).json(created.data);
+    }
 
     if (action === 'queryDatabase') {
       const requestedDatabaseId =

@@ -11,6 +11,35 @@ export const DEFAULT_RACE_DATABASE_IDS = [
   '39bde089ef958021a47cd012c593d249',
 ];
 
+export const INVENTORY_DATABASE_IDS = Object.freeze({
+  test: '403de089ef9580b38b92f90a77b42df5',
+  production: '403de089ef9580298884dbbc72fab383',
+});
+
+export const NOTION_INVENTORY_PROPERTIES = Object.freeze({
+  id: ['ID'],
+  type: ['Tipologia', 'Tipo'],
+  brand: ['Marca'],
+  model: ['Modello'],
+  serialNumber: ['Numero seriale', 'Seriale', 'Serial number'],
+  ownership: ['Proprietà', 'Proprieta', 'Property'],
+  purchaseDate: ['Data acquisto'],
+  lastMaintenanceDate: ['Data Ultima Manutenzione', 'Ultima manutenzione'],
+  retired: ['Radiato'],
+  notes: ['Note'],
+  documentation: ['Documentazione', 'Documnetazione'],
+});
+
+export function allowedInventoryDatabaseIds(environmentValue = '') {
+  return [
+    ...Object.values(INVENTORY_DATABASE_IDS),
+    ...String(environmentValue)
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean),
+  ];
+}
+
 export const NOTION_RACE_PROPERTIES = Object.freeze({
   status: 'STATUS',
   files: 'Files & media',

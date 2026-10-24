@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
 import '../config/app_environment.dart';
+import '../models/inventory_item.dart';
 import '../state/session_state.dart';
 import '../utils/person_name_formatter.dart';
 
@@ -21,6 +22,85 @@ class NotionService {
       _raceDatabaseRequests = {};
 
   NotionService({required this.databaseId});
+
+  Future<InventoryData> fetchInventory() async {
+    final res = await _postViaWebProxy({
+      'action': 'queryInventory',
+      'databaseId': AppConfig.inventoryDatabaseId,
+    });
+    if (res.statusCode != 200) {
+      throw Exception('Errore caricamento inventario: ${res.body}');
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final rows = List<Map<String, dynamic>>.from(
+      data['results'] as List<dynamic>? ?? const [],
+    );
+    final items = rows.map(InventoryItem.fromNotion).toList()
+      ..sort((left, right) {
+        final leftNumber = int.tryParse(left.id.replaceAll(RegExp(r'\D'), ''));
+        final rightNumber =
+            int.tryParse(right.id.replaceAll(RegExp(r'\D'), ''));
+        if (leftNumber != null && rightNumber != null) {
+          return leftNumber.compareTo(rightNumber);
+        }
+        return left.id.compareTo(right.id);
+      });
+    return InventoryData(
+      items: items,
+      typeOptions: List<String>.from(
+        data['typeOptions'] as List<dynamic>? ?? const [],
+      ),
+    );
+  }
+
+  Future<InventoryItem> saveInventoryItem(InventoryItem item) async {
+    final res = await _postViaWebProxy({
+      'action': 'saveInventoryItem',
+      'databaseId': AppConfig.inventoryDatabaseId,
+      if (item.pageId != null) 'pageId': item.pageId,
+      'item': item.toPayload(),
+    });
+    if (res.statusCode != 200) {
+      throw Exception('Errore salvataggio apparecchiatura: ${res.body}');
+    }
+    return InventoryItem.fromNotion(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<void> uploadInventoryAttachment({
+    required String pageId,
+    required String filename,
+    required String contentType,
+    required List<int> bytes,
+  }) async {
+    if (bytes.isEmpty || bytes.length > AppConfig.maxInventoryAttachmentBytes) {
+      throw ArgumentError('Il file supera il limite di 4,5 MB.');
+    }
+    final sessionToken = globalSessionToken;
+    if (sessionToken == null || sessionToken.isEmpty) {
+      throw StateError('Sessione scaduta: effettua nuovamente il login.');
+    }
+    final uploadUrl = apiUrl.endsWith('/notion-query')
+        ? '${apiUrl.substring(0, apiUrl.length - '/notion-query'.length)}/notion-inventory-upload'
+        : '$apiUrl/notion-inventory-upload';
+    final encodedFilename =
+        base64Url.encode(utf8.encode(filename)).replaceAll('=', '');
+    final response = await http.post(
+      Uri.parse(uploadUrl),
+      headers: {
+        'Content-Type': contentType,
+        'Authorization': 'Bearer $sessionToken',
+        'X-Notion-Page-Id': pageId,
+        'X-File-Name': encodedFilename,
+      },
+      body: bytes,
+    );
+    await throwIfSessionExpiredResponse(response.statusCode);
+    if (response.statusCode != 200) {
+      throw Exception('Errore caricamento allegato: ${response.body}');
+    }
+  }
 
   // ---------------------------
   // QUERY DATABASE
