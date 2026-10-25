@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 import '../config/app_config.dart';
 import '../constants/help_content.dart';
@@ -12,8 +13,7 @@ import 'dettaglio_gara.dart';
 import 'expense_estimate_page.dart';
 import 'expense_reports_page.dart';
 import 'gare_page.dart';
-import 'notifications_page.dart';
-import 'service_reports_page.dart';
+import 'inventory_page.dart';
 import 'statistiche_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
@@ -113,18 +113,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           refreshEnabled: !_loading,
         ),
       ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFE8F2FF),
-              Color(0xFFF7FBFF),
-              Colors.white,
-            ],
-          ),
-        ),
+      body: ColoredBox(
+        color: context.cronoColors.page,
         child: SafeArea(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
@@ -150,8 +140,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                             children: [
                               _Header(data: _data),
                               const SizedBox(height: 16),
-                              _QuickActions(
+                              _AdminTools(
                                 loggedUser: widget.loggedUser,
+                                notionService: _notion,
                                 onOpen: _open,
                               ),
                               const SizedBox(height: 16),
@@ -224,19 +215,9 @@ class _Header extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF073B70), Color(0xFF0A66C2)],
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x300A66C2),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
+        color: context.cronoColors.inverse,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: context.cronoColors.inverseBorder),
       ),
       child: Row(
         children: [
@@ -367,7 +348,7 @@ class _KpiCard extends StatelessWidget {
       width: width,
       constraints: const BoxConstraints(minHeight: 108),
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -472,7 +453,7 @@ class _AttentionPanelState extends State<_AttentionPanel> {
     ];
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -689,7 +670,7 @@ class _UpcomingPanel extends StatelessWidget {
     final visible = races.take(6).toList();
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -767,24 +748,31 @@ class _UpcomingPanel extends StatelessWidget {
   }
 }
 
-class _QuickActions extends StatelessWidget {
-  const _QuickActions({
+class _AdminTools extends StatelessWidget {
+  const _AdminTools({
     required this.loggedUser,
+    required this.notionService,
     required this.onOpen,
   });
 
   final Map<String, dynamic> loggedUser;
+  final NotionService notionService;
   final ValueChanged<Widget> onOpen;
 
   @override
   Widget build(BuildContext context) {
     final actions = [
       (
-        Icons.edit_calendar_outlined,
-        'Calendario',
-        'Gestisci gare e designazioni',
+        Icons.inventory_2_outlined,
+        'Inventario',
+        'Gestisci apparecchiature e documenti',
         const Color(0xFF0A66C2),
-        () => onOpen(GarePage(loggedUser: loggedUser)),
+        () => onOpen(
+              InventoryPage(
+                loggedUser: loggedUser,
+                notionService: notionService,
+              ),
+            ),
       ),
       (
         Icons.calculate_outlined,
@@ -794,13 +782,6 @@ class _QuickActions extends StatelessWidget {
         () => onOpen(ExpenseEstimatePage(loggedUser: loggedUser)),
       ),
       (
-        Icons.assignment_outlined,
-        'Rapportini',
-        'Consulta i rapporti di servizio',
-        const Color(0xFF6B4EA0),
-        () => onOpen(ServiceReportsPage(loggedUser: loggedUser)),
-      ),
-      (
         Icons.receipt_long_outlined,
         'Note spese',
         'Controlla costi e consuntivi',
@@ -808,30 +789,28 @@ class _QuickActions extends StatelessWidget {
         () => onOpen(ExpenseReportsPage(loggedUser: loggedUser)),
       ),
       (
-        Icons.notifications_active_outlined,
-        'Notifiche',
-        'Visualizza gli avvisi ricevuti',
-        const Color(0xFFB3261E),
-        () => onOpen(NotificationsPage(loggedUser: loggedUser)),
-      ),
-      (
         Icons.insights_outlined,
-        'Statistiche',
+        'Statistiche associazione',
         'Analizza attività e servizi',
         const Color(0xFF087E8B),
-        () => onOpen(StatistichePage(loggedUser: loggedUser)),
+        () => onOpen(
+              StatistichePage(
+                loggedUser: loggedUser,
+                adminOnly: true,
+              ),
+            ),
       ),
     ];
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _PanelTitle(
-            icon: Icons.bolt_rounded,
-            title: 'Azioni rapide',
-            subtitle: 'Apri gli strumenti amministrativi',
+            icon: Icons.admin_panel_settings_outlined,
+            title: 'Strumenti amministrativi',
+            subtitle: 'Funzioni riservate agli amministratori',
           ),
           const SizedBox(height: 14),
           LayoutBuilder(
@@ -1079,18 +1058,12 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-BoxDecoration _panelDecoration() {
+BoxDecoration _panelDecoration(BuildContext context) {
+  final colors = context.cronoColors;
   return BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(19),
-    border: Border.all(color: const Color(0xFFDCE8F6)),
-    boxShadow: const [
-      BoxShadow(
-        color: Color(0x10000000),
-        blurRadius: 14,
-        offset: Offset(0, 5),
-      ),
-    ],
+    color: colors.card,
+    borderRadius: BorderRadius.circular(8),
+    border: Border.all(color: colors.border),
   );
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/race_weather.dart';
@@ -211,7 +212,7 @@ class RaceWeatherPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.cronoColors.card,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFD7E7F7)),
         boxShadow: const [

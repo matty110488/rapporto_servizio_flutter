@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 import '../config/app_config.dart';
 import '../constants/help_content.dart';
@@ -239,14 +240,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
           refreshEnabled: !_loading,
         ),
       ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEAF3FF), Color(0xFFF7FBFF), Color(0xFFFFFFFF)],
-          ),
-        ),
+      body: ColoredBox(
+        color: context.cronoColors.page,
         child: SafeArea(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
@@ -407,7 +402,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ],
       ),
       child: Material(
-        color: Colors.white,
+        color: context.cronoColors.card,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),

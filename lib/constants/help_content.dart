@@ -47,13 +47,18 @@ class HelpContent {
 
   static const statistiche = [
     'Riepiloga i servizi svolti per anno, ruolo e disciplina.',
-    'Gli amministratori possono consultare anche le statistiche complessive.',
-    'Gli amministratori possono selezionare un cronometrista per vedere il totale dei servizi e la suddivisione per sport.',
+    'Le statistiche complessive e per cronometrista sono raccolte nel Centro di controllo Admin.',
+  ];
+
+  static const statisticheAdmin = [
+    'Mostra le statistiche complessive dell\'associazione per l\'anno selezionato.',
+    'Seleziona un cronometrista per vedere il totale dei servizi e la suddivisione per sport.',
+    'Le statistiche personali restano disponibili dalla voce Statistiche del menu principale.',
   ];
 
   static const adminDashboard = [
     'La dashboard è visibile esclusivamente agli amministratori.',
-    'Le azioni rapide in alto aprono calendario, preventivi, rapportini, note spese, notifiche e statistiche.',
+    'Gli strumenti amministrativi raccolgono inventario, preventivi, note spese e statistiche associative.',
     'Riepiloga le gare dei prossimi 30 giorni, le designazioni incomplete, i rapportini arretrati e i dati essenziali mancanti.',
     'Usa i filtri Tutte, Designazioni, Rapportini e Dati per restringere le azioni richieste.',
     'Le etichette di scadenza evidenziano le attività imminenti, in ritardo o senza una data impostata.',
