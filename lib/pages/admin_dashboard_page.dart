@@ -12,8 +12,7 @@ import 'dettaglio_gara.dart';
 import 'expense_estimate_page.dart';
 import 'expense_reports_page.dart';
 import 'gare_page.dart';
-import 'notifications_page.dart';
-import 'service_reports_page.dart';
+import 'inventory_page.dart';
 import 'statistiche_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
@@ -150,8 +149,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                             children: [
                               _Header(data: _data),
                               const SizedBox(height: 16),
-                              _QuickActions(
+                              _AdminTools(
                                 loggedUser: widget.loggedUser,
+                                notionService: _notion,
                                 onOpen: _open,
                               ),
                               const SizedBox(height: 16),
@@ -767,24 +767,31 @@ class _UpcomingPanel extends StatelessWidget {
   }
 }
 
-class _QuickActions extends StatelessWidget {
-  const _QuickActions({
+class _AdminTools extends StatelessWidget {
+  const _AdminTools({
     required this.loggedUser,
+    required this.notionService,
     required this.onOpen,
   });
 
   final Map<String, dynamic> loggedUser;
+  final NotionService notionService;
   final ValueChanged<Widget> onOpen;
 
   @override
   Widget build(BuildContext context) {
     final actions = [
       (
-        Icons.edit_calendar_outlined,
-        'Calendario',
-        'Gestisci gare e designazioni',
+        Icons.inventory_2_outlined,
+        'Inventario',
+        'Gestisci apparecchiature e documenti',
         const Color(0xFF0A66C2),
-        () => onOpen(GarePage(loggedUser: loggedUser)),
+        () => onOpen(
+              InventoryPage(
+                loggedUser: loggedUser,
+                notionService: notionService,
+              ),
+            ),
       ),
       (
         Icons.calculate_outlined,
@@ -794,13 +801,6 @@ class _QuickActions extends StatelessWidget {
         () => onOpen(ExpenseEstimatePage(loggedUser: loggedUser)),
       ),
       (
-        Icons.assignment_outlined,
-        'Rapportini',
-        'Consulta i rapporti di servizio',
-        const Color(0xFF6B4EA0),
-        () => onOpen(ServiceReportsPage(loggedUser: loggedUser)),
-      ),
-      (
         Icons.receipt_long_outlined,
         'Note spese',
         'Controlla costi e consuntivi',
@@ -808,18 +808,16 @@ class _QuickActions extends StatelessWidget {
         () => onOpen(ExpenseReportsPage(loggedUser: loggedUser)),
       ),
       (
-        Icons.notifications_active_outlined,
-        'Notifiche',
-        'Visualizza gli avvisi ricevuti',
-        const Color(0xFFB3261E),
-        () => onOpen(NotificationsPage(loggedUser: loggedUser)),
-      ),
-      (
         Icons.insights_outlined,
-        'Statistiche',
+        'Statistiche associazione',
         'Analizza attività e servizi',
         const Color(0xFF087E8B),
-        () => onOpen(StatistichePage(loggedUser: loggedUser)),
+        () => onOpen(
+              StatistichePage(
+                loggedUser: loggedUser,
+                adminOnly: true,
+              ),
+            ),
       ),
     ];
     return Container(
@@ -829,9 +827,9 @@ class _QuickActions extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _PanelTitle(
-            icon: Icons.bolt_rounded,
-            title: 'Azioni rapide',
-            subtitle: 'Apri gli strumenti amministrativi',
+            icon: Icons.admin_panel_settings_outlined,
+            title: 'Strumenti amministrativi',
+            subtitle: 'Funzioni riservate agli amministratori',
           ),
           const SizedBox(height: 14),
           LayoutBuilder(

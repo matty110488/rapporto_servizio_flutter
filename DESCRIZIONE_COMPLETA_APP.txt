@@ -293,7 +293,7 @@ Mostra:
 - distribuzione delle designazioni per anno;
 - elenco delle designazioni più recenti.
 
-Gli amministratori vedono inoltre il totale complessivo delle gare per disciplina nell'anno selezionato, non limitato alla propria attività personale.
+Le statistiche personali restano disponibili nella voce Statistiche. Il totale complessivo delle gare per disciplina e l'analisi per cronometrista sono invece raccolti nel Centro di controllo Admin.
 
 
 16. CENTRO DI CONTROLLO ADMIN
@@ -316,7 +316,7 @@ L'amministratore può filtrare le azioni richieste per:
 - rapportini;
 - dati mancanti.
 
-Toccando una voce si apre direttamente la gara interessata. La dashboard contiene inoltre azioni rapide verso Calendario, Designazioni, Rapportini, Statistiche e Notifiche. La funzione riassume e indirizza il lavoro amministrativo, ma non sostituisce le schermate operative già presenti.
+Toccando una voce si apre direttamente la gara interessata. Il centro raccoglie inoltre gli strumenti riservati agli amministratori: Inventario, Preventivi, Note spese e Statistiche associazione. Calendario, Rapportini e Notifiche restano nel menu principale perché sono funzioni operative comuni.
 
 Gli amministratori hanno anche permessi più ampi nella compilazione dei rapportini, nella consultazione dell'archivio e nelle statistiche complessive.
 

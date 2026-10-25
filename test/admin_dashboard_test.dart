@@ -191,7 +191,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Centro di controllo Admin'), findsOneWidget);
-    expect(find.text('Azioni rapide'), findsOneWidget);
+    expect(find.text('Strumenti amministrativi'), findsOneWidget);
+    expect(find.text('Inventario'), findsOneWidget);
+    expect(find.text('Statistiche associazione'), findsOneWidget);
     expect(find.text('Simula il costo di una gara'), findsOneWidget);
     await tester.dragUntilVisible(
       find.text('Azioni richieste'),
@@ -261,7 +263,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Centro di controllo Admin'), findsOneWidget);
-    expect(find.text('Inventario apparecchiature'), findsOneWidget);
+    expect(find.text('Inventario apparecchiature'), findsNothing);
 
     await tester.pumpWidget(
       MaterialApp(
