@@ -17,7 +17,6 @@ import 'admin_dashboard_page.dart';
 import 'dettaglio_gara.dart';
 import 'designazioni_page.dart';
 import 'gare_page.dart';
-import 'inventory_page.dart';
 import 'notifications_page.dart';
 import 'service_reports_page.dart';
 import 'settings_page.dart';
@@ -377,19 +376,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-      if (isNotionAdmin(widget.loggedUser))
-        _HomeNavData(
-          icon: Icons.inventory_2_outlined,
-          label: 'Inventario apparecchiature',
-          subtitle: 'Inserisci e gestisci strumenti e documentazione',
-          onTap: () => _openPage(
-            context,
-            InventoryPage(
-              loggedUser: widget.loggedUser,
-              notionService: _notion,
-            ),
-          ),
-        ),
       _HomeNavData(
         icon: Icons.flag,
         label: 'Calendario gare',
@@ -418,7 +404,7 @@ class _HomePageState extends State<HomePage> {
       _HomeNavData(
         icon: Icons.insights,
         label: 'Statistiche',
-        subtitle: 'Numeri personali su servizi',
+        subtitle: 'I tuoi numeri su servizi e designazioni',
         onTap: () => _openPage(
           context,
           StatistichePage(loggedUser: widget.loggedUser),

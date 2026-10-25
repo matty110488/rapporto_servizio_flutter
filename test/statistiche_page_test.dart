@@ -62,6 +62,30 @@ Map<String, dynamic> _race({
     };
 
 void main() {
+  testWidgets('la voce Statistiche mostra solo i dati personali',
+      (tester) async {
+    final notion = _FakeNotionService(
+      [
+        _race(id: '1', sport: 'Sci', timekeepers: const ['admin-id']),
+      ],
+      const {},
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatistichePage(
+          loggedUser: _adminUser(),
+          notionService: notion,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Designazioni come crono'), findsOneWidget);
+    expect(find.text('Servizi per cronometrista'), findsNothing);
+    expect(find.textContaining('Gare totali per sport'), findsNothing);
+  });
+
   testWidgets(
     'admin selects a timekeeper and sees unique services grouped by sport',
     (tester) async {
@@ -91,6 +115,7 @@ void main() {
           home: StatistichePage(
             loggedUser: _adminUser(),
             notionService: notion,
+            adminOnly: true,
           ),
         ),
       );
