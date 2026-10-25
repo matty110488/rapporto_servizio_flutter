@@ -1,21 +1,25 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 import '../config/app_config.dart';
 import '../constants/help_content.dart';
 import '../models/gara.dart';
 import '../services/notion_service.dart';
 import '../utils/italian_date_formatter.dart';
+import '../utils/notion_user.dart';
 import '../widgets/stopwatch_loading.dart';
 import '../widgets/standard_app_bar_actions.dart';
 
 class StatistichePage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
   final NotionService? notionService;
+  final bool adminOnly;
 
   const StatistichePage({
     super.key,
     required this.loggedUser,
     this.notionService,
+    this.adminOnly = false,
   });
 
   @override
@@ -41,66 +45,7 @@ class _StatistichePageState extends State<StatistichePage> {
     return null;
   }
 
-  bool get _isAdmin {
-    final props = widget.loggedUser['properties'];
-    if (props is! Map<String, dynamic>) return false;
-
-    const adminKeys = [
-      'ADMIN',
-      'Admin',
-      'admin',
-      'RUOLO',
-      'Ruolo',
-      'ROLE',
-      'Role',
-      'role',
-    ];
-
-    bool matchAdminText(String? value) {
-      if (value == null) return false;
-      final lower = value.toLowerCase();
-      return lower == 'admin' || lower == 'amministratore';
-    }
-
-    bool hasAdminValue(Map<String, dynamic> field) {
-      if (field['checkbox'] == true) return true;
-
-      final select = field['select'];
-      if (select is Map<String, dynamic>) {
-        final name = select['name'];
-        if (name is String && matchAdminText(name)) return true;
-      }
-
-      final multi = field['multi_select'];
-      if (multi is List) {
-        for (final entry in multi) {
-          if (entry is Map<String, dynamic>) {
-            final name = entry['name'];
-            if (name is String && matchAdminText(name)) return true;
-          }
-        }
-      }
-
-      final rich = field['rich_text'];
-      if (rich is List && rich.isNotEmpty) {
-        final first = rich.first;
-        if (first is Map<String, dynamic>) {
-          final text = first['plain_text'];
-          if (text is String && matchAdminText(text)) return true;
-        }
-      }
-
-      return false;
-    }
-
-    for (final key in adminKeys) {
-      final value = props[key];
-      if (value is Map<String, dynamic> && hasAdminValue(value)) {
-        return true;
-      }
-    }
-    return false;
-  }
+  bool get _isAdmin => isNotionAdmin(widget.loggedUser);
 
   @override
   void initState() {
@@ -108,6 +53,10 @@ class _StatistichePageState extends State<StatistichePage> {
     _selectedYear = AppConfig.currentRaceYear;
     _availableYears = AppConfig.configuredRaceYears.reversed.toList();
     _notion = NotionService(databaseId: AppConfig.currentRaceDatabaseId);
+    if (widget.adminOnly && !_isAdmin) {
+      _loading = false;
+      return;
+    }
     _loadStats();
   }
 
@@ -146,7 +95,7 @@ class _StatistichePageState extends State<StatistichePage> {
       );
       final gare = results.map((e) => Gara.fromNotion(e)).toList();
       final filteredGare = _filterByYear(gare, selectedYear);
-      final adminPersonNames = _isAdmin
+      final adminPersonNames = _isAdmin && widget.adminOnly
           ? await _loadAdminPersonNames(filteredGare)
           : const <String, String>{};
 
@@ -237,7 +186,7 @@ class _StatistichePageState extends State<StatistichePage> {
 
     return _StatsData(
       selectedYear: year,
-      isAdmin: _isAdmin,
+      isAdmin: _isAdmin && widget.adminOnly,
       allGareCount: filteredGare.length,
       cronoCount: asCrono.length,
       dscCount: asDsc.length,
@@ -323,25 +272,29 @@ class _StatistichePageState extends State<StatistichePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.adminOnly && !_isAdmin) {
+      return const Scaffold(
+        body: Center(child: Text('Sezione riservata agli amministratori.')),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Statistiche'),
+        title: Text(
+          widget.adminOnly ? 'Statistiche associazione' : 'Statistiche',
+        ),
         actions: standardAppBarActions(
           context,
-          helpTitle: 'Statistiche',
-          helpContent: HelpContent.statistiche,
+          helpTitle:
+              widget.adminOnly ? 'Statistiche associazione' : 'Statistiche',
+          helpContent: widget.adminOnly
+              ? HelpContent.statisticheAdmin
+              : HelpContent.statistiche,
           onRefresh: () => _loadStats(forceRefresh: true),
           refreshEnabled: !_loading,
         ),
       ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEAF3FF), Color(0xFFF8FBFF), Color(0xFFFFFFFF)],
-          ),
-        ),
+      body: ColoredBox(
+        color: context.cronoColors.page,
         child: RefreshIndicator(
           onRefresh: () => _loadStats(forceRefresh: true),
           child: _loading
@@ -362,6 +315,7 @@ class _StatistichePageState extends State<StatistichePage> {
                   ? _ErrorView(error: _error!, onRetry: () => _loadStats())
                   : _StatsView(
                       stats: _stats,
+                      adminOnly: widget.adminOnly,
                       availableYears: _availableYears,
                       selectedYear: _selectedYear,
                       onYearChanged: _selectYear,
@@ -375,6 +329,7 @@ class _StatistichePageState extends State<StatistichePage> {
 
 class _StatsView extends StatelessWidget {
   final _StatsData stats;
+  final bool adminOnly;
   final List<int> availableYears;
   final int? selectedYear;
   final ValueChanged<int?> onYearChanged;
@@ -382,6 +337,7 @@ class _StatsView extends StatelessWidget {
 
   const _StatsView({
     required this.stats,
+    required this.adminOnly,
     required this.availableYears,
     required this.selectedYear,
     required this.onYearChanged,
@@ -393,82 +349,86 @@ class _StatsView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
-        _HeroCard(stats: stats),
-        const SizedBox(height: 12),
+        if (!adminOnly) ...[
+          _HeroCard(stats: stats),
+          const SizedBox(height: 12),
+        ],
         _YearSelectorCard(
           availableYears: availableYears,
           selectedYear: selectedYear,
           onChanged: onYearChanged,
         ),
-        const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 720;
-            final width =
-                wide ? (constraints.maxWidth - 10) / 2 : double.infinity;
-            return Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                SizedBox(
-                  width: width,
-                  child: _CountCard(
-                    icon: Icons.sports_score,
-                    label: 'Designazioni come crono',
-                    value: stats.cronoCount,
+        if (!adminOnly) ...[
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 720;
+              final width =
+                  wide ? (constraints.maxWidth - 10) / 2 : double.infinity;
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  SizedBox(
+                    width: width,
+                    child: _CountCard(
+                      icon: Icons.sports_score,
+                      label: 'Designazioni come crono',
+                      value: stats.cronoCount,
+                    ),
                   ),
-                ),
-                SizedBox(
-                  width: width,
-                  child: _CountCard(
-                    icon: Icons.computer,
-                    label: 'Elaborazione Dati',
-                    value: stats.elaborazioneDatiCount,
+                  SizedBox(
+                    width: width,
+                    child: _CountCard(
+                      icon: Icons.computer,
+                      label: 'Elaborazione Dati',
+                      value: stats.elaborazioneDatiCount,
+                    ),
                   ),
-                ),
-                SizedBox(
-                  width: width,
-                  child: _CountCard(
-                    icon: Icons.assignment_ind,
-                    label: 'Servizi come DSC',
-                    value: stats.dscCount,
+                  SizedBox(
+                    width: width,
+                    child: _CountCard(
+                      icon: Icons.assignment_ind,
+                      label: 'Servizi come DSC',
+                      value: stats.dscCount,
+                    ),
                   ),
-                ),
-                SizedBox(
-                  width: width,
-                  child: _CountCard(
-                    icon: Icons.category,
-                    label: 'Sport cronometrati',
-                    value: stats.sportCounts.length,
+                  SizedBox(
+                    width: width,
+                    child: _CountCard(
+                      icon: Icons.category,
+                      label: 'Sport cronometrati',
+                      value: stats.sportCounts.length,
+                    ),
                   ),
-                ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 12),
-        _BreakdownCard(
-          title: 'Designazioni per sport',
-          icon: Icons.pie_chart_outline,
-          entries: stats.sportCounts,
-          emptyText: 'Nessuna designazione trovata.',
-        ),
-        const SizedBox(height: 12),
-        _BreakdownCard(
-          title: 'Elaborazione Dati per sport',
-          icon: Icons.monitor_heart_outlined,
-          entries: stats.elaborazioneDatiSportCounts,
-          emptyText: 'Nessun servizio in Elaborazione Dati trovato.',
-        ),
-        const SizedBox(height: 12),
-        _BreakdownCard(
-          title: 'Designazioni per anno',
-          icon: Icons.calendar_month,
-          entries: stats.yearCounts,
-          emptyText: 'Nessun anno disponibile.',
-        ),
-        const SizedBox(height: 12),
-        _LatestServicesCard(gare: stats.latestServices),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          _BreakdownCard(
+            title: 'Designazioni per sport',
+            icon: Icons.pie_chart_outline,
+            entries: stats.sportCounts,
+            emptyText: 'Nessuna designazione trovata.',
+          ),
+          const SizedBox(height: 12),
+          _BreakdownCard(
+            title: 'Elaborazione Dati per sport',
+            icon: Icons.monitor_heart_outlined,
+            entries: stats.elaborazioneDatiSportCounts,
+            emptyText: 'Nessun servizio in Elaborazione Dati trovato.',
+          ),
+          const SizedBox(height: 12),
+          _BreakdownCard(
+            title: 'Designazioni per anno',
+            icon: Icons.calendar_month,
+            entries: stats.yearCounts,
+            emptyText: 'Nessun anno disponibile.',
+          ),
+          const SizedBox(height: 12),
+          _LatestServicesCard(gare: stats.latestServices),
+        ],
         if (stats.isAdmin) ...[
           const SizedBox(height: 12),
           _AdminPersonStatsCard(
@@ -477,11 +437,11 @@ class _StatsView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _BreakdownCard(
-            title: 'Gare totali per sport (${stats.allGareCount}) - solo admin',
+            title: 'Gare totali per sport (${stats.allGareCount})',
             icon: Icons.admin_panel_settings_outlined,
             entries: stats.adminSportCounts,
             emptyText: 'Nessuna gara trovata per l\'anno selezionato.',
-            subtitle: 'Questa statistica e visibile solo agli admin.',
+            subtitle: 'Totale complessivo dell\'associazione.',
           ),
         ],
       ],
@@ -502,7 +462,7 @@ class _AdminPersonStatsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -593,19 +553,9 @@ class _HeroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF004E9A), Color(0xFF0A66C2), Color(0xFF338FE5)],
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x300A66C2),
-            blurRadius: 20,
-            offset: Offset(0, 10),
-          ),
-        ],
+        color: context.cronoColors.inverse,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: context.cronoColors.inverseBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -644,7 +594,7 @@ class _YearSelectorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Row(
         children: [
           Container(
@@ -705,7 +655,7 @@ class _CountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Row(
         children: [
           Container(
@@ -762,7 +712,7 @@ class _BreakdownCard extends StatelessWidget {
     final max = entries.isEmpty ? 1 : entries.first.count;
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -857,7 +807,7 @@ class _LatestServicesCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -941,7 +891,10 @@ class _ErrorView extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: _panelDecoration(borderColor: const Color(0xFFFFD8D8)),
+          decoration: _panelDecoration(
+            context,
+            borderColor: context.cronoColors.danger,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1017,20 +970,12 @@ class _StatEntry {
   const _StatEntry(this.label, this.count);
 }
 
-BoxDecoration _panelDecoration({
-  Color borderColor = const Color(0xFFDCE8F6),
-}) {
+BoxDecoration _panelDecoration(BuildContext context, {Color? borderColor}) {
+  final colors = context.cronoColors;
   return BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(18),
-    border: Border.all(color: borderColor),
-    boxShadow: const [
-      BoxShadow(
-        color: Color(0x11000000),
-        blurRadius: 14,
-        offset: Offset(0, 5),
-      ),
-    ],
+    color: colors.card,
+    borderRadius: BorderRadius.circular(8),
+    border: Border.all(color: borderColor ?? colors.border),
   );
 }
 

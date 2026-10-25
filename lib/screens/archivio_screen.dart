@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config/app_config.dart';
@@ -215,9 +216,11 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
                         final gara = archived.gara;
                         return Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFDCE8F6)),
+                            color: context.cronoColors.card,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: context.cronoColors.border,
+                            ),
                           ),
                           child: Padding(
                             padding: const EdgeInsets.all(12),

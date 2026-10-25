@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:intl/intl.dart';
 
 import '../config/app_config.dart';
@@ -606,14 +607,8 @@ class _GarePageState extends State<GarePage> {
           refreshEnabled: !loading,
         ),
       ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEAF3FF), Color(0xFFF8FBFF), Color(0xFFFFFFFF)],
-          ),
-        ),
+      body: ColoredBox(
+        color: context.cronoColors.page,
         child: loading
             ? _buildLoadingState()
             : RefreshIndicator(
@@ -644,7 +639,7 @@ class _GarePageState extends State<GarePage> {
           height: 130,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            color: Colors.white,
+            color: context.cronoColors.card,
           ),
           child: const Center(
             child: StopwatchLoading(label: 'Caricamento calendario gare...'),
@@ -668,7 +663,7 @@ class _GarePageState extends State<GarePage> {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.cronoColors.card,
             borderRadius: BorderRadius.circular(20),
             boxShadow: const [
               BoxShadow(
@@ -710,9 +705,9 @@ class _GarePageState extends State<GarePage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFDCE8F6)),
+        color: context.cronoColors.card,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: context.cronoColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -906,19 +901,9 @@ class _GarePageState extends State<GarePage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF004E9A), Color(0xFF0A66C2), Color(0xFF338FE5)],
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x220A66C2),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
+        color: context.cronoColors.inverse,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: context.cronoColors.inverseBorder),
       ),
       child: Row(
         children: [
@@ -977,7 +962,7 @@ class _GarePageState extends State<GarePage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.cronoColors.card,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFFDCE8F6)),
       ),
@@ -1059,7 +1044,7 @@ class _GarePageState extends State<GarePage> {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: Colors.white,
+        color: context.cronoColors.card,
         border: Border.all(
           color: entry.suggested
               ? const Color(0xFFF1D6A8)
@@ -1509,7 +1494,7 @@ class _GarePageState extends State<GarePage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.cronoColors.card,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: const Color(0xFFE2ECF8)),
       ),
