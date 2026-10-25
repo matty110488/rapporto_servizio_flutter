@@ -1,6 +1,5 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -109,8 +108,14 @@ class _InventoryPageState extends State<InventoryPage> {
         icon: const Icon(Icons.add),
         label: const Text('Nuovo'),
       ),
-      body: ColoredBox(
-        color: context.cronoColors.page,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFEAF3FF), Color(0xFFFFFFFF)],
+          ),
+        ),
         child: SafeArea(
           child: RefreshIndicator(
             onRefresh: _load,
@@ -245,9 +250,19 @@ class _InventoryHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: context.cronoColors.inverse,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: context.cronoColors.inverseBorder),
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF073B70), Color(0xFF0A66C2)],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x300A66C2),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,8 +376,8 @@ class _InventoryCard extends StatelessWidget {
     final primary = Theme.of(context).colorScheme.primary;
     final numericId = item.id.replaceAll(RegExp(r'[^0-9]'), '');
     return Material(
-      color: context.cronoColors.card,
-      borderRadius: BorderRadius.circular(8),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
@@ -672,8 +687,14 @@ class _InventoryEditorPageState extends State<InventoryEditorPage> {
             ? 'Nuova apparecchiatura'
             : 'Modifica apparecchiatura'),
       ),
-      body: ColoredBox(
-        color: context.cronoColors.page,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFEAF3FF), Color(0xFFFFFFFF)],
+          ),
+        ),
         child: SafeArea(
           child: Align(
             alignment: Alignment.topCenter,
@@ -839,7 +860,7 @@ class _InventoryEditorPageState extends State<InventoryEditorPage> {
         ),
       ),
       bottomNavigationBar: Material(
-        color: context.cronoColors.section,
+        color: Colors.white,
         elevation: 10,
         child: SafeArea(
           minimum: const EdgeInsets.all(16),

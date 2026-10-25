@@ -10,7 +10,6 @@ import '../models/gara.dart';
 import '../models/race_weather.dart';
 import '../services/notion_service.dart';
 import '../services/weather_service.dart';
-import '../theme/app_theme.dart';
 import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
 import '../widgets/race_weather_view.dart';
@@ -127,6 +126,7 @@ class _DettaglioGaraState extends State<DettaglioGara> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF3F7FC),
       appBar: AppBar(
         title: const Text('Cockpit gara'),
         centerTitle: false,
@@ -184,13 +184,22 @@ class _DettaglioGaraState extends State<DettaglioGara> {
 
   Widget _buildMissionHeader() {
     final gara = widget.gara;
-    final colors = context.cronoColors;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: colors.inverse,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.inverseBorder),
+        borderRadius: BorderRadius.circular(26),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF071E3D), Color(0xFF0A4C8A), Color(0xFF0A72C8)],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x330A4C8A),
+            blurRadius: 24,
+            offset: Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -714,13 +723,16 @@ class _CockpitPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.cronoColors;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colors.card,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.border),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFDDE7F1)),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x0D000000), blurRadius: 14, offset: Offset(0, 5)),
+        ],
       ),
       child: child,
     );

@@ -15,15 +15,11 @@ import '../widgets/standard_app_bar_actions.dart';
 class SettingsPage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
   final VoidCallback? onNotificationsChanged;
-  final ThemeMode themeMode;
-  final ValueChanged<ThemeMode>? onThemeModeChanged;
 
   const SettingsPage({
     super.key,
     required this.loggedUser,
     this.onNotificationsChanged,
-    this.themeMode = ThemeMode.system,
-    this.onThemeModeChanged,
   });
 
   @override
@@ -38,7 +34,6 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _biometricBusy = false;
   bool _appUpdateBusy = false;
   String _appVersion = '';
-  late ThemeMode _themeMode;
 
   String? get _userId {
     final id = widget.loggedUser['id'];
@@ -48,7 +43,6 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    _themeMode = widget.themeMode;
     _loadSettings();
   }
 
@@ -291,14 +285,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 Card(
                   child: Column(
                     children: [
-                      ListTile(
-                        leading: const Icon(Icons.brightness_6_outlined),
-                        title: const Text('Aspetto'),
-                        subtitle: Text(_themeModeLabel(_themeMode)),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: _chooseThemeMode,
-                      ),
-                      const Divider(height: 1),
                       _switchTile(
                         icon: Icons.notifications_active_outlined,
                         title: 'Notifiche',
@@ -394,49 +380,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  String _themeModeLabel(ThemeMode mode) => switch (mode) {
-        ThemeMode.system => 'Usa le impostazioni del dispositivo',
-        ThemeMode.light => 'Chiaro',
-        ThemeMode.dark => 'Scuro',
-      };
-
-  Future<void> _chooseThemeMode() async {
-    final selected = await showModalBottomSheet<ThemeMode>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Aspetto dell’app',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-            ),
-            for (final mode in ThemeMode.values)
-              ListTile(
-                title: Text(_themeModeLabel(mode)),
-                trailing:
-                    mode == _themeMode ? const Icon(Icons.check_rounded) : null,
-                selected: mode == _themeMode,
-                onTap: () => Navigator.pop(context, mode),
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-    if (selected != null && mounted) {
-      setState(() => _themeMode = selected);
-      widget.onThemeModeChanged?.call(selected);
-    }
-  }
-
   Widget _switchTile({
     required IconData icon,
     required String title,
@@ -456,7 +399,7 @@ class _SettingsPageState extends State<SettingsPage> {
             )
           : CupertinoSwitch(
               value: value,
-              activeTrackColor: Theme.of(context).colorScheme.primary,
+              activeTrackColor: const Color(0xFF007AFF),
               onChanged: onChanged,
             ),
     );

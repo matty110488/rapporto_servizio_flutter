@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -1214,11 +1213,19 @@ class _RootScreenState extends State<RootScreen> {
     );
   }
 
-  BoxDecoration _panelDecoration({Color? borderColor}) {
+  BoxDecoration _panelDecoration(
+      {Color borderColor = const Color(0xFFDCE8F6)}) {
     return BoxDecoration(
-      color: context.cronoColors.card,
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: borderColor ?? context.cronoColors.border),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: borderColor),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x11000000),
+          blurRadius: 14,
+          offset: Offset(0, 5),
+        ),
+      ],
     );
   }
 
@@ -1566,8 +1573,18 @@ class _RootScreenState extends State<RootScreen> {
           ),
         ),
         body: SafeArea(
-          child: ColoredBox(
-            color: context.cronoColors.page,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFEAF3FF),
+                  Color(0xFFF7FBFF),
+                  Color(0xFFFFFFFF)
+                ],
+              ),
+            ),
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
