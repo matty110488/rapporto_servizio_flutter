@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 import '../config/app_config.dart';
 import '../constants/help_content.dart';
@@ -334,14 +335,8 @@ class _StatistichePageState extends State<StatistichePage> {
           refreshEnabled: !_loading,
         ),
       ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEAF3FF), Color(0xFFF8FBFF), Color(0xFFFFFFFF)],
-          ),
-        ),
+      body: ColoredBox(
+        color: context.cronoColors.page,
         child: RefreshIndicator(
           onRefresh: () => _loadStats(forceRefresh: true),
           child: _loading
@@ -502,7 +497,7 @@ class _AdminPersonStatsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -593,19 +588,9 @@ class _HeroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF004E9A), Color(0xFF0A66C2), Color(0xFF338FE5)],
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x300A66C2),
-            blurRadius: 20,
-            offset: Offset(0, 10),
-          ),
-        ],
+        color: context.cronoColors.inverse,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: context.cronoColors.inverseBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -644,7 +629,7 @@ class _YearSelectorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Row(
         children: [
           Container(
@@ -705,7 +690,7 @@ class _CountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Row(
         children: [
           Container(
@@ -762,7 +747,7 @@ class _BreakdownCard extends StatelessWidget {
     final max = entries.isEmpty ? 1 : entries.first.count;
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -857,7 +842,7 @@ class _LatestServicesCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(),
+      decoration: _panelDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -941,7 +926,10 @@ class _ErrorView extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: _panelDecoration(borderColor: const Color(0xFFFFD8D8)),
+          decoration: _panelDecoration(
+            context,
+            borderColor: context.cronoColors.danger,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1017,20 +1005,12 @@ class _StatEntry {
   const _StatEntry(this.label, this.count);
 }
 
-BoxDecoration _panelDecoration({
-  Color borderColor = const Color(0xFFDCE8F6),
-}) {
+BoxDecoration _panelDecoration(BuildContext context, {Color? borderColor}) {
+  final colors = context.cronoColors;
   return BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(18),
-    border: Border.all(color: borderColor),
-    boxShadow: const [
-      BoxShadow(
-        color: Color(0x11000000),
-        blurRadius: 14,
-        offset: Offset(0, 5),
-      ),
-    ],
+    color: colors.card,
+    borderRadius: BorderRadius.circular(8),
+    border: Border.all(color: borderColor ?? colors.border),
   );
 }
 

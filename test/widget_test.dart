@@ -11,7 +11,7 @@ void main() {
     await tester.pumpWidget(const CronoValtellinesiApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Login Cronometristi'), findsOneWidget);
+    expect(find.text('Accedi a Crono Valtellinesi'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
     expect(find.text('Accedi'), findsOneWidget);

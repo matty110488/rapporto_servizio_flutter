@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/app_preferences_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/stopwatch_loading.dart';
+import '../theme/app_theme.dart';
 
 class LoginPage extends StatefulWidget {
   final Function(Map<String, dynamic>) onLogin;
@@ -217,76 +218,105 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.cronoColors;
     return Scaffold(
-      appBar: AppBar(title: Text("Login Cronometristi")),
       body: Center(
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Image.asset(
-                'assets/logo.png',
-                height: 140,
-                fit: BoxFit.contain,
+          padding: const EdgeInsets.all(20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.card,
+                border: Border.all(color: colors.border),
+                borderRadius: BorderRadius.circular(8),
               ),
-              SizedBox(height: 24),
-              TextField(
-                controller: userCtrl,
-                autocorrect: false,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                ),
-              ),
-              SizedBox(height: 12),
-              TextField(
-                controller: passCtrl,
-                obscureText: true,
-                decoration: InputDecoration(labelText: "Password"),
-              ),
-              SizedBox(height: 24),
-              if (loading)
-                const Center(
-                    child: StopwatchLoading(label: 'Accesso in corso...'))
-              else
-                Column(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    FilledButton(
-                      onPressed: doLogin,
-                      child: const Text('Accedi'),
+                    Image.asset(
+                      'assets/logo.png',
+                      height: 104,
+                      fit: BoxFit.contain,
                     ),
-                    if (biometricLoginEnabled) ...[
-                      const SizedBox(height: 10),
-                      OutlinedButton.icon(
-                        onPressed: doPasskeyLogin,
-                        icon: const Icon(Icons.fingerprint),
-                        label: const Text('Accedi con Face ID o impronta'),
-                      ),
-                    ],
+                    const SizedBox(height: 24),
+                    Text(
+                      'AREA OPERATIVA',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: colors.accent,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 2.1,
+                          ),
+                    ),
                     const SizedBox(height: 6),
-                    TextButton(
-                      onPressed: _showFirstAccess,
-                      child:
-                          const Text('Primo accesso: scegli la tua password'),
+                    Text(
+                      'Accedi a Crono Valtellinesi',
+                      style: Theme.of(context).textTheme.headlineSmall,
                     ),
-                    TextButton(
-                      onPressed: _showForgotPassword,
-                      child: const Text('Password dimenticata?'),
+                    const SizedBox(height: 24),
+                    TextField(
+                      controller: userCtrl,
+                      autocorrect: false,
+                      decoration: const InputDecoration(labelText: 'Email'),
                     ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: passCtrl,
+                      obscureText: true,
+                      decoration: const InputDecoration(labelText: 'Password'),
+                    ),
+                    const SizedBox(height: 24),
+                    if (loading)
+                      const Center(
+                        child: StopwatchLoading(label: 'Accesso in corso...'),
+                      )
+                    else
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          FilledButton(
+                            onPressed: doLogin,
+                            child: const Text('Accedi'),
+                          ),
+                          if (biometricLoginEnabled) ...[
+                            const SizedBox(height: 10),
+                            OutlinedButton.icon(
+                              onPressed: doPasskeyLogin,
+                              icon: const Icon(Icons.fingerprint),
+                              label: const Text(
+                                'Accedi con Face ID o impronta',
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 6),
+                          TextButton(
+                            onPressed: _showFirstAccess,
+                            child: const Text(
+                              'Primo accesso: scegli la tua password',
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _showForgotPassword,
+                            child: const Text('Password dimenticata?'),
+                          ),
+                        ],
+                      ),
+                    if (errorMsg != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          errorMsg!,
+                          style: TextStyle(color: colors.danger),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                   ],
                 ),
-              if (errorMsg != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(
-                    errorMsg!,
-                    style: TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-            ],
+              ),
+            ),
           ),
         ),
       ),

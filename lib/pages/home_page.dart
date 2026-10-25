@@ -10,6 +10,7 @@ import '../services/app_update_service.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/push_notification_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
 import 'admin_dashboard_page.dart';
@@ -26,12 +27,16 @@ class HomePage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
   final VoidCallback onLogout;
   final NotionService? notionService;
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode>? onThemeModeChanged;
 
   const HomePage({
     super.key,
     required this.loggedUser,
     required this.onLogout,
     this.notionService,
+    this.themeMode = ThemeMode.system,
+    this.onThemeModeChanged,
   });
 
   @override
@@ -354,6 +359,8 @@ class _HomePageState extends State<HomePage> {
           SettingsPage(
             loggedUser: widget.loggedUser,
             onNotificationsChanged: _loadNotificationBadge,
+            themeMode: widget.themeMode,
+            onThemeModeChanged: widget.onThemeModeChanged,
           ),
         );
     final navItems = [
@@ -444,18 +451,8 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(width: 8),
                   ],
                 ),
-          body: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFEAF3FF),
-                  Color(0xFFF7FBFF),
-                  Color(0xFFFFFFFF),
-                ],
-              ),
-            ),
+          body: ColoredBox(
+            color: context.cronoColors.page,
             child: SafeArea(
               child: useSidebar
                   ? Row(
@@ -512,10 +509,10 @@ class _HomePageState extends State<HomePage> {
             _hero(userName),
             const SizedBox(height: 18),
             if (compact) ...[
-              const Text(
+              Text(
                 'Menu principale',
                 style: TextStyle(
-                  color: Color(0xFF1A2B40),
+                  color: context.cronoColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
@@ -531,11 +528,6 @@ class _HomePageState extends State<HomePage> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF0A66C2),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
                   onPressed: widget.onLogout,
                   icon: const Icon(Icons.logout),
                   label: const Text('Logout'),
@@ -555,8 +547,8 @@ class _HomePageState extends State<HomePage> {
                   padding: const EdgeInsets.all(6),
                   child: Text(
                     _appVersionLabel,
-                    style: const TextStyle(
-                      color: Color(0xFF7B8EA3),
+                    style: TextStyle(
+                      color: context.cronoColors.textMuted,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -571,6 +563,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _hero(String userName) {
+    final colors = context.cronoColors;
     String formatDate(String iso) {
       return formatItalianIsoDate(iso) ?? '-';
     }
@@ -601,19 +594,9 @@ class _HomePageState extends State<HomePage> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF004E9A), Color(0xFF0A66C2), Color(0xFF338FE5)],
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x300A66C2),
-            blurRadius: 20,
-            offset: Offset(0, 10),
-          ),
-        ],
+        color: colors.inverse,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.inverseBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -693,16 +676,9 @@ class _HomePageState extends State<HomePage> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F6FB),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFD4E2EF)),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x24031324),
-                    blurRadius: 14,
-                    offset: Offset(0, 6),
-                  ),
-                ],
+                color: colors.card,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: colors.border),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -720,7 +696,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                       ),
-                      refreshButton(const Color(0xFF0A66C2)),
+                      refreshButton(colors.accent),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -797,8 +773,8 @@ class _HomePageState extends State<HomePage> {
                           margin: const EdgeInsets.symmetric(horizontal: 3),
                           decoration: BoxDecoration(
                             color: index == _raceControlIndex
-                                ? const Color(0xFF0A66C2)
-                                : const Color(0xFFBBD8F1),
+                                ? colors.accent
+                                : colors.border,
                             borderRadius: BorderRadius.circular(99),
                           ),
                         ),
@@ -814,28 +790,22 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _raceControlCard(Gara gara, String Function(String) formatDate) {
+    final colors = context.cronoColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFC9DBE9)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x180B2942),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
+        color: colors.elevated,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: colors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             formatDate(gara.dataGara),
-            style: const TextStyle(
-              color: Color(0xFF334E68),
+            style: TextStyle(
+              color: colors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
@@ -845,8 +815,8 @@ class _HomePageState extends State<HomePage> {
             gara.titolo,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF102A43),
+            style: TextStyle(
+              color: colors.textPrimary,
               fontSize: 17,
               height: 1.12,
               fontWeight: FontWeight.w900,
@@ -934,9 +904,9 @@ class _HomeSidebar extends StatelessWidget {
       margin: const EdgeInsets.all(14),
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFDCE8F6)),
+        color: context.cronoColors.card,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: context.cronoColors.border),
         boxShadow: const [
           BoxShadow(
             color: Color(0x16000000),
@@ -1144,9 +1114,9 @@ class _DesktopSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFDCE8F6)),
+        color: context.cronoColors.card,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: context.cronoColors.border),
         boxShadow: const [
           BoxShadow(
             color: Color(0x12000000),
