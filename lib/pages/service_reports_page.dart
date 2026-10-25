@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 import 'package:intl/intl.dart';
 
 import '../constants/help_content.dart';
@@ -53,8 +52,8 @@ class _ServiceReportsPageState extends State<ServiceReportsPage> {
     String? badge,
   }) {
     return Material(
-      color: context.cronoColors.card,
-      borderRadius: BorderRadius.circular(8),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
@@ -154,8 +153,14 @@ class _ServiceReportsPageState extends State<ServiceReportsPage> {
         ),
       ),
       body: SafeArea(
-        child: ColoredBox(
-          color: context.cronoColors.page,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFEAF3FF), Color(0xFFFFFFFF)],
+            ),
+          ),
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [

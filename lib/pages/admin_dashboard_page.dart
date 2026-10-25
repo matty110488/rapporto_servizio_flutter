@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 
 import '../config/app_config.dart';
 import '../constants/help_content.dart';
@@ -113,8 +112,18 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           refreshEnabled: !_loading,
         ),
       ),
-      body: ColoredBox(
-        color: context.cronoColors.page,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFE8F2FF),
+              Color(0xFFF7FBFF),
+              Colors.white,
+            ],
+          ),
+        ),
         child: SafeArea(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
@@ -215,9 +224,19 @@ class _Header extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: context.cronoColors.inverse,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: context.cronoColors.inverseBorder),
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF073B70), Color(0xFF0A66C2)],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x300A66C2),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -348,7 +367,7 @@ class _KpiCard extends StatelessWidget {
       width: width,
       constraints: const BoxConstraints(minHeight: 108),
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(context),
+      decoration: _panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -453,7 +472,7 @@ class _AttentionPanelState extends State<_AttentionPanel> {
     ];
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: _panelDecoration(context),
+      decoration: _panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -670,7 +689,7 @@ class _UpcomingPanel extends StatelessWidget {
     final visible = races.take(6).toList();
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: _panelDecoration(context),
+      decoration: _panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -803,7 +822,7 @@ class _AdminTools extends StatelessWidget {
     ];
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: _panelDecoration(context),
+      decoration: _panelDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1058,12 +1077,18 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-BoxDecoration _panelDecoration(BuildContext context) {
-  final colors = context.cronoColors;
+BoxDecoration _panelDecoration() {
   return BoxDecoration(
-    color: colors.card,
-    borderRadius: BorderRadius.circular(8),
-    border: Border.all(color: colors.border),
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(19),
+    border: Border.all(color: const Color(0xFFDCE8F6)),
+    boxShadow: const [
+      BoxShadow(
+        color: Color(0x10000000),
+        blurRadius: 14,
+        offset: Offset(0, 5),
+      ),
+    ],
   );
 }
 

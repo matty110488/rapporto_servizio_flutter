@@ -11,10 +11,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'config/app_environment.dart';
 import 'pages/home_page.dart';
 import 'pages/login_page.dart';
-import 'services/app_preferences_service.dart';
 import 'services/push_notification_service.dart';
 import 'state/session_state.dart';
-import 'theme/app_theme.dart';
 
 import 'firebase_options.dart';
 
@@ -42,7 +40,6 @@ class CronoValtellinesiApp extends StatefulWidget {
 class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
   Map<String, dynamic>? loggedUser;
   bool restoringSession = true;
-  ThemeMode _themeMode = ThemeMode.system;
   String? _loginMessage;
   StreamSubscription<String>? _tokenRefreshSubscription;
 
@@ -91,19 +88,6 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
     super.initState();
     globalSessionExpiredHandler = _handleSessionExpired;
     _restoreSession();
-    _restoreThemeMode();
-  }
-
-  Future<void> _restoreThemeMode() async {
-    final mode = await AppPreferencesService.loadThemeMode();
-    if (!mounted) return;
-    setState(() => _themeMode = mode);
-  }
-
-  Future<void> _setThemeMode(ThemeMode mode) async {
-    if (_themeMode == mode) return;
-    setState(() => _themeMode = mode);
-    await AppPreferencesService.saveThemeMode(mode);
   }
 
   Future<void> _restoreSession() async {
@@ -213,6 +197,78 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
     super.dispose();
   }
 
+  ThemeData _buildPremiumTheme() {
+    const primary = Color(0xFF0A66C2); // blu elegante
+    const textColor = Color(0xFF1C1C1E); // nero soft
+    const lightGray = Color(0xFFF2F2F7); // grigio Apple
+
+    final base = ThemeData.light();
+
+    return base.copyWith(
+      primaryColor: primary,
+      scaffoldBackgroundColor: const Color.fromARGB(255, 179, 209, 241),
+      colorScheme: base.colorScheme.copyWith(
+        primary: primary,
+        secondary: primary,
+        surface: Colors.white,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0.8,
+        shadowColor: Colors.black12,
+        centerTitle: false,
+      ),
+      textTheme: base.textTheme.apply(
+        bodyColor: textColor,
+        displayColor: textColor,
+        fontFamily: 'Roboto',
+      ),
+      cardTheme: CardThemeData(
+        color: Colors.white,
+        elevation: 2,
+        shadowColor: Colors.black12,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      iconTheme: const IconThemeData(
+        color: primary,
+        size: 28,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: lightGray,
+        labelStyle: TextStyle(color: textColor.withOpacity(0.8)),
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: primary, width: 2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+    );
+  }
+
   Widget _environmentBanner(BuildContext context, Widget? child) {
     final app = child ?? const SizedBox.shrink();
     if (!isTestEnvironment) return app;
@@ -232,42 +288,41 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = AppTheme.light();
-    final darkTheme = AppTheme.dark();
-
-    MaterialApp buildApp(Widget home) => MaterialApp(
-          title: appDisplayName,
-          debugShowCheckedModeBanner: false,
-          theme: theme,
-          darkTheme: darkTheme,
-          themeMode: _themeMode,
-          builder: _environmentBanner,
-          home: home,
-        );
+    final theme = _buildPremiumTheme();
 
     if (restoringSession) {
-      return buildApp(
-        const Scaffold(
+      return MaterialApp(
+        title: appDisplayName,
+        debugShowCheckedModeBanner: false,
+        theme: theme,
+        builder: _environmentBanner,
+        home: const Scaffold(
           body: Center(child: CircularProgressIndicator()),
         ),
       );
     }
 
     if (loggedUser == null) {
-      return buildApp(
-        LoginPage(
+      return MaterialApp(
+        title: appDisplayName,
+        debugShowCheckedModeBanner: false,
+        theme: theme,
+        builder: _environmentBanner,
+        home: LoginPage(
           onLogin: _handleLogin,
           initialMessage: _loginMessage,
         ),
       );
     }
 
-    return buildApp(
-      HomePage(
+    return MaterialApp(
+      title: appDisplayName,
+      debugShowCheckedModeBanner: false,
+      theme: theme,
+      builder: _environmentBanner,
+      home: HomePage(
         loggedUser: loggedUser!,
         onLogout: _handleLogout,
-        themeMode: _themeMode,
-        onThemeModeChanged: _setThemeMode,
       ),
     );
   }

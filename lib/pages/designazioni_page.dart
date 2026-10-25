@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 
 import '../config/app_config.dart';
 import '../constants/help_content.dart';
@@ -123,8 +122,14 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
           refreshEnabled: !loading,
         ),
       ),
-      body: ColoredBox(
-        color: context.cronoColors.page,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFEAF3FF), Color(0xFFF8FBFF), Color(0xFFFFFFFF)],
+          ),
+        ),
         child: loading
             ? _buildLoadingState()
             : RefreshIndicator(
@@ -162,8 +167,8 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
         Container(
           height: 120,
           decoration: BoxDecoration(
-            color: context.cronoColors.card,
-            borderRadius: BorderRadius.circular(8),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
           ),
           child: const Center(
             child: StopwatchLoading(label: 'Caricamento designazioni...'),
@@ -181,9 +186,9 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: context.cronoColors.card,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: context.cronoColors.danger),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFFFD8D8)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,9 +220,9 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: context.cronoColors.card,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: context.cronoColors.border),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFDCE8F6)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
