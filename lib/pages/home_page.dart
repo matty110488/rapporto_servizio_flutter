@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../config/app_config.dart';
@@ -20,6 +21,11 @@ import 'notifications_page.dart';
 import 'service_reports_page.dart';
 import 'settings_page.dart';
 import 'statistiche_page.dart';
+
+bool shouldShowHalloweenDecorations(DateTime date) {
+  return (date.month == DateTime.october && date.day >= 20) ||
+      (date.month == DateTime.november && date.day <= 2);
+}
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
@@ -414,6 +420,16 @@ class _HomePageState extends State<HomePage> {
               ? null
               : AppBar(
                   automaticallyImplyLeading: false,
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF111111),
+                  surfaceTintColor: Colors.transparent,
+                  elevation: 0.8,
+                  scrolledUnderElevation: 0.8,
+                  shadowColor: Colors.black12,
+                  systemOverlayStyle: SystemUiOverlayStyle.dark.copyWith(
+                    statusBarColor: Colors.white,
+                    systemStatusBarContrastEnforced: false,
+                  ),
                   title: SizedBox(
                     height: 42,
                     child: Image.asset(
@@ -604,13 +620,21 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Benvenuto',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Benvenuto',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (shouldShowHalloweenDecorations(DateTime.now()))
+                const _HalloweenAccent(),
+            ],
           ),
           const SizedBox(height: 4),
           Text(
@@ -894,6 +918,35 @@ class _HomeNavData {
     this.badgeCount = 0,
     required this.onTap,
   });
+}
+
+class _HalloweenAccent extends StatelessWidget {
+  const _HalloweenAccent();
+
+  @override
+  Widget build(BuildContext context) {
+    return const IgnorePointer(
+      child: ExcludeSemantics(
+        child: Opacity(
+          opacity: 0.82,
+          child: Text(
+            '🎃  🦇  🕷️  🎃',
+            key: ValueKey('halloween-accent'),
+            style: TextStyle(
+              fontSize: 15,
+              shadows: [
+                Shadow(
+                  color: Color(0x55000000),
+                  blurRadius: 3,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _HomeSidebar extends StatelessWidget {

@@ -43,6 +43,14 @@ Map<String, dynamic> _racePage() => {
     };
 
 void main() {
+  test('Halloween decorations are limited to the seasonal window', () {
+    expect(shouldShowHalloweenDecorations(DateTime(2026, 10, 19)), isFalse);
+    expect(shouldShowHalloweenDecorations(DateTime(2026, 10, 20)), isTrue);
+    expect(shouldShowHalloweenDecorations(DateTime(2026, 10, 31)), isTrue);
+    expect(shouldShowHalloweenDecorations(DateTime(2026, 11, 2)), isTrue);
+    expect(shouldShowHalloweenDecorations(DateTime(2026, 11, 3)), isFalse);
+  });
+
   testWidgets('single Race Control card lays out in a scrolling home page',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -65,5 +73,15 @@ void main() {
     expect(find.text('Impostazioni'), findsNothing);
     expect(find.byTooltip('Impostazioni'), findsOneWidget);
     expect(tester.takeException(), isNull);
+
+    final appBar = tester.widget<AppBar>(find.byType(AppBar));
+    expect(appBar.backgroundColor, Colors.white);
+    expect(appBar.surfaceTintColor, Colors.transparent);
+    expect(appBar.scrolledUnderElevation, 0.8);
+    expect(appBar.systemOverlayStyle?.statusBarColor, Colors.white);
+    expect(
+      appBar.systemOverlayStyle?.statusBarIconBrightness,
+      Brightness.dark,
+    );
   });
 }
