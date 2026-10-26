@@ -27,16 +27,20 @@ bool shouldShowHalloweenDecorations(DateTime date) {
       (date.month == DateTime.november && date.day <= 2);
 }
 
+DateTime _currentDateTime() => DateTime.now();
+
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
   final VoidCallback onLogout;
   final NotionService? notionService;
+  final DateTime Function() now;
 
   const HomePage({
     super.key,
     required this.loggedUser,
     required this.onLogout,
     this.notionService,
+    this.now = _currentDateTime,
   });
 
   @override
@@ -420,21 +424,48 @@ class _HomePageState extends State<HomePage> {
               ? null
               : AppBar(
                   automaticallyImplyLeading: false,
-                  backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF111111),
+                  toolbarHeight: 68,
+                  titleSpacing: 16,
+                  backgroundColor: const Color(0xFF004E9A),
+                  foregroundColor: Colors.white,
                   surfaceTintColor: Colors.transparent,
-                  elevation: 0.8,
-                  scrolledUnderElevation: 0.8,
-                  shadowColor: Colors.black12,
-                  systemOverlayStyle: SystemUiOverlayStyle.dark.copyWith(
-                    statusBarColor: Colors.white,
+                  elevation: 2,
+                  scrolledUnderElevation: 2,
+                  shadowColor: const Color(0x55002F60),
+                  systemOverlayStyle: SystemUiOverlayStyle.light.copyWith(
+                    statusBarColor: const Color(0xFF004E9A),
                     systemStatusBarContrastEnforced: false,
                   ),
-                  title: SizedBox(
-                    height: 42,
+                  flexibleSpace: const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [Color(0xFF003F7D), Color(0xFF0A66C2)],
+                      ),
+                    ),
+                  ),
+                  title: Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x33001D3A),
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
                     child: Image.asset(
                       'assets/logo.png',
                       fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
                     ),
                   ),
                   actions: [
@@ -620,21 +651,13 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Benvenuto',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              if (shouldShowHalloweenDecorations(DateTime.now()))
-                const _HalloweenAccent(),
-            ],
+          const Text(
+            'Benvenuto',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -645,6 +668,10 @@ class _HomePageState extends State<HomePage> {
               fontWeight: FontWeight.w800,
             ),
           ),
+          if (shouldShowHalloweenDecorations(widget.now())) ...[
+            const SizedBox(height: 12),
+            const _HalloweenBanner(),
+          ],
           const SizedBox(height: 12),
           if (_loadingDashboard)
             Column(
@@ -920,28 +947,65 @@ class _HomeNavData {
   });
 }
 
-class _HalloweenAccent extends StatelessWidget {
-  const _HalloweenAccent();
+class _HalloweenBanner extends StatelessWidget {
+  const _HalloweenBanner();
 
   @override
   Widget build(BuildContext context) {
-    return const IgnorePointer(
-      child: ExcludeSemantics(
-        child: Opacity(
-          opacity: 0.82,
-          child: Text(
-            '🎃  🦇  🕷️  🎃',
-            key: ValueKey('halloween-accent'),
-            style: TextStyle(
-              fontSize: 15,
-              shadows: [
-                Shadow(
-                  color: Color(0x55000000),
-                  blurRadius: 3,
-                  offset: Offset(0, 1),
-                ),
-              ],
+    return IgnorePointer(
+      child: Semantics(
+        label: 'Decorazione di Halloween',
+        child: Container(
+          key: const ValueKey('halloween-banner'),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xCC28113D), Color(0xAA46205B)],
             ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xB3FFB347)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 8,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: const Row(
+            children: [
+              Text('🎃', style: TextStyle(fontSize: 27)),
+              SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Buon Halloween!  🦇',
+                      style: TextStyle(
+                        color: Color(0xFFFFD08A),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 1),
+                    Text(
+                      'Dolcetto o cronometro?',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 6),
+              Text('🕷️', style: TextStyle(fontSize: 20)),
+              SizedBox(width: 5),
+              Text('🎃', style: TextStyle(fontSize: 27)),
+            ],
           ),
         ),
       ),

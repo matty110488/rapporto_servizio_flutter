@@ -61,6 +61,7 @@ void main() {
           loggedUser: const {'id': 'user-1'},
           onLogout: () {},
           notionService: _FakeNotionService([_racePage()]),
+          now: () => DateTime(2026, 10, 26),
         ),
       ),
     );
@@ -75,13 +76,18 @@ void main() {
     expect(tester.takeException(), isNull);
 
     final appBar = tester.widget<AppBar>(find.byType(AppBar));
-    expect(appBar.backgroundColor, Colors.white);
+    expect(appBar.backgroundColor, const Color(0xFF004E9A));
     expect(appBar.surfaceTintColor, Colors.transparent);
-    expect(appBar.scrolledUnderElevation, 0.8);
-    expect(appBar.systemOverlayStyle?.statusBarColor, Colors.white);
+    expect(appBar.scrolledUnderElevation, 2);
+    expect(
+      appBar.systemOverlayStyle?.statusBarColor,
+      const Color(0xFF004E9A),
+    );
     expect(
       appBar.systemOverlayStyle?.statusBarIconBrightness,
-      Brightness.dark,
+      Brightness.light,
     );
+    expect(find.byKey(const ValueKey('halloween-banner')), findsOneWidget);
+    expect(find.text('Dolcetto o cronometro?'), findsOneWidget);
   });
 }
