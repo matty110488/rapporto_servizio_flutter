@@ -45,11 +45,20 @@ class NotionService {
         }
         return left.id.compareTo(right.id);
       });
+    final typeOptions = <String>{
+      ...List<String>.from(data['typeOptions'] as List<dynamic>? ?? const []),
+      ...items.map((item) => item.type).where((value) => value.isNotEmpty),
+    }.toList()
+      ..sort();
+    final statusOptions = <String>{
+      ...List<String>.from(data['statusOptions'] as List<dynamic>? ?? const []),
+      ...items.map((item) => item.status).where((value) => value.isNotEmpty),
+    }.toList()
+      ..sort();
     return InventoryData(
       items: items,
-      typeOptions: List<String>.from(
-        data['typeOptions'] as List<dynamic>? ?? const [],
-      ),
+      typeOptions: typeOptions,
+      statusOptions: statusOptions,
     );
   }
 
@@ -66,6 +75,17 @@ class NotionService {
     return InventoryItem.fromNotion(
       jsonDecode(res.body) as Map<String, dynamic>,
     );
+  }
+
+  Future<void> deleteInventoryItem(String pageId) async {
+    final res = await _postViaWebProxy({
+      'action': 'deleteInventoryItem',
+      'databaseId': AppConfig.inventoryDatabaseId,
+      'pageId': pageId,
+    });
+    if (res.statusCode != 200) {
+      throw Exception('Errore cancellazione apparecchiatura: ${res.body}');
+    }
   }
 
   Future<void> uploadInventoryAttachment({

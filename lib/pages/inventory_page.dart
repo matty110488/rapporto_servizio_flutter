@@ -31,6 +31,7 @@ class _InventoryPageState extends State<InventoryPage> {
   Object? _error;
   bool _loading = true;
   String _query = '';
+  String? _selectedType;
 
   @override
   void initState() {
@@ -50,6 +51,10 @@ class _InventoryPageState extends State<InventoryPage> {
       if (!mounted) return;
       setState(() {
         _data = data;
+        if (_selectedType != null &&
+            !data.typeOptions.contains(_selectedType)) {
+          _selectedType = null;
+        }
         _loading = false;
       });
     } catch (error) {
@@ -84,11 +89,17 @@ class _InventoryPageState extends State<InventoryPage> {
     }
     final normalizedQuery = _query.trim().toLowerCase();
     final items = (_data?.items ?? const <InventoryItem>[]).where((item) {
+      if (_selectedType != null && item.type != _selectedType) return false;
       if (normalizedQuery.isEmpty) return true;
-      return [item.id, item.type, item.brand, item.model, item.serialNumber]
-          .join(' ')
-          .toLowerCase()
-          .contains(normalizedQuery);
+      return [
+        item.id,
+        item.type,
+        item.brand,
+        item.model,
+        item.serialNumber,
+        item.ficrCode,
+        item.status,
+      ].join(' ').toLowerCase().contains(normalizedQuery);
     }).toList();
 
     return Scaffold(
@@ -147,6 +158,14 @@ class _InventoryPageState extends State<InventoryPage> {
     }
     final allItems = _data?.items ?? const <InventoryItem>[];
     final retired = allItems.where((item) => item.retired).length;
+    final groupedItems = <String, List<InventoryItem>>{};
+    for (final item in items) {
+      final category =
+          item.type.trim().isEmpty ? 'Senza categoria' : item.type.trim();
+      groupedItems.putIfAbsent(category, () => []).add(item);
+    }
+    final sortedCategories = groupedItems.entries.toList()
+      ..sort((left, right) => left.key.compareTo(right.key));
     return LayoutBuilder(
       builder: (context, constraints) {
         final horizontal = constraints.maxWidth >= 980 ? 28.0 : 16.0;
@@ -164,14 +183,51 @@ class _InventoryPageState extends State<InventoryPage> {
             Card(
               margin: EdgeInsets.zero,
               child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: TextField(
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search_rounded),
-                    labelText: 'Cerca nell’inventario',
-                    hintText: 'ID, tipologia, marca, modello o seriale',
-                  ),
-                  onChanged: (value) => setState(() => _query = value),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Trova un’apparecchiatura',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.search_rounded),
+                        labelText: 'Cerca',
+                        hintText: 'ID, marca, modello, seriale o codice FICR',
+                      ),
+                      onChanged: (value) => setState(() => _query = value),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String?>(
+                      key: const ValueKey('inventory-type-filter'),
+                      isExpanded: true,
+                      initialValue: _selectedType,
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.filter_alt_outlined),
+                        labelText: 'Filtra per tipologia',
+                      ),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('Tutte le tipologie'),
+                        ),
+                        ...(_data?.typeOptions ?? const <String>[]).map(
+                          (type) => DropdownMenuItem<String?>(
+                            value: type,
+                            child: Text(type),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _selectedType = value),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -180,9 +236,9 @@ class _InventoryPageState extends State<InventoryPage> {
               children: [
                 Expanded(
                   child: Text(
-                    _query.trim().isEmpty
+                    _query.trim().isEmpty && _selectedType == null
                         ? 'Tutte le apparecchiature'
-                        : 'Risultati della ricerca',
+                        : 'Risultati filtrati',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
@@ -201,35 +257,91 @@ class _InventoryPageState extends State<InventoryPage> {
             const SizedBox(height: 10),
             if (items.isEmpty)
               const _InventoryEmptyView()
-            else if (columns == 1)
-              ...items.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _InventoryCard(
-                    item: item,
-                    onTap: () => _openEditor(item),
-                  ),
-                ),
-              )
             else
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: items.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisExtent: 148,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
+              for (final category in sortedCategories) ...[
+                _InventoryCategoryHeader(
+                  name: category.key,
+                  count: category.value.length,
                 ),
-                itemBuilder: (context, index) => _InventoryCard(
-                  item: items[index],
-                  onTap: () => _openEditor(items[index]),
-                ),
-              ),
+                const SizedBox(height: 10),
+                if (columns == 1)
+                  ...category.value.map(
+                    (item) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _InventoryCard(
+                        item: item,
+                        onTap: () => _openEditor(item),
+                      ),
+                    ),
+                  )
+                else
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: category.value.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisExtent: 178,
+                      crossAxisSpacing: 14,
+                      mainAxisSpacing: 14,
+                    ),
+                    itemBuilder: (context, index) {
+                      final item = category.value[index];
+                      return _InventoryCard(
+                        item: item,
+                        onTap: () => _openEditor(item),
+                      );
+                    },
+                  ),
+                const SizedBox(height: 14),
+              ],
           ],
         );
       },
+    );
+  }
+}
+
+class _InventoryCategoryHeader extends StatelessWidget {
+  const _InventoryCategoryHeader({required this.name, required this.count});
+
+  final String name;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: primary.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.category_rounded, color: primary, size: 21),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              name,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '$count',
+              style: TextStyle(color: primary, fontWeight: FontWeight.w900),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -374,99 +486,188 @@ class _InventoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
-    final numericId = item.id.replaceAll(RegExp(r'[^0-9]'), '');
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
+      elevation: 0,
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFDCE8F6)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: primary.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  numericId.isEmpty ? '—' : numericId,
-                  style: TextStyle(
-                    color: primary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFD6E3F2)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x10073B70),
+                blurRadius: 14,
+                offset: Offset(0, 5),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          primary.withValues(alpha: 0.18),
+                          primary.withValues(alpha: 0.07),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(_categoryIcon(item.type), color: primary),
+                  ),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Text(
                       item.displayName,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 17,
+                        height: 1.1,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      [
-                        item.type,
-                        if (item.serialNumber.isNotEmpty)
-                          'S/N ${item.serialNumber}',
-                      ].where((value) => value.isNotEmpty).join(' • '),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Color(0xFF52657B)),
+                  ),
+                  const SizedBox(width: 8),
+                  if (item.id.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Text(
+                        item.id,
+                        style: TextStyle(
+                          color: primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 9),
-                    Wrap(
-                      spacing: 7,
-                      runSpacing: 5,
-                      children: [
-                        _InventoryBadge(label: item.ownership),
-                        if (item.retired)
-                          const _InventoryBadge(
-                            label: 'RADIATO',
-                            warning: true,
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFF718096),
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
-              const Icon(Icons.chevron_right_rounded, size: 28),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 14,
+                runSpacing: 6,
+                children: [
+                  if (item.serialNumber.isNotEmpty)
+                    _InventoryDetail(
+                      icon: Icons.qr_code_2_rounded,
+                      label: 'S/N ${item.serialNumber}',
+                    ),
+                  if (item.ownership == 'FICR' && item.ficrCode.isNotEmpty)
+                    _InventoryDetail(
+                      icon: Icons.verified_outlined,
+                      label: 'FICR ${item.ficrCode}',
+                    ),
+                  if (item.serialNumber.isEmpty &&
+                      (item.ownership != 'FICR' || item.ficrCode.isEmpty))
+                    const _InventoryDetail(
+                      icon: Icons.info_outline_rounded,
+                      label: 'Nessun codice inserito',
+                    ),
+                ],
+              ),
+              const SizedBox(height: 11),
+              Wrap(
+                spacing: 7,
+                runSpacing: 5,
+                children: [
+                  if (item.status.isNotEmpty)
+                    _InventoryBadge(label: item.status),
+                  if (item.ownership.isNotEmpty)
+                    _InventoryBadge(label: item.ownership, neutral: true),
+                  if (item.retired)
+                    const _InventoryBadge(label: 'RADIATO', warning: true),
+                ],
+              ),
             ],
           ),
         ),
       ),
     );
   }
+
+  IconData _categoryIcon(String category) {
+    final normalized = category.toLowerCase();
+    if (normalized.contains('foto')) return Icons.sensors_rounded;
+    if (normalized.contains('crono') || normalized.contains('timer')) {
+      return Icons.timer_outlined;
+    }
+    if (normalized.contains('radio')) return Icons.settings_input_antenna;
+    if (normalized.contains('computer') || normalized.contains('pc')) {
+      return Icons.laptop_rounded;
+    }
+    if (normalized.contains('stamp')) return Icons.print_rounded;
+    return Icons.precision_manufacturing_rounded;
+  }
 }
 
-class _InventoryBadge extends StatelessWidget {
-  const _InventoryBadge({required this.label, this.warning = false});
+class _InventoryDetail extends StatelessWidget {
+  const _InventoryDetail({required this.icon, required this.label});
 
+  final IconData icon;
   final String label;
-  final bool warning;
 
   @override
   Widget build(BuildContext context) {
-    final color = warning ? const Color(0xFFB3261E) : const Color(0xFF176B42);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: const Color(0xFF52657B)),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF52657B),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InventoryBadge extends StatelessWidget {
+  const _InventoryBadge({
+    required this.label,
+    this.warning = false,
+    this.neutral = false,
+  });
+
+  final String label;
+  final bool warning;
+  final bool neutral;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = warning
+        ? const Color(0xFFB3261E)
+        : neutral
+            ? const Color(0xFF52657B)
+            : const Color(0xFF176B42);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
@@ -508,12 +709,15 @@ class _InventoryEditorPageState extends State<InventoryEditorPage> {
   late final TextEditingController _brand;
   late final TextEditingController _model;
   late final TextEditingController _serial;
+  late final TextEditingController _ficrCode;
+  late String _status;
   late final TextEditingController _notes;
   late String _ownership;
   DateTime? _purchaseDate;
   DateTime? _maintenanceDate;
   bool _retired = false;
   bool _saving = false;
+  bool _deleting = false;
   String? _savedPageId;
   final List<_PendingAttachment> _pending = [];
 
@@ -526,6 +730,11 @@ class _InventoryEditorPageState extends State<InventoryEditorPage> {
     _brand = TextEditingController(text: item?.brand ?? '');
     _model = TextEditingController(text: item?.model ?? '');
     _serial = TextEditingController(text: item?.serialNumber ?? '');
+    _ficrCode = TextEditingController(text: item?.ficrCode ?? '');
+    final rawStatus = (item?.status ?? '').toLowerCase();
+    _status = rawStatus.contains('ripar') || rawStatus.contains('manuten')
+        ? 'Da riparare'
+        : 'Funzionante';
     _notes = TextEditingController(text: item?.notes ?? '');
     _ownership = item?.ownership == 'FICR' ? 'FICR' : 'NOSTRO';
     _purchaseDate = item?.purchaseDate;
@@ -539,6 +748,7 @@ class _InventoryEditorPageState extends State<InventoryEditorPage> {
     _brand.dispose();
     _model.dispose();
     _serial.dispose();
+    _ficrCode.dispose();
     _notes.dispose();
     super.dispose();
   }
@@ -650,6 +860,8 @@ class _InventoryEditorPageState extends State<InventoryEditorPage> {
           brand: _brand.text,
           model: _model.text,
           serialNumber: _serial.text,
+          ficrCode: _ownership == 'FICR' ? _ficrCode.text : '',
+          status: _status,
           ownership: _ownership,
           purchaseDate: _purchaseDate,
           lastMaintenanceDate: _maintenanceDate,
@@ -676,6 +888,46 @@ class _InventoryEditorPageState extends State<InventoryEditorPage> {
     }
   }
 
+  Future<void> _delete() async {
+    final pageId = _savedPageId;
+    if (pageId == null || _saving || _deleting) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancellare l’apparecchiatura?'),
+        content: Text(
+          'Il record ${widget.item?.id ?? ''} verrà rimosso anche da Notion. '
+          'Questa operazione non può essere annullata dall’app.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Cancella'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _deleting = true);
+    try {
+      await widget.notionService.deleteInventoryItem(pageId);
+      if (mounted) Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _deleting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Cancellazione non riuscita: $error')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd/MM/yyyy');
@@ -686,6 +938,20 @@ class _InventoryEditorPageState extends State<InventoryEditorPage> {
         title: Text(widget.item == null
             ? 'Nuova apparecchiatura'
             : 'Modifica apparecchiatura'),
+        actions: [
+          if (widget.item != null)
+            IconButton(
+              key: const ValueKey('delete-inventory-item'),
+              tooltip: 'Cancella apparecchiatura',
+              onPressed: _saving || _deleting ? null : _delete,
+              icon: _deleting
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_outline_rounded),
+            ),
+        ],
       ),
       body: DecoratedBox(
         decoration: const BoxDecoration(
@@ -716,6 +982,7 @@ class _InventoryEditorPageState extends State<InventoryEditorPage> {
                       children: [
                         if (options.isNotEmpty)
                           DropdownButtonFormField<String>(
+                            isExpanded: true,
                             initialValue: options.contains(_type.text)
                                 ? _type.text
                                 : null,
@@ -747,26 +1014,28 @@ class _InventoryEditorPageState extends State<InventoryEditorPage> {
                         _field(_model, 'Modello'),
                         const SizedBox(height: 12),
                         _field(_serial, 'Numero seriale'),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    _FormSection(
-                      icon: Icons.assignment_turned_in_rounded,
-                      title: 'Gestione',
-                      subtitle: 'Proprietà, date e stato dello strumento',
-                      children: [
-                        DropdownButtonFormField<String>(
-                          initialValue: _ownership,
-                          decoration:
-                              const InputDecoration(labelText: 'Proprietà'),
-                          items: const [
-                            DropdownMenuItem(
-                                value: 'FICR', child: Text('FICR')),
-                            DropdownMenuItem(
-                                value: 'NOSTRO', child: Text('NOSTRO')),
-                          ],
-                          onChanged: (value) =>
-                              setState(() => _ownership = value ?? 'NOSTRO'),
+                        const SizedBox(height: 12),
+                        _radioChoiceGroup(
+                          label: 'Proprietà',
+                          value: _ownership,
+                          options: const ['NOSTRO', 'FICR'],
+                          onChanged: (value) {
+                            setState(() {
+                              _ownership = value;
+                              if (value != 'FICR') _ficrCode.clear();
+                            });
+                          },
+                        ),
+                        if (_ownership == 'FICR') ...[
+                          const SizedBox(height: 8),
+                          _field(_ficrCode, 'Codice FICR'),
+                        ],
+                        const SizedBox(height: 12),
+                        _radioChoiceGroup(
+                          label: 'Stato',
+                          value: _status,
+                          options: const ['Funzionante', 'Da riparare'],
+                          onChanged: (value) => setState(() => _status = value),
                         ),
                         const SizedBox(height: 8),
                         _dateTile(
@@ -872,7 +1141,7 @@ class _InventoryEditorPageState extends State<InventoryEditorPage> {
                 width: double.infinity,
                 child: FilledButton.icon(
                   key: const ValueKey('save-inventory-item'),
-                  onPressed: _saving ? null : _save,
+                  onPressed: _saving || _deleting ? null : _save,
                   icon: _saving
                       ? const SizedBox.square(
                           dimension: 18,
@@ -886,6 +1155,49 @@ class _InventoryEditorPageState extends State<InventoryEditorPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _radioChoiceGroup({
+    required String label,
+    required String value,
+    required List<String> options,
+    required ValueChanged<String> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 2),
+        RadioGroup<String>(
+          groupValue: value,
+          onChanged: (selected) {
+            if (selected != null) onChanged(selected);
+          },
+          child: Row(
+            children: [
+              for (final option in options)
+                Expanded(
+                  child: RadioListTile<String>(
+                    key: ValueKey('$label-$option'),
+                    value: option,
+                    title: Text(
+                      option,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

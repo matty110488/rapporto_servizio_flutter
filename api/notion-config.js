@@ -22,6 +22,8 @@ export const NOTION_INVENTORY_PROPERTIES = Object.freeze({
   brand: ['Marca'],
   model: ['Modello'],
   serialNumber: ['Numero seriale', 'Seriale', 'Serial number'],
+  ficrCode: ['Codice Ficr', 'Codice FICR'],
+  status: ['Stato'],
   ownership: ['Proprietà', 'Proprieta', 'Property'],
   purchaseDate: ['Data acquisto'],
   lastMaintenanceDate: ['Data Ultima Manutenzione', 'Ultima manutenzione'],

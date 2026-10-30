@@ -68,7 +68,8 @@ class HelpContent {
 
   static const inventario = [
     'La sezione Inventario è disponibile esclusivamente agli amministratori.',
-    'Usa la ricerca per trovare un’apparecchiatura tramite ID, tipologia, marca, modello o numero seriale.',
+    'Usa la ricerca e il filtro per tipologia per trovare rapidamente un’apparecchiatura tramite ID, marca, modello, numero seriale o codice FICR.',
+    'Apri una scheda per modificarne i dati e lo stato oppure per cancellarla anche da Notion.',
     'Premi Nuovo per inserire uno strumento oppure tocca una scheda per modificarlo.',
     'Puoi allegare fotografie scattate dall’app, immagini dalla galleria e documenti.',
     'Il campo Radiato va attivato solo quando lo strumento non è più in servizio.',

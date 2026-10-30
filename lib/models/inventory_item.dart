@@ -13,6 +13,8 @@ class InventoryItem {
     this.brand = '',
     this.model = '',
     this.serialNumber = '',
+    this.ficrCode = '',
+    this.status = '',
     this.ownership = 'NOSTRO',
     this.purchaseDate,
     this.lastMaintenanceDate,
@@ -27,6 +29,8 @@ class InventoryItem {
   final String brand;
   final String model;
   final String serialNumber;
+  final String ficrCode;
+  final String status;
   final String ownership;
   final DateTime? purchaseDate;
   final DateTime? lastMaintenanceDate;
@@ -122,6 +126,8 @@ class InventoryItem {
       brand: text(property(const ['Marca'])),
       model: text(property(const ['Modello'])),
       serialNumber: text(property(const ['Numero seriale', 'Seriale'])),
+      ficrCode: text(property(const ['Codice Ficr', 'Codice FICR'])),
+      status: text(property(const ['Stato'])),
       ownership: text(property(const ['Proprietà', 'Proprieta'])),
       purchaseDate: date(property(const ['Data acquisto'])),
       lastMaintenanceDate: date(
@@ -137,6 +143,8 @@ class InventoryItem {
         'brand': brand.trim(),
         'model': model.trim(),
         'serialNumber': serialNumber.trim(),
+        'ficrCode': ownership == 'FICR' ? ficrCode.trim() : '',
+        'status': status.trim(),
         'ownership': ownership,
         'purchaseDate': _dateOnly(purchaseDate),
         'lastMaintenanceDate': _dateOnly(lastMaintenanceDate),
@@ -152,8 +160,13 @@ class InventoryItem {
 }
 
 class InventoryData {
-  const InventoryData({required this.items, this.typeOptions = const []});
+  const InventoryData({
+    required this.items,
+    this.typeOptions = const [],
+    this.statusOptions = const [],
+  });
 
   final List<InventoryItem> items;
   final List<String> typeOptions;
+  final List<String> statusOptions;
 }

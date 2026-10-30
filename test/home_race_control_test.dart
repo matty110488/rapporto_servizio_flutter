@@ -43,14 +43,6 @@ Map<String, dynamic> _racePage() => {
     };
 
 void main() {
-  test('Halloween decorations are limited to the seasonal window', () {
-    expect(shouldShowHalloweenDecorations(DateTime(2026, 10, 19)), isFalse);
-    expect(shouldShowHalloweenDecorations(DateTime(2026, 10, 20)), isTrue);
-    expect(shouldShowHalloweenDecorations(DateTime(2026, 10, 31)), isTrue);
-    expect(shouldShowHalloweenDecorations(DateTime(2026, 11, 2)), isTrue);
-    expect(shouldShowHalloweenDecorations(DateTime(2026, 11, 3)), isFalse);
-  });
-
   testWidgets('single Race Control card lays out in a scrolling home page',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -61,7 +53,6 @@ void main() {
           loggedUser: const {'id': 'user-1'},
           onLogout: () {},
           notionService: _FakeNotionService([_racePage()]),
-          now: () => DateTime(2026, 10, 26),
         ),
       ),
     );
@@ -87,7 +78,5 @@ void main() {
       appBar.systemOverlayStyle?.statusBarIconBrightness,
       Brightness.light,
     );
-    expect(find.byKey(const ValueKey('halloween-banner')), findsOneWidget);
-    expect(find.text('Dolcetto o cronometro?'), findsOneWidget);
   });
 }

@@ -26,6 +26,8 @@ test('inventory payload follows the configured Notion property types', () => {
     Tipologia: { type: 'select', select: { options: [] } },
     Marca: { type: 'rich_text', rich_text: {} },
     Modello: { type: 'title', title: {} },
+    'Codice Ficr': { type: 'rich_text', rich_text: {} },
+    Stato: { type: 'status', status: { options: [] } },
     Proprietà: { type: 'select', select: { options: [] } },
     Radiato: { type: 'checkbox', checkbox: {} },
     Note: { type: 'rich_text', rich_text: {} },
@@ -36,15 +38,26 @@ test('inventory payload follows the configured Notion property types', () => {
     type: 'Fotocellula',
     brand: 'Acme',
     model: 'Fast',
-    ownership: 'NOSTRO',
+    ficrCode: 'FICR-44',
+    status: 'Disponibile',
+    ownership: 'FICR',
     retired: true,
     notes: 'Verificata',
   });
   assert.equal(payload.Tipologia.select.name, 'Fotocellula');
   assert.equal(payload.Marca.rich_text[0].text.content, 'Acme');
   assert.equal(payload.Modello.title[0].text.content, 'Fast');
+  assert.equal(payload['Codice Ficr'].rich_text[0].text.content, 'FICR-44');
+  assert.equal(payload.Stato.status.name, 'Disponibile');
   assert.equal(payload.Radiato.checkbox, true);
   assert.equal(payload.ID, undefined);
+
+  const associationPayload = inventoryPropertiesPayload(schema, {
+    type: 'Fotocellula',
+    ownership: 'NOSTRO',
+    ficrCode: 'DA-NON-SALVARE',
+  });
+  assert.deepEqual(associationPayload['Codice Ficr'].rich_text, []);
 });
 
 test('inventory IDs continue after the highest existing progressive number', () => {
@@ -67,6 +80,55 @@ test('inventory endpoints are restricted to administrators', async () => {
   await handler(req, res);
   assert.equal(res.statusCode, 403);
   assert.equal(res.body.error, 'Administrator access required');
+});
+
+test('inventory deletion archives the matching Notion page', async () => {
+  const originalFetch = global.fetch;
+  const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({ url: String(url), options });
+    if (options.method === 'GET') {
+      return {
+        status: 200,
+        async json() {
+          return {
+            id: 'inventory-page',
+            parent: {
+              database_id: '403de089-ef95-8029-8884-dbbc72fab383',
+            },
+          };
+        },
+      };
+    }
+    return {
+      status: 200,
+      async json() {
+        return { id: 'inventory-page', archived: true };
+      },
+    };
+  };
+  try {
+    const req = {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${signedSession({ sub: 'admin-1', admin: true })}`,
+      },
+      body: {
+        action: 'deleteInventoryItem',
+        databaseId: '403de089ef9580298884dbbc72fab383',
+        pageId: 'inventory-page',
+      },
+    };
+    const res = responseRecorder();
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    const archiveCall = calls.find((call) => call.options.method === 'PATCH');
+    assert.ok(archiveCall);
+    assert.deepEqual(JSON.parse(archiveCall.options.body), { archived: true });
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 process.env.NOTION_TOKEN = 'test-notion-token';

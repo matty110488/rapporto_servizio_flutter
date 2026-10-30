@@ -23,6 +23,14 @@ void main() {
             {'plain_text': 'Fast 2'},
           ],
         },
+        'Codice Ficr': {
+          'rich_text': [
+            {'plain_text': 'FICR-44'},
+          ],
+        },
+        'Stato': {
+          'status': {'name': 'Disponibile'},
+        },
         'Proprietà': {
           'select': {'name': 'FICR'},
         },
@@ -45,6 +53,8 @@ void main() {
     expect(item.id, 'INV-12');
     expect(item.type, 'Fotocellula');
     expect(item.displayName, 'Acme Fast 2');
+    expect(item.ficrCode, 'FICR-44');
+    expect(item.status, 'Disponibile');
     expect(item.ownership, 'FICR');
     expect(item.purchaseDate, DateTime(2026, 1, 20));
     expect(item.retired, isTrue);
@@ -54,13 +64,26 @@ void main() {
   test('serializes editable inventory values', () {
     final payload = InventoryItem(
       type: 'Cronometro',
-      ownership: 'NOSTRO',
+      ownership: 'FICR',
+      ficrCode: 'F-12',
+      status: 'In manutenzione',
       purchaseDate: DateTime(2025, 3, 4),
       retired: false,
     ).toPayload();
 
     expect(payload['type'], 'Cronometro');
     expect(payload['purchaseDate'], '2025-03-04');
+    expect(payload['ficrCode'], 'F-12');
+    expect(payload['status'], 'In manutenzione');
     expect(payload['retired'], isFalse);
+  });
+
+  test('clears the FICR code when ownership is not FICR', () {
+    final payload = const InventoryItem(
+      ownership: 'NOSTRO',
+      ficrCode: 'DA-NON-SALVARE',
+    ).toPayload();
+
+    expect(payload['ficrCode'], isEmpty);
   });
 }

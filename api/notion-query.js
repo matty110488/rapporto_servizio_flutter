@@ -62,6 +62,11 @@ export function inventoryPropertiesPayload(schemaProperties, rawItem, generatedI
   setValue(fields.brand, String(item.brand || '').slice(0, 500));
   setValue(fields.model, String(item.model || '').slice(0, 500));
   setValue(fields.serialNumber, String(item.serialNumber || '').slice(0, 500));
+  setValue(
+    fields.ficrCode,
+    item.ownership === 'FICR' ? String(item.ficrCode || '').slice(0, 500) : '',
+  );
+  setValue(fields.status, String(item.status || '').slice(0, 100));
   setValue(fields.ownership, String(item.ownership || 'NOSTRO').slice(0, 100));
   setValue(fields.purchaseDate, item.purchaseDate || null);
   setValue(fields.lastMaintenanceDate, item.lastMaintenanceDate || null);
@@ -1781,7 +1786,12 @@ export default async function handler(req, res) {
         : fields.type?.type === 'status'
           ? (fields.type.status?.options || []).map((option) => option.name).filter(Boolean)
           : [];
-      return res.status(200).json({ results, typeOptions });
+      const statusOptions = fields.status?.type === 'select'
+        ? (fields.status.select?.options || []).map((option) => option.name).filter(Boolean)
+        : fields.status?.type === 'status'
+          ? (fields.status.status?.options || []).map((option) => option.name).filter(Boolean)
+          : [];
+      return res.status(200).json({ results, typeOptions, statusOptions });
     }
 
     if (action === 'saveInventoryItem') {
@@ -1836,6 +1846,30 @@ export default async function handler(req, res) {
         { parent: { database_id: databaseId }, properties },
       );
       return res.status(created.status).json(created.data);
+    }
+
+    if (action === 'deleteInventoryItem') {
+      if (session.admin !== true) {
+        return res.status(403).json({ error: 'Administrator access required' });
+      }
+      const databaseId = typeof safeBody.databaseId === 'string'
+        ? safeBody.databaseId.trim()
+        : '';
+      const pageId = typeof safeBody.pageId === 'string' ? safeBody.pageId.trim() : '';
+      if (!allowedInventoryIds.has(normalizedNotionId(databaseId)) || !pageId) {
+        return res.status(400).json({ error: 'Invalid inventory deletion request' });
+      }
+      const existing = await notionRequest(`https://api.notion.com/v1/pages/${pageId}`, 'GET');
+      if (existing.status !== 200) return res.status(existing.status).json(existing.data);
+      if (normalizedNotionId(existing.data?.parent?.database_id) !== normalizedNotionId(databaseId)) {
+        return res.status(403).json({ error: 'Inventory page not allowed' });
+      }
+      const archived = await notionRequest(
+        `https://api.notion.com/v1/pages/${pageId}`,
+        'PATCH',
+        { archived: true },
+      );
+      return res.status(archived.status).json(archived.data);
     }
 
     if (action === 'queryDatabase') {
