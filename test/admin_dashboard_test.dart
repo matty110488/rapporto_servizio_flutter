@@ -4,9 +4,8 @@ import 'package:rapporto_servizio/config/app_config.dart';
 import 'package:rapporto_servizio/models/admin_dashboard_data.dart';
 import 'package:rapporto_servizio/models/gara.dart';
 import 'package:rapporto_servizio/pages/admin_dashboard_page.dart';
-import 'package:rapporto_servizio/pages/home_page.dart';
+import 'package:rapporto_servizio/pages/main_navigation_shell.dart';
 import 'package:rapporto_servizio/services/notion_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeNotionService extends NotionService {
   _FakeNotionService(this.rows) : super(databaseId: 'test');
@@ -247,16 +246,13 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('il menu admin compare solo agli amministratori', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final notion = _FakeNotionService(const []);
-
+  testWidgets('Altro mostra il Centro Admin solo agli amministratori',
+      (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: HomePage(
+        home: MorePage(
           loggedUser: _adminUser(),
           onLogout: () {},
-          notionService: notion,
         ),
       ),
     );
@@ -267,10 +263,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: HomePage(
+        home: MorePage(
           loggedUser: const {'id': 'user-1', 'properties': <String, dynamic>{}},
           onLogout: () {},
-          notionService: notion,
         ),
       ),
     );

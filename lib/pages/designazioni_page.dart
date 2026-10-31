@@ -12,7 +12,13 @@ import 'dettaglio_gara.dart';
 
 class DesignazioniPage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
-  const DesignazioniPage({super.key, required this.loggedUser});
+  final VoidCallback? onOpenHome;
+
+  const DesignazioniPage({
+    super.key,
+    required this.loggedUser,
+    this.onOpenHome,
+  });
 
   @override
   State<DesignazioniPage> createState() => _DesignazioniPageState();
@@ -120,6 +126,7 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
           helpContent: HelpContent.designazioni,
           onRefresh: () => _caricaGare(forceRefresh: true),
           refreshEnabled: !loading,
+          onHome: widget.onOpenHome,
         ),
       ),
       body: DecoratedBox(

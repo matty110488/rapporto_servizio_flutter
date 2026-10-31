@@ -22,12 +22,14 @@ import 'dettaglio_gara.dart';
 
 class GarePage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
+  final VoidCallback? onOpenHome;
   @visibleForTesting
   final List<Gara>? initialGare;
 
   const GarePage({
     super.key,
     required this.loggedUser,
+    this.onOpenHome,
     this.initialGare,
   });
 
@@ -666,7 +668,11 @@ class _GarePageState extends State<GarePage> {
                 HelpContent.calendario,
               );
             case _CalendarMenuAction.home:
-              Navigator.of(context).popUntil((route) => route.isFirst);
+              if (widget.onOpenHome != null) {
+                widget.onOpenHome!();
+              } else {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              }
           }
         },
         itemBuilder: (context) => [

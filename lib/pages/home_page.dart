@@ -8,7 +8,6 @@ import '../config/app_config.dart';
 import '../models/gara.dart';
 import '../services/app_update_exception.dart';
 import '../services/app_update_service.dart';
-import '../services/app_preferences_service.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/push_notification_service.dart';
@@ -25,19 +24,63 @@ import 'service_reports_page.dart';
 import 'settings_page.dart';
 import 'statistiche_page.dart';
 
+@immutable
+class HomeWelcomePhoto {
+  final String assetName;
+  final Alignment alignment;
+
+  const HomeWelcomePhoto({
+    required this.assetName,
+    this.alignment = Alignment.center,
+  });
+}
+
+const _defaultWelcomePhotos = <HomeWelcomePhoto>[
+  HomeWelcomePhoto(
+    assetName: 'assets/home-valtellina-header.webp',
+    alignment: Alignment.centerLeft,
+  ),
+  HomeWelcomePhoto(assetName: 'assets/sci-piste.webp'),
+  HomeWelcomePhoto(assetName: 'assets/panorama-inverno.webp'),
+  HomeWelcomePhoto(
+    assetName: 'assets/gara-sci.webp',
+    alignment: Alignment(0, -0.35),
+  ),
+];
+
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
   final VoidCallback onLogout;
   final NotionService? notionService;
+  final VoidCallback? onOpenCalendar;
+  final VoidCallback? onOpenDesignations;
+  final VoidCallback? onOpenReports;
+  final bool showDesktopSidebar;
   @visibleForTesting
   final int initialUnreadNotifications;
+  @visibleForTesting
+  final List<PushNotice>? initialNotifications;
+  @visibleForTesting
+  final List<HomeWelcomePhoto> welcomePhotos;
+  @visibleForTesting
+  final Duration welcomePhotoInterval;
+  @visibleForTesting
+  final Duration welcomePhotoFadeDuration;
 
   const HomePage({
     super.key,
     required this.loggedUser,
     required this.onLogout,
     this.notionService,
+    this.onOpenCalendar,
+    this.onOpenDesignations,
+    this.onOpenReports,
+    this.showDesktopSidebar = true,
     this.initialUnreadNotifications = 0,
+    this.initialNotifications,
+    this.welcomePhotos = _defaultWelcomePhotos,
+    this.welcomePhotoInterval = const Duration(seconds: 7),
+    this.welcomePhotoFadeDuration = const Duration(milliseconds: 800),
   });
 
   @override
@@ -52,20 +95,24 @@ class _HomePageState extends State<HomePage> {
   String? _dashboardError;
   _DashboardData _dashboard = const _DashboardData();
   int _unreadNotifications = 0;
+  List<PushNotice> _notifications = const [];
+  bool _notificationsLoaded = false;
+  bool _loadingNotifications = true;
   late final PageController _raceControlController;
   int _raceControlIndex = 0;
   Timer? _dashboardRefreshTimer;
   Timer? _notificationPollingTimer;
   Timer? _versionTapResetTimer;
   int _versionTapCount = 0;
-  _HomeMenuMode _menuMode = _HomeMenuMode.list;
 
   @override
   void initState() {
     super.initState();
     _raceControlController = PageController(viewportFraction: 0.87);
     _unreadNotifications = widget.initialUnreadNotifications;
-    unawaited(_loadMenuPreference());
+    _notifications = widget.initialNotifications ?? const [];
+    _notificationsLoaded = widget.initialNotifications != null;
+    _loadingNotifications = widget.initialNotifications == null;
     _notion = widget.notionService ??
         NotionService(databaseId: AppConfig.currentRaceDatabaseId);
     unawaited(_loadAppVersion());
@@ -91,28 +138,6 @@ class _HomePageState extends State<HomePage> {
         unawaited(_openGaraFromNotification(garaId));
       }
     });
-  }
-
-  Future<void> _loadMenuPreference() async {
-    try {
-      final gridEnabled = await AppPreferencesService.loadHomeMenuGridEnabled();
-      if (!mounted) return;
-      setState(() {
-        _menuMode = gridEnabled ? _HomeMenuMode.grid : _HomeMenuMode.list;
-      });
-    } catch (_) {
-      // Elenco resta il fallback quando lo storage locale non è disponibile.
-    }
-  }
-
-  void _setMenuMode(_HomeMenuMode mode) {
-    if (_menuMode == mode) return;
-    setState(() => _menuMode = mode);
-    unawaited(
-      AppPreferencesService.saveHomeMenuGridEnabled(
-        mode == _HomeMenuMode.grid,
-      ),
-    );
   }
 
   @override
@@ -142,6 +167,33 @@ class _HomePageState extends State<HomePage> {
       context,
       MaterialPageRoute(builder: (_) => page),
     );
+  }
+
+  void _openCalendar() {
+    final callback = widget.onOpenCalendar;
+    if (callback != null) {
+      callback();
+      return;
+    }
+    _openPage(context, GarePage(loggedUser: widget.loggedUser));
+  }
+
+  void _openDesignations() {
+    final callback = widget.onOpenDesignations;
+    if (callback != null) {
+      callback();
+      return;
+    }
+    _openPage(context, DesignazioniPage(loggedUser: widget.loggedUser));
+  }
+
+  void _openReports() {
+    final callback = widget.onOpenReports;
+    if (callback != null) {
+      callback();
+      return;
+    }
+    _openPage(context, ServiceReportsPage(loggedUser: widget.loggedUser));
   }
 
   String _extractUserName() {
@@ -235,11 +287,16 @@ class _HomePageState extends State<HomePage> {
       final notifications = await fetchPushNotifications(userId);
       if (!mounted) return;
       setState(() {
+        _notifications = notifications;
         _unreadNotifications =
             notifications.where((notice) => !notice.read).length;
+        _notificationsLoaded = true;
+        _loadingNotifications = false;
       });
     } catch (_) {
-      // Silent: badge refresh must not block the home page.
+      if (!mounted) return;
+      setState(() => _loadingNotifications = false);
+      // Silent: notification refresh must not block the home page.
     }
   }
 
@@ -259,7 +316,7 @@ class _HomePageState extends State<HomePage> {
       );
     } catch (_) {
       if (!mounted) return;
-      _openPage(context, GarePage(loggedUser: widget.loggedUser));
+      _openCalendar();
     }
   }
 
@@ -405,26 +462,19 @@ class _HomePageState extends State<HomePage> {
         icon: Icons.flag,
         label: 'Calendario gare',
         subtitle: 'Consulta eventi e disponibilità',
-        onTap: () =>
-            _openPage(context, GarePage(loggedUser: widget.loggedUser)),
+        onTap: _openCalendar,
       ),
       _HomeNavData(
         icon: Icons.assignment_turned_in,
         label: 'Le tue designazioni',
         subtitle: 'Vedi servizi assegnati e conclusi',
-        onTap: () => _openPage(
-          context,
-          DesignazioniPage(loggedUser: widget.loggedUser),
-        ),
+        onTap: _openDesignations,
       ),
       _HomeNavData(
         icon: Icons.assignment,
         label: 'Rapporti di Servizio',
         subtitle: 'Nuovi rapportini, bozze e archivio inviati',
-        onTap: () => _openPage(
-          context,
-          ServiceReportsPage(loggedUser: widget.loggedUser),
-        ),
+        onTap: _openReports,
       ),
       _HomeNavData(
         icon: Icons.insights,
@@ -440,9 +490,10 @@ class _HomePageState extends State<HomePage> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final useSidebar = constraints.maxWidth >= 900;
+        final desktopLayout = constraints.maxWidth >= 900;
+        final useSidebar = desktopLayout && widget.showDesktopSidebar;
         return Scaffold(
-          appBar: useSidebar
+          appBar: desktopLayout
               ? null
               : AppBar(
                   automaticallyImplyLeading: false,
@@ -492,18 +543,14 @@ class _HomePageState extends State<HomePage> {
                       Expanded(
                         child: _homeContent(
                           userName: userName,
-                          navItems: navItems,
                           onOpenNotifications: notificationItem.onTap,
-                          compact: false,
                         ),
                       ),
                     ],
                   )
                 : _homeContent(
                     userName: userName,
-                    navItems: navItems,
                     onOpenNotifications: notificationItem.onTap,
-                    compact: true,
                   ),
           ),
         );
@@ -513,40 +560,27 @@ class _HomePageState extends State<HomePage> {
 
   Widget _homeContent({
     required String userName,
-    required List<_HomeNavData> navItems,
     required VoidCallback onOpenNotifications,
-    required bool compact,
   }) {
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: compact ? 720 : 980),
+        constraints: const BoxConstraints(maxWidth: 980),
         child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            compact ? 16 : 28,
-            compact ? 12 : 28,
-            compact ? 16 : 28,
-            24,
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            AppSpacing.lg,
           ),
           children: [
-            _hero(userName),
-            const SizedBox(height: AppSpacing.xxs),
-            if (compact) ...[
-              _mainMenu(navItems),
-              const SizedBox(height: AppSpacing.md),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: widget.onLogout,
-                  icon: const Icon(Icons.logout_rounded),
-                  label: const Text('Logout'),
-                ),
-              ),
-            ] else
-              _DesktopSummaryCard(
-                notificationsCount: _unreadNotifications,
-                onOpenNotifications: onOpenNotifications,
-              ),
+            _welcomePanorama(userName),
+            const SizedBox(height: AppSpacing.lg),
+            _raceControlSection(),
+            const SizedBox(height: AppSpacing.lg),
+            _identityBanner(),
+            const SizedBox(height: AppSpacing.lg),
+            _notificationsPreview(onOpenNotifications),
             const SizedBox(height: AppSpacing.md),
             Center(
               child: GestureDetector(
@@ -571,203 +605,107 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _mainMenu(List<_HomeNavData> navItems) {
-    final disableAnimations =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Menu principale',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            _menuModeSelector(),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        AnimatedSwitcher(
-          duration: disableAnimations
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
-          switchInCurve: Curves.easeOut,
-          switchOutCurve: Curves.easeIn,
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
-          child: _menuMode == _HomeMenuMode.list
-              ? Column(
-                  key: const ValueKey(_HomeMenuMode.list),
-                  children: navItems
-                      .map(
-                        (item) => Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: AppSpacing.xs,
-                          ),
-                          child: _HomeMenuTile(item: item),
-                        ),
-                      )
-                      .toList(),
-                )
-              : KeyedSubtree(
-                  key: const ValueKey(_HomeMenuMode.grid),
-                  child: _gridMenu(navItems),
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _menuModeSelector() {
-    return SegmentedButton<_HomeMenuMode>(
-      key: const ValueKey('home-menu-mode-selector'),
-      showSelectedIcon: false,
-      style: ButtonStyle(
-        tapTargetSize: MaterialTapTargetSize.padded,
-        minimumSize: const WidgetStatePropertyAll(Size(44, 40)),
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        foregroundColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? Colors.white
-              : AppColors.textSecondary,
-        ),
-        backgroundColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? AppColors.primary
-              : AppColors.surface,
-        ),
-        side: WidgetStateProperty.resolveWith(
-          (states) => BorderSide(
-            color: states.contains(WidgetState.selected)
-                ? AppColors.primary
-                : AppColors.cardOutline,
-          ),
-        ),
-      ),
-      segments: [
-        ButtonSegment(
-          value: _HomeMenuMode.list,
-          tooltip: 'Elenco',
-          icon: Semantics(
-            label: 'Visualizzazione elenco',
-            child: const Icon(Icons.view_list_rounded, size: 20),
-          ),
-        ),
-        ButtonSegment(
-          value: _HomeMenuMode.grid,
-          tooltip: 'Griglia',
-          icon: Semantics(
-            label: 'Visualizzazione griglia',
-            child: const Icon(Icons.grid_view_rounded, size: 19),
-          ),
-        ),
-      ],
-      selected: {_menuMode},
-      onSelectionChanged: (selection) => _setMenuMode(selection.first),
-    );
-  }
-
-  Widget _gridMenu(List<_HomeNavData> navItems) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final textScale = MediaQuery.textScalerOf(context).scale(1);
-        final columns =
-            constraints.maxWidth >= 340 && textScale <= 1.25 ? 2 : 1;
-        if (columns == 1) {
-          return Column(
-            children: navItems
-                .map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                    child: _HomeGridTile(item: item),
-                  ),
-                )
-                .toList(),
-          );
-        }
-        final rows = <Widget>[];
-        for (var index = 0; index < navItems.length; index += 2) {
-          final second = index + 1;
-          rows.add(
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(child: _HomeGridTile(item: navItems[index])),
-                    const SizedBox(width: AppSpacing.xs),
-                    Expanded(
-                      child: second < navItems.length
-                          ? _HomeGridTile(item: navItems[second])
-                          : const SizedBox.shrink(),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }
-        return Column(children: rows);
-      },
-    );
-  }
-
-  Widget _hero(String userName) {
-    String formatDate(String iso) {
-      return formatItalianIsoDate(iso) ?? '-';
-    }
-
-    final prossimi = _dashboard.nextServices;
+  Widget _welcomePanorama(String userName) {
     final now = DateTime.now();
     final greeting = now.hour < 12
         ? 'Buongiorno'
         : now.hour < 18
             ? 'Buon pomeriggio'
             : 'Buonasera';
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final height = textScale > 1.2 ? 220.0 : 186.0;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadii.large),
+      child: SizedBox(
+        key: const ValueKey('home-alpine-panorama'),
+        height: height,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _HomePhotoCarousel(
+              photos: widget.welcomePhotos,
+              rotationInterval: widget.welcomePhotoInterval,
+              fadeDuration: widget.welcomePhotoFadeDuration,
+            ),
+            const IgnorePointer(
+              child: DecoratedBox(
+                key: ValueKey('home-welcome-photo-overlay'),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xF5F8FCFF),
+                      Color(0xCFEAF4FC),
+                      Color(0x42FFFFFF),
+                      Color(0x0AFFFFFF),
+                    ],
+                    stops: [0, 0.36, 0.72, 1],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.md,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text.rich(
+                    TextSpan(
+                      text: '$greeting, ',
+                      children: [
+                        TextSpan(
+                          text: userName,
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    maxLines: 2,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 25,
+                      height: 1.12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    _longItalianDate(now),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _raceControlSection() {
+    String formatDate(String iso) {
+      return formatItalianIsoDate(iso) ?? '-';
+    }
+
+    final prossimi = _dashboard.nextServices;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text.rich(
-          TextSpan(
-            text: '$greeting, ',
-            children: [
-              TextSpan(
-                text: userName,
-                style: const TextStyle(
-                  color: AppColors.primaryDeep,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 23,
-            height: 1.15,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.35,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xxs),
-        Text(
-          _longItalianDate(now),
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 13,
-            height: 1.35,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
         Row(
           children: [
             const Icon(
@@ -894,10 +832,7 @@ class _HomePageState extends State<HomePage> {
                       horizontal: AppSpacing.xxs,
                     ),
                   ),
-                  onPressed: () => _openPage(
-                    context,
-                    GarePage(loggedUser: widget.loggedUser),
-                  ),
+                  onPressed: _openCalendar,
                   icon: const Icon(Icons.arrow_forward_rounded, size: 18),
                   label: const Text('Vai al calendario'),
                 ),
@@ -910,6 +845,235 @@ class _HomePageState extends State<HomePage> {
           _raceControlCarousel(prossimi, formatDate),
       ],
     );
+  }
+
+  Widget _identityBanner() {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final height = textScale > 1.2 ? 340.0 : 190.0;
+    return Semantics(
+      label: 'Cronometristi Valtellinesi. Precisione, Servizio, Passione.',
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadii.large),
+        child: SizedBox(
+          key: const ValueKey('home-identity-banner'),
+          height: height,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              const ExcludeSemantics(
+                child: IgnorePointer(
+                  child: CustomPaint(painter: _HomeIdentityBannerPainter()),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    const Text(
+                      'Cronometristi\nValtellinesi',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        height: 0.95,
+                        fontWeight: FontWeight.w600,
+                        fontStyle: FontStyle.italic,
+                        letterSpacing: -0.7,
+                        shadows: [
+                          Shadow(
+                            color: Color(0x66000000),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    const Text(
+                      'PRECISIONE · SERVIZIO · PASSIONE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.05,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Row(
+                      children: const [
+                        _TricolorSegment(color: Color(0xFF168451)),
+                        _TricolorSegment(color: Colors.white),
+                        _TricolorSegment(color: Color(0xFFDC2626)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _notificationsPreview(VoidCallback onOpenNotifications) {
+    final latest = _notifications.isEmpty ? null : _notifications.first;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.campaign_rounded,
+              color: AppColors.primary,
+              size: 24,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            const Expanded(
+              child: Text(
+                'Notifiche',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: onOpenNotifications,
+              iconAlignment: IconAlignment.end,
+              icon: const Icon(Icons.chevron_right_rounded, size: 20),
+              label: const Text('Vedi tutte'),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        if (_loadingNotifications)
+          const AppCard(
+            variant: AppCardVariant.outlined,
+            child: Row(
+              children: [
+                SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: AppSpacing.sm),
+                Expanded(child: Text('Caricamento notifiche…')),
+              ],
+            ),
+          )
+        else if (latest != null)
+          AppCard(
+            key: const ValueKey('home-notification-preview'),
+            variant: AppCardVariant.outlined,
+            onTap: onOpenNotifications,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: latest.read
+                        ? AppColors.primarySoft
+                        : const Color(0xFFE5F6EC),
+                    borderRadius: BorderRadius.circular(AppRadii.medium),
+                  ),
+                  child: Icon(
+                    latest.read
+                        ? Icons.notifications_none_rounded
+                        : Icons.mark_email_unread_rounded,
+                    color: latest.read ? AppColors.primary : AppColors.success,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              latest.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 15,
+                                fontWeight: latest.read
+                                    ? FontWeight.w600
+                                    : FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          if (!latest.read) ...[
+                            const SizedBox(width: AppSpacing.xs),
+                            const Badge(label: Text('Nuova')),
+                          ],
+                        ],
+                      ),
+                      if (latest.body.trim().isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.xxs),
+                        Text(
+                          latest.body,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        _notificationDate(latest.receivedAt),
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textSecondary,
+                ),
+              ],
+            ),
+          )
+        else if (_notificationsLoaded)
+          AppCard(
+            variant: AppCardVariant.outlined,
+            onTap: onOpenNotifications,
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.notifications_none_rounded,
+                  color: AppColors.primary,
+                ),
+                SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text('Al momento non ci sono notifiche da mostrare.'),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _notificationDate(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    return '$day/$month/${date.year}';
   }
 
   String _longItalianDate(DateTime date) {
@@ -1165,6 +1329,378 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+class _TricolorSegment extends StatelessWidget {
+  const _TricolorSegment({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(width: 34, height: 4, color: color);
+  }
+}
+
+class _HomePhotoCarousel extends StatefulWidget {
+  final List<HomeWelcomePhoto> photos;
+  final Duration rotationInterval;
+  final Duration fadeDuration;
+
+  const _HomePhotoCarousel({
+    required this.photos,
+    required this.rotationInterval,
+    required this.fadeDuration,
+  }) : assert(photos.length > 0);
+
+  @override
+  State<_HomePhotoCarousel> createState() => _HomePhotoCarouselState();
+}
+
+class _HomePhotoCarouselState extends State<_HomePhotoCarousel>
+    with WidgetsBindingObserver {
+  late final PageController _pageController;
+  final Set<String> _preparedAssets = <String>{};
+  Timer? _rotationTimer;
+  int _currentIndex = 0;
+  bool _isVisible = true;
+  bool _reduceMotion = false;
+  bool _appIsActive = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycleState = WidgetsBinding.instance.lifecycleState;
+    _appIsActive =
+        lifecycleState == null || lifecycleState == AppLifecycleState.resumed;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _isVisible = TickerMode.of(context);
+    _reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    _restartRotationTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _prepareNextPhoto();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _HomePhotoCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.photos, widget.photos)) {
+      _currentIndex = 0;
+      _preparedAssets.clear();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_pageController.hasClients) _pageController.jumpToPage(0);
+        _prepareNextPhoto();
+      });
+    }
+    _restartRotationTimer();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appIsActive = state == AppLifecycleState.resumed;
+    _restartRotationTimer();
+  }
+
+  void _restartRotationTimer() {
+    _rotationTimer?.cancel();
+    _rotationTimer = null;
+    if (widget.photos.length < 2 ||
+        !_isVisible ||
+        !_appIsActive ||
+        _reduceMotion) {
+      return;
+    }
+    _rotationTimer = Timer(widget.rotationInterval, _showNextPhoto);
+  }
+
+  void _showNextPhoto() {
+    if (!mounted) return;
+    final nextIndex = (_currentIndex + 1) % widget.photos.length;
+    _selectPhoto(nextIndex);
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(nextIndex);
+    }
+  }
+
+  void _selectPhoto(int index) {
+    if (!mounted || index == _currentIndex) {
+      _restartRotationTimer();
+      return;
+    }
+    setState(() => _currentIndex = index);
+    _prepareNextPhoto();
+    _restartRotationTimer();
+  }
+
+  void _prepareNextPhoto() {
+    if (!mounted || widget.photos.length < 2) return;
+    final nextIndex = (_currentIndex + 1) % widget.photos.length;
+    final assetName = widget.photos[nextIndex].assetName;
+    if (!_preparedAssets.add(assetName)) return;
+    unawaited(
+      precacheImage(
+        AssetImage(assetName),
+        context,
+        onError: (_, __) => _preparedAssets.remove(assetName),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _rotationTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final photo = widget.photos[_currentIndex];
+    final effectiveFadeDuration =
+        _reduceMotion ? Duration.zero : widget.fadeDuration;
+
+    return Stack(
+      key: const ValueKey('home-photo-carousel'),
+      fit: StackFit.expand,
+      children: [
+        IgnorePointer(
+          child: AnimatedSwitcher(
+            duration: effectiveFadeDuration,
+            switchInCurve: Curves.easeInOut,
+            switchOutCurve: Curves.easeInOut,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: child,
+            ),
+            child: SizedBox.expand(
+              key: ValueKey(photo.assetName),
+              child: Image.asset(
+                photo.assetName,
+                key: ValueKey('home-welcome-photo-$_currentIndex'),
+                fit: BoxFit.cover,
+                alignment: photo.alignment,
+                filterQuality: FilterQuality.high,
+                semanticLabel:
+                    'Panorama Valtellina ${_currentIndex + 1} di ${widget.photos.length}',
+                errorBuilder: (context, error, stackTrace) => const CustomPaint(
+                  painter: _HomeAlpinePanoramaPainter(),
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (widget.photos.length > 1)
+          PageView.builder(
+            key: const ValueKey('home-photo-swipe-area'),
+            controller: _pageController,
+            itemCount: widget.photos.length,
+            onPageChanged: _selectPhoto,
+            itemBuilder: (context, index) => const SizedBox.expand(),
+          ),
+        if (widget.photos.length > 1)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: AppSpacing.sm,
+            child: IgnorePointer(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(widget.photos.length, (index) {
+                  final selected = index == _currentIndex;
+                  return AnimatedContainer(
+                    key: ValueKey('home-photo-indicator-$index'),
+                    duration: effectiveFadeDuration,
+                    width: selected ? 15 : 6,
+                    height: 6,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? AppColors.primary
+                          : Colors.white.withValues(alpha: 0.78),
+                      borderRadius: BorderRadius.circular(99),
+                      border: selected
+                          ? null
+                          : Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.3),
+                            ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _HomeAlpinePanoramaPainter extends CustomPainter {
+  const _HomeAlpinePanoramaPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bounds = Offset.zero & size;
+    canvas.drawRect(
+      bounds,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFF9FCFF),
+            Color(0xFFEAF4FD),
+            Color(0xFFD7EAF9),
+          ],
+        ).createShader(bounds),
+    );
+
+    void mountainLayer({
+      required double baseline,
+      required Color color,
+      required List<Offset> peaks,
+    }) {
+      final path = Path()..moveTo(0, baseline);
+      for (final peak in peaks) {
+        path.lineTo(size.width * peak.dx, size.height * peak.dy);
+      }
+      path
+        ..lineTo(size.width, size.height)
+        ..lineTo(0, size.height)
+        ..close();
+      canvas.drawPath(path, Paint()..color = color);
+    }
+
+    mountainLayer(
+      baseline: size.height * 0.72,
+      color: const Color(0x66C7DFF3),
+      peaks: const [
+        Offset(0.08, 0.68),
+        Offset(0.24, 0.47),
+        Offset(0.34, 0.61),
+        Offset(0.50, 0.30),
+        Offset(0.61, 0.54),
+        Offset(0.76, 0.22),
+        Offset(0.88, 0.49),
+        Offset(1, 0.33),
+      ],
+    );
+    mountainLayer(
+      baseline: size.height * 0.82,
+      color: const Color(0x889ABFDD),
+      peaks: const [
+        Offset(0.00, 0.76),
+        Offset(0.17, 0.61),
+        Offset(0.30, 0.72),
+        Offset(0.45, 0.49),
+        Offset(0.58, 0.69),
+        Offset(0.73, 0.43),
+        Offset(0.86, 0.66),
+        Offset(1.00, 0.51),
+      ],
+    );
+    mountainLayer(
+      baseline: size.height,
+      color: const Color(0xB06E9BC1),
+      peaks: const [
+        Offset(0.00, 0.86),
+        Offset(0.20, 0.73),
+        Offset(0.36, 0.82),
+        Offset(0.55, 0.66),
+        Offset(0.70, 0.80),
+        Offset(0.88, 0.62),
+        Offset(1.00, 0.72),
+      ],
+    );
+
+    final mistBounds =
+        Rect.fromLTWH(0, size.height * 0.54, size.width, size.height * 0.46);
+    canvas.drawRect(
+      mistBounds,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x00FFFFFF), Color(0xB8F5FAFF)],
+        ).createShader(mistBounds),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _HomeAlpinePanoramaPainter oldDelegate) => false;
+}
+
+class _HomeIdentityBannerPainter extends CustomPainter {
+  const _HomeIdentityBannerPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bounds = Offset.zero & size;
+    canvas.drawRect(
+      bounds,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF064A78), Color(0xFF0875B8), Color(0xFF68B4E4)],
+        ).createShader(bounds),
+    );
+
+    final rear = Path()
+      ..moveTo(0, size.height * 0.62)
+      ..lineTo(size.width * 0.16, size.height * 0.42)
+      ..lineTo(size.width * 0.28, size.height * 0.57)
+      ..lineTo(size.width * 0.45, size.height * 0.27)
+      ..lineTo(size.width * 0.58, size.height * 0.53)
+      ..lineTo(size.width * 0.74, size.height * 0.32)
+      ..lineTo(size.width * 0.88, size.height * 0.55)
+      ..lineTo(size.width, size.height * 0.39)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(rear, Paint()..color = const Color(0xA8D7ECF8));
+
+    final valley = Path()
+      ..moveTo(0, size.height * 0.74)
+      ..quadraticBezierTo(
+        size.width * 0.30,
+        size.height * 0.58,
+        size.width * 0.52,
+        size.height * 0.79,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.75,
+        size.height * 0.60,
+        size.width,
+        size.height * 0.70,
+      )
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(valley, Paint()..color = const Color(0xCC315F79));
+
+    canvas.drawRect(
+      bounds,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [Color(0xB3073154), Color(0x20073154)],
+          stops: [0, 0.78],
+        ).createShader(bounds),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _HomeIdentityBannerPainter oldDelegate) => false;
+}
+
 class _DashboardData {
   final List<Gara> nextServices;
 
@@ -1172,8 +1708,6 @@ class _DashboardData {
     this.nextServices = const [],
   });
 }
-
-enum _HomeMenuMode { list, grid }
 
 class _HomeNavData {
   final IconData icon;
@@ -1373,130 +1907,6 @@ class _HomeMenuTile extends StatelessWidget {
             color: AppColors.textSecondary,
             size: 20,
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HomeGridTile extends StatelessWidget {
-  final _HomeNavData item;
-
-  const _HomeGridTile({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      variant: AppCardVariant.outlined,
-      onTap: item.onTap,
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.primarySoft,
-                  borderRadius: BorderRadius.circular(AppRadii.small),
-                ),
-                child: Icon(item.icon, color: AppColors.primary, size: 21),
-              ),
-              const Spacer(),
-              if (item.badgeCount > 0) Badge.count(count: item.badgeCount),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 34),
-            child: Align(
-              alignment: Alignment.bottomLeft,
-              child: Text(
-                item.label,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DesktopSummaryCard extends StatelessWidget {
-  final int notificationsCount;
-  final VoidCallback onOpenNotifications;
-
-  const _DesktopSummaryCard({
-    required this.notificationsCount,
-    required this.onOpenNotifications,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      variant: AppCardVariant.outlined,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.primarySoft,
-              borderRadius: BorderRadius.circular(AppRadii.small),
-            ),
-            child: Icon(
-              notificationsCount > 0
-                  ? Icons.mark_email_unread_outlined
-                  : Icons.dashboard_outlined,
-              color:
-                  notificationsCount > 0 ? AppColors.error : AppColors.primary,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Dashboard',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  notificationsCount > 0
-                      ? '$notificationsCount notifiche non lette'
-                      : 'Usa il menu laterale per aprire le sezioni operative.',
-                  style: TextStyle(
-                    color: notificationsCount > 0
-                        ? AppColors.error
-                        : AppColors.textSecondary,
-                    fontSize: 13,
-                    fontWeight: notificationsCount > 0
-                        ? FontWeight.w700
-                        : FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (notificationsCount > 0)
-            FilledButton(
-              onPressed: onOpenNotifications,
-              child: const Text('Apri notifiche'),
-            ),
         ],
       ),
     );

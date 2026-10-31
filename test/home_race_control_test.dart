@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rapporto_servizio/config/app_config.dart';
 import 'package:rapporto_servizio/pages/home_page.dart';
-import 'package:rapporto_servizio/services/app_preferences_service.dart';
 import 'package:rapporto_servizio/services/notion_service.dart';
+import 'package:rapporto_servizio/services/push_notification_service.dart';
 import 'package:rapporto_servizio/theme/app_theme.dart';
 import 'package:rapporto_servizio/widgets/app_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -108,7 +108,12 @@ Widget _home({
   required NotionService notion,
   VoidCallback? onLogout,
   int unread = 0,
+  List<PushNotice>? notifications,
   double textScale = 1,
+  bool disableAnimations = false,
+  List<HomeWelcomePhoto>? welcomePhotos,
+  Duration welcomePhotoInterval = const Duration(seconds: 7),
+  Duration welcomePhotoFadeDuration = const Duration(milliseconds: 800),
   NavigatorObserver? navigatorObserver,
 }) {
   return MaterialApp(
@@ -118,6 +123,7 @@ Widget _home({
       child: MediaQuery(
         data: MediaQuery.of(context).copyWith(
           textScaler: TextScaler.linear(textScale),
+          disableAnimations: disableAnimations,
         ),
         child: child!,
       ),
@@ -128,6 +134,22 @@ Widget _home({
       onLogout: onLogout ?? () {},
       notionService: notion,
       initialUnreadNotifications: unread,
+      initialNotifications: notifications,
+      welcomePhotos: welcomePhotos ??
+          const [
+            HomeWelcomePhoto(
+              assetName: 'assets/home-valtellina-header.webp',
+              alignment: Alignment.centerLeft,
+            ),
+            HomeWelcomePhoto(assetName: 'assets/sci-piste.webp'),
+            HomeWelcomePhoto(assetName: 'assets/panorama-inverno.webp'),
+            HomeWelcomePhoto(
+              assetName: 'assets/gara-sci.webp',
+              alignment: Alignment(0, -0.35),
+            ),
+          ],
+      welcomePhotoInterval: welcomePhotoInterval,
+      welcomePhotoFadeDuration: welcomePhotoFadeDuration,
     ),
   );
 }
@@ -137,7 +159,12 @@ Future<void> _pumpLoadedHome(
   required List<Map<String, dynamic>> rows,
   VoidCallback? onLogout,
   int unread = 0,
+  List<PushNotice>? notifications,
   double textScale = 1,
+  bool disableAnimations = false,
+  List<HomeWelcomePhoto>? welcomePhotos,
+  Duration welcomePhotoInterval = const Duration(seconds: 7),
+  Duration welcomePhotoFadeDuration = const Duration(milliseconds: 800),
   NavigatorObserver? navigatorObserver,
 }) async {
   await tester.pumpWidget(
@@ -145,7 +172,12 @@ Future<void> _pumpLoadedHome(
       notion: _FakeNotionService(rows),
       onLogout: onLogout,
       unread: unread,
+      notifications: notifications,
       textScale: textScale,
+      disableAnimations: disableAnimations,
+      welcomePhotos: welcomePhotos,
+      welcomePhotoInterval: welcomePhotoInterval,
+      welcomePhotoFadeDuration: welcomePhotoFadeDuration,
       navigatorObserver: navigatorObserver,
     ),
   );
@@ -340,90 +372,269 @@ void main() {
     expect(observer.pushes, 1);
   });
 
-  testWidgets('shared background remains visible in list and grid',
+  testWidgets('Home 3.0 exposes the Valtellina experience without a menu',
       (tester) async {
-    await _pumpLoadedHome(tester, rows: const []);
+    await _pumpLoadedHome(
+      tester,
+      rows: const [],
+      notifications: const [],
+    );
 
     expect(find.byType(ValtellinaBackground), findsOneWidget);
-    expect(find.byKey(const ValueKey('valtellina-background-art')),
-        findsOneWidget);
     expect(
-        tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor, isNull);
-    await tester.tap(find.byIcon(Icons.grid_view_rounded));
-    await tester.pumpAndSettle();
-    expect(find.byType(ValtellinaBackground), findsOneWidget);
+      find.byKey(const ValueKey('valtellina-background-art')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-alpine-panorama')),
+      findsOneWidget,
+    );
+    final welcomePhoto = tester.widget<Image>(
+      find.byKey(const ValueKey('home-welcome-photo-0')),
+    );
+    expect(
+      (welcomePhoto.image as AssetImage).assetName,
+      'assets/home-valtellina-header.webp',
+    );
+    expect(welcomePhoto.fit, BoxFit.cover);
+    expect(welcomePhoto.alignment, Alignment.centerLeft);
+    expect(
+      find.byKey(const ValueKey('home-photo-swipe-area')),
+      findsOneWidget,
+    );
+    for (var index = 0; index < 4; index++) {
+      expect(
+        find.byKey(ValueKey('home-photo-indicator-$index')),
+        findsOneWidget,
+      );
+    }
+    expect(
+      find.byKey(const ValueKey('home-welcome-photo-overlay')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-identity-banner')),
+      findsOneWidget,
+    );
+    expect(find.text('PRECISIONE · SERVIZIO · PASSIONE'), findsOneWidget);
+    expect(find.text('Menu principale'), findsNothing);
+    expect(find.byIcon(Icons.grid_view_rounded), findsNothing);
+    expect(
+      tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+      isNull,
+    );
     expect(AppColors.background, const Color(0xFFEAF2FB));
   });
 
-  testWidgets('logout remains directly accessible', (tester) async {
-    var loggedOut = false;
-    await _pumpLoadedHome(
-      tester,
-      rows: const [],
-      onLogout: () => loggedOut = true,
-    );
-
-    await tester.scrollUntilVisible(find.text('Logout'), 300);
-    await tester.tap(find.text('Logout'));
-    expect(loggedOut, isTrue);
-  });
-
-  testWidgets('list is default and menu switches both ways', (tester) async {
-    await _pumpLoadedHome(tester, rows: const []);
-
-    expect(find.text('Consulta eventi e disponibilità'), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.grid_view_rounded));
-    await tester.pumpAndSettle();
-    expect(find.text('Consulta eventi e disponibilità'), findsNothing);
-    expect(await AppPreferencesService.loadHomeMenuGridEnabled(), isTrue);
-
-    await tester.tap(find.byIcon(Icons.view_list_rounded));
-    await tester.pumpAndSettle();
-    expect(find.text('Consulta eventi e disponibilità'), findsOneWidget);
-    expect(await AppPreferencesService.loadHomeMenuGridEnabled(), isFalse);
-  });
-
-  testWidgets('grid preference is restored after rebuilding the app',
+  testWidgets('welcome photos rotate with an 800 ms fade and wrap around',
       (tester) async {
-    SharedPreferences.setMockInitialValues({'home_menu_grid_enabled': true});
-    await _pumpLoadedHome(tester, rows: const []);
+    await _pumpLoadedHome(
+      tester,
+      rows: const [],
+      notifications: const [],
+      welcomePhotoInterval: const Duration(seconds: 2),
+    );
 
-    expect(find.text('Consulta eventi e disponibilità'), findsNothing);
-    expect(find.text('Calendario gare'), findsOneWidget);
+    final switcher = tester.widget<AnimatedSwitcher>(
+      find.descendant(
+        of: find.byKey(const ValueKey('home-photo-carousel')),
+        matching: find.byType(AnimatedSwitcher),
+      ),
+    );
+    expect(switcher.duration, const Duration(milliseconds: 800));
+    expect(
+      find.byKey(const ValueKey('home-welcome-photo-0')),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(milliseconds: 1800));
+    expect(find.byType(FadeTransition), findsWidgets);
+    expect(
+      find.byKey(const ValueKey('home-welcome-photo-1')),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(milliseconds: 800));
+
+    for (var index = 2; index < 4; index++) {
+      await tester.pump(const Duration(milliseconds: 1200));
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(
+        find.byKey(ValueKey('home-welcome-photo-$index')),
+        findsOneWidget,
+      );
+    }
+
+    await tester.pump(const Duration(milliseconds: 1200));
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(
+      find.byKey(const ValueKey('home-welcome-photo-0')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
-  testWidgets('notification badge is visible in list and grid', (tester) async {
-    await _pumpLoadedHome(tester, rows: const [], unread: 4);
+  testWidgets('welcome carousel supports horizontal swiping and indicators',
+      (tester) async {
+    await _pumpLoadedHome(
+      tester,
+      rows: const [],
+      notifications: const [],
+      welcomePhotoInterval: const Duration(hours: 1),
+    );
 
-    expect(find.text('4'), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.grid_view_rounded));
+    final firstIndicator = tester.widget<AnimatedContainer>(
+      find.byKey(const ValueKey('home-photo-indicator-0')),
+    );
+    expect(firstIndicator.constraints?.maxWidth, 15);
+
+    await tester.fling(
+      find.byKey(const ValueKey('home-photo-swipe-area')),
+      const Offset(-600, 0),
+      1200,
+    );
     await tester.pumpAndSettle();
-    expect(find.text('4'), findsOneWidget);
+
+    final secondPhoto = tester.widget<Image>(
+      find.byKey(const ValueKey('home-welcome-photo-1')),
+    );
+    expect(
+        (secondPhoto.image as AssetImage).assetName, 'assets/sci-piste.webp');
+    final secondIndicator = tester.widget<AnimatedContainer>(
+      find.byKey(const ValueKey('home-photo-indicator-1')),
+    );
+    expect(secondIndicator.constraints?.maxWidth, 15);
+    expect(tester.takeException(), isNull);
   });
 
-  testWidgets('menu navigation works from list', (tester) async {
+  testWidgets('greeting stays fixed while welcome photos change',
+      (tester) async {
+    await _pumpLoadedHome(
+      tester,
+      rows: const [],
+      notifications: const [],
+      welcomePhotoInterval: const Duration(seconds: 1),
+    );
+
+    final greeting = find.textContaining('Mattia');
+    expect(greeting, findsOneWidget);
+    expect(
+      find.ancestor(of: greeting, matching: find.byType(AnimatedSwitcher)),
+      findsNothing,
+    );
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(greeting, findsOneWidget);
+    expect(
+      find.ancestor(of: greeting, matching: find.byType(AnimatedSwitcher)),
+      findsNothing,
+    );
+  });
+
+  testWidgets('one welcome photo has no swipe layer or indicators',
+      (tester) async {
+    await _pumpLoadedHome(
+      tester,
+      rows: const [],
+      notifications: const [],
+      welcomePhotos: const [
+        HomeWelcomePhoto(
+          assetName: 'assets/home-valtellina-header.webp',
+        ),
+      ],
+      welcomePhotoInterval: const Duration(milliseconds: 100),
+    );
+
+    expect(
+      find.byKey(const ValueKey('home-welcome-photo-0')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-photo-swipe-area')),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey('home-photo-indicator-0')), findsNothing);
+    await tester.pump(const Duration(seconds: 1));
+    expect(
+      find.byKey(const ValueKey('home-welcome-photo-0')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('reduced motion disables automatic welcome photo rotation',
+      (tester) async {
+    await _pumpLoadedHome(
+      tester,
+      rows: const [],
+      notifications: const [],
+      disableAnimations: true,
+      welcomePhotoInterval: const Duration(milliseconds: 100),
+    );
+
+    final switcher = tester.widget<AnimatedSwitcher>(
+      find.descendant(
+        of: find.byKey(const ValueKey('home-photo-carousel')),
+        matching: find.byType(AnimatedSwitcher),
+      ),
+    );
+    expect(switcher.duration, Duration.zero);
+    await tester.pump(const Duration(seconds: 1));
+    expect(
+      find.byKey(const ValueKey('home-welcome-photo-0')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('home-welcome-photo-1')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('welcome carousel disposes timer and controller safely',
+      (tester) async {
+    await _pumpLoadedHome(
+      tester,
+      rows: const [],
+      notifications: const [],
+      welcomePhotoInterval: const Duration(milliseconds: 100),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('notification preview uses real data and opens notifications',
+      (tester) async {
     final observer = _RecordingNavigatorObserver();
     await _pumpLoadedHome(
       tester,
       rows: const [],
       navigatorObserver: observer,
+      notifications: [
+        PushNotice(
+          title: 'Convocazione riunione',
+          body: 'La riunione tecnica è fissata per venerdì sera.',
+          read: false,
+          receivedAt: DateTime(2026, 10, 30),
+        ),
+      ],
     );
 
-    await tester.tap(find.text('Calendario gare'));
-    expect(observer.pushes, 1);
-  });
-
-  testWidgets('menu navigation works from grid', (tester) async {
-    final observer = _RecordingNavigatorObserver();
-    await _pumpLoadedHome(
-      tester,
-      rows: const [],
-      navigatorObserver: observer,
+    final notificationPreview =
+        find.byKey(const ValueKey('home-notification-preview'));
+    await tester.scrollUntilVisible(
+      notificationPreview,
+      300,
+      scrollable: find.byType(Scrollable).first,
     );
-
-    await tester.tap(find.byIcon(Icons.grid_view_rounded));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Calendario gare'));
+    expect(find.text('Convocazione riunione'), findsOneWidget);
+    expect(
+      find.text('La riunione tecnica è fissata per venerdì sera.'),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('home-notification-preview')),
+    );
     expect(observer.pushes, 1);
   });
 
@@ -468,37 +679,15 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('Menu principale'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-  }
-
-  for (final width in [320.0, 375.0, 393.0, 430.0, 768.0]) {
-    testWidgets('grid fits ${width.toInt()} px with 140% text', (tester) async {
-      tester.view.physicalSize = Size(width, 1200);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      SharedPreferences.setMockInitialValues({'home_menu_grid_enabled': true});
-
-      await tester.pumpWidget(
-        _home(
-          textScale: 1.4,
-          notion: _FakeNotionService([
-            _racePage(
-              id: 'responsive-grid',
-              title: 'Designazione con un titolo volutamente molto lungo',
-              date: '2026-11-12',
-            ),
-          ]),
-        ),
+      expect(
+        find.byKey(const ValueKey('home-alpine-panorama')),
+        findsOneWidget,
       );
-      await tester.pump();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-
-      expect(find.text('Centro di controllo Admin'), findsNothing);
-      expect(find.text('Calendario gare'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('home-identity-banner')),
+        findsOneWidget,
+      );
+      expect(find.text('Menu principale'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }

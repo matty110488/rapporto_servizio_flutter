@@ -10,8 +10,13 @@ import 'root_screen.dart';
 
 class ServiceReportsPage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
+  final VoidCallback? onOpenHome;
 
-  const ServiceReportsPage({super.key, required this.loggedUser});
+  const ServiceReportsPage({
+    super.key,
+    required this.loggedUser,
+    this.onOpenHome,
+  });
 
   @override
   State<ServiceReportsPage> createState() => _ServiceReportsPageState();
@@ -150,6 +155,7 @@ class _ServiceReportsPageState extends State<ServiceReportsPage> {
           helpTitle: 'Rapporti di servizio',
           helpContent: HelpContent.rapportini,
           onRefresh: _refreshDraftCount,
+          onHome: widget.onOpenHome,
         ),
       ),
       body: SafeArea(

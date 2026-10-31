@@ -41,3 +41,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logo.png
+    - assets/home-valtellina-header.webp
+    - assets/sci-piste.webp
+    - assets/panorama-inverno.webp
+    - assets/gara-sci.webp

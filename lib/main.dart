@@ -9,8 +9,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'config/app_environment.dart';
-import 'pages/home_page.dart';
 import 'pages/login_page.dart';
+import 'pages/main_navigation_shell.dart';
 import 'services/push_notification_service.dart';
 import 'state/session_state.dart';
 import 'theme/app_theme.dart';
@@ -257,7 +257,7 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
       debugShowCheckedModeBanner: false,
       theme: theme,
       builder: _appBuilder,
-      home: HomePage(
+      home: MainNavigationShell(
         loggedUser: loggedUser!,
         onLogout: _handleLogout,
       ),
