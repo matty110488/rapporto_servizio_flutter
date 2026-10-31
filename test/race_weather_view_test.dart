@@ -17,7 +17,8 @@ void main() {
     fetchedAt: null,
   );
 
-  testWidgets('weather summary fits a narrow race card', (tester) async {
+  testWidgets('minimal weather summary fits a narrow race card',
+      (tester) async {
     tester.view.physicalSize = const Size(320, 700);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -26,17 +27,35 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
+          body: const Padding(
+            padding: EdgeInsets.all(16),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: RaceWeatherPill(weather: weather),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('-10° / -2°'), findsOneWidget);
+    expect(find.text('Pioggia 100%'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('weather detail panel fits a narrow page', (tester) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
           body: Padding(
-            padding: const EdgeInsets.all(16),
-            child: ListView(
-              children: [
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: RaceWeatherPill(weather: weather),
-                ),
-                const SizedBox(height: 12),
-                const RaceWeatherPanel(weather: weather),
-              ],
+            padding: EdgeInsets.all(16),
+            child: SingleChildScrollView(
+              child: RaceWeatherPanel(weather: weather),
             ),
           ),
         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/race_weather.dart';
+import '../theme/app_theme.dart';
 
 IconData raceWeatherIcon(int code) {
   if (code == 0) return Icons.wb_sunny_rounded;
@@ -36,39 +37,62 @@ class RaceWeatherPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final temperature = raceWeatherTemperature(weather);
     final rain = weather.precipitationProbability;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8F4FF),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFBFDCF8)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            raceWeatherIcon(weather.weatherCode),
-            size: 16,
-            color: const Color(0xFF0A66C2),
-          ),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              [
-                weather.description,
-                if (temperature.isNotEmpty) temperature,
-                if (rain != null) 'pioggia $rain%',
-              ].join(' · '),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF27415F),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
+    final label = [
+      weather.description,
+      if (temperature.isNotEmpty) temperature,
+      if (rain != null) 'pioggia $rain%',
+    ].join(', ');
+    return Semantics(
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: Wrap(
+          spacing: 6,
+          runSpacing: 2,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  raceWeatherIcon(weather.weatherCode),
+                  size: 16,
+                  color: AppColors.textSecondary,
+                ),
+                if (temperature.isNotEmpty) ...[
+                  const SizedBox(width: 5),
+                  Text(
+                    temperature,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
             ),
-          ),
-        ],
+            if (rain != null)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    '·',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Pioggia $rain%',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }

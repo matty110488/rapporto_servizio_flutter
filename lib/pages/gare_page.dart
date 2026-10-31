@@ -11,16 +11,25 @@ import '../models/race_weather.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/weather_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
+import '../widgets/app_ui.dart';
+import '../widgets/help_dialog.dart';
 import '../widgets/race_weather_view.dart';
-import '../widgets/standard_app_bar_actions.dart';
 import '../widgets/stopwatch_loading.dart';
 import 'dettaglio_gara.dart';
 
 class GarePage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
-  const GarePage({super.key, required this.loggedUser});
+  @visibleForTesting
+  final List<Gara>? initialGare;
+
+  const GarePage({
+    super.key,
+    required this.loggedUser,
+    this.initialGare,
+  });
 
   @override
   State<GarePage> createState() => _GarePageState();
@@ -49,12 +58,20 @@ class _GarePageState extends State<GarePage> {
     notion = NotionService(
       databaseId: AppConfig.raceDatabaseIds[selectedYear]!,
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      PrankPopupService.maybeShow(context, widget.loggedUser);
-    });
+    if (widget.initialGare == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        PrankPopupService.maybeShow(context, widget.loggedUser);
+      });
+    }
 
-    load();
+    if (widget.initialGare != null) {
+      gare = List<Gara>.from(widget.initialGare!);
+      expandedMonths = _defaultExpandedMonths(gare);
+      loading = false;
+    } else {
+      load();
+    }
   }
 
   Future<void> load({
@@ -597,23 +614,19 @@ class _GarePageState extends State<GarePage> {
     final grouped = _garePerMese(filtered);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Calendario gare'),
-        actions: standardAppBarActions(
-          context,
-          helpTitle: 'Calendario',
-          helpContent: HelpContent.calendario,
-          onRefresh: () => load(showSpinner: true, forceRefresh: true),
-          refreshEnabled: !loading,
-        ),
-      ),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEAF3FF), Color(0xFFF8FBFF), Color(0xFFFFFFFF)],
+        titleSpacing: 0,
+        title: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onLongPress: () => PrankPopupService.showCheckeredFlag(context),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text('Calendario gare'),
           ),
         ),
+        actions: _buildAppBarActions(),
+      ),
+      body: SafeArea(
+        top: false,
         child: loading
             ? _buildLoadingState()
             : RefreshIndicator(
@@ -621,12 +634,14 @@ class _GarePageState extends State<GarePage> {
                 child: grouped.isEmpty
                     ? _buildEmptyState(filtersEnabled: true)
                     : ListView(
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.sm,
+                          AppSpacing.sm,
+                          AppSpacing.sm,
+                          AppSpacing.lg,
+                        ),
                         children: [
-                          _buildCalendarHeader(filtered.length),
-                          const SizedBox(height: 10),
-                          _buildFiltersCard(),
-                          const SizedBox(height: 10),
+                          _buildFilters(filtered.length),
                           ...grouped.entries.map(_buildMonthSection),
                         ],
                       ),
@@ -635,19 +650,67 @@ class _GarePageState extends State<GarePage> {
     );
   }
 
+  List<Widget> _buildAppBarActions() {
+    return [
+      PopupMenuButton<_CalendarMenuAction>(
+        tooltip: 'Altre azioni',
+        icon: const Icon(Icons.more_horiz_rounded),
+        onSelected: (action) {
+          switch (action) {
+            case _CalendarMenuAction.refresh:
+              load(showSpinner: true, forceRefresh: true);
+            case _CalendarMenuAction.help:
+              showHelpDialog(
+                context,
+                'Calendario',
+                HelpContent.calendario,
+              );
+            case _CalendarMenuAction.home:
+              Navigator.of(context).popUntil((route) => route.isFirst);
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: _CalendarMenuAction.refresh,
+            enabled: !loading,
+            child: const ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.refresh_rounded),
+              title: Text('Aggiorna'),
+            ),
+          ),
+          const PopupMenuItem(
+            value: _CalendarMenuAction.help,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.help_outline_rounded),
+              title: Text('Aiuto'),
+            ),
+          ),
+          const PopupMenuItem(
+            value: _CalendarMenuAction.home,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.home_outlined),
+              title: Text('Home'),
+            ),
+          ),
+        ],
+      ),
+    ];
+  }
+
   Widget _buildLoadingState() {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(12, 14, 12, 20),
       children: [
-        Container(
-          height: 130,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            color: Colors.white,
-          ),
-          child: const Center(
-            child: StopwatchLoading(label: 'Caricamento calendario gare...'),
+        const AppSurface(
+          child: SizedBox(
+            height: 98,
+            child: Center(
+              child: StopwatchLoading(label: 'Caricamento calendario gare...'),
+            ),
           ),
         ),
       ],
@@ -660,232 +723,233 @@ class _GarePageState extends State<GarePage> {
       padding: const EdgeInsets.all(20),
       children: [
         if (filtersEnabled) ...[
-          _buildCalendarHeader(0),
-          const SizedBox(height: 10),
-          _buildFiltersCard(),
-          const SizedBox(height: 10),
+          _buildFilters(0),
         ],
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x14000000),
-                blurRadius: 18,
-                offset: Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Icon(Icons.event_busy, size: 44, color: Colors.blueGrey.shade300),
-              const SizedBox(height: 10),
-              const Text(
-                'Nessuna gara disponibile',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                ' ',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.blueGrey.shade600),
-              ),
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: () => load(showSpinner: true, forceRefresh: true),
-                icon: const Icon(Icons.refresh),
-                label: const Text('Aggiorna'),
-              ),
-            ],
+        AppEmptyState(
+          icon: Icons.event_busy_outlined,
+          title: 'Nessuna gara disponibile',
+          message:
+              'Prova a cambiare periodo o filtri, oppure aggiorna il calendario.',
+          action: FilledButton.icon(
+            onPressed: () => load(showSpinner: true, forceRefresh: true),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Aggiorna'),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildFiltersCard() {
+  Widget _buildFilters(int visibleCount) {
     final sports = _sportsOptions();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFDCE8F6)),
-      ),
+    final periodLabel =
+        calendarPeriod == _CalendarPeriod.upcoming ? 'prossime' : 'passate';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              SizedBox(
-                width: 104,
-                child: DropdownButtonFormField<int>(
-                  initialValue: selectedYear,
-                  isDense: true,
-                  alignment: Alignment.center,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: const Color(0xFF27415F),
-                        fontWeight: FontWeight.w700,
-                      ),
-                  decoration: const InputDecoration(
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final textScale = MediaQuery.textScalerOf(context).scale(1);
+              final stackControls =
+                  constraints.maxWidth < 300 && textScale > 1.2;
+              if (stackControls) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildYearFilter(),
+                    const SizedBox(height: AppSpacing.xxs),
+                    SizedBox(
+                      width: double.infinity,
+                      child: _buildPeriodFilter(),
                     ),
-                    border: OutlineInputBorder(),
-                  ),
-                  items: AppConfig.configuredRaceYears
-                      .toList()
-                      .reversed
-                      .map(
-                        (year) => DropdownMenuItem<int>(
-                          value: year,
-                          alignment: Alignment.center,
-                          child: Text(
-                            '$year',
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (year) {
-                    if (year != null) _changeYear(year);
-                  },
-                ),
-              ),
-              SegmentedButton<_CalendarPeriod>(
-                showSelectedIcon: false,
-                style: ButtonStyle(
-                  alignment: Alignment.center,
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  padding: const WidgetStatePropertyAll(
-                    EdgeInsets.symmetric(horizontal: 16),
-                  ),
-                  textStyle: const WidgetStatePropertyAll(
-                    TextStyle(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  foregroundColor: WidgetStateProperty.resolveWith(
-                    (states) => states.contains(WidgetState.selected)
-                        ? Colors.white
-                        : const Color(0xFF27415F),
-                  ),
-                  backgroundColor: WidgetStateProperty.resolveWith(
-                    (states) => states.contains(WidgetState.selected)
-                        ? const Color(0xFF0A66C2)
-                        : const Color(0xFFF4F8FF),
-                  ),
-                  side: WidgetStateProperty.resolveWith(
-                    (states) => BorderSide(
-                      color: states.contains(WidgetState.selected)
-                          ? const Color(0xFF0A66C2)
-                          : const Color(0xFFDCE8F6),
-                    ),
-                  ),
-                ),
-                segments: const [
-                  ButtonSegment<_CalendarPeriod>(
-                    value: _CalendarPeriod.upcoming,
-                    label: Text(
-                      'Prossime',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  ButtonSegment<_CalendarPeriod>(
-                    value: _CalendarPeriod.past,
-                    label: Text(
-                      'Passate',
-                      textAlign: TextAlign.center,
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  _buildYearFilter(),
+                  const Spacer(),
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 214),
+                      child: _buildPeriodFilter(),
                     ),
                   ),
                 ],
-                selected: {calendarPeriod},
-                onSelectionChanged: (selection) {
-                  setState(() {
-                    calendarPeriod = selection.first;
-                    expandedMonths = _defaultExpandedMonths(gare);
-                  });
-                },
-              ),
-            ],
+              );
+            },
           ),
-          const Divider(height: 17, color: Color(0xFFDCE8F6)),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ..._AssignmentFilter.values.map(
-                (filter) => ChoiceChip(
-                  label: Text(_assignmentFilterLabel(filter)),
-                  showCheckmark: false,
-                  selected: assignmentFilter == filter,
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 5),
-                  selectedColor: const Color(0xFF0A66C2),
-                  backgroundColor: const Color(0xFFF4F8FF),
-                  side: BorderSide(
-                    color: assignmentFilter == filter
-                        ? const Color(0xFF0A66C2)
-                        : const Color(0xFFDCE8F6),
-                  ),
-                  labelStyle: TextStyle(
-                    color: assignmentFilter == filter
-                        ? Colors.white
-                        : const Color(0xFF27415F),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  onSelected: (_) => setState(() => assignmentFilter = filter),
-                ),
-              ),
-              SizedBox(
-                width: 180,
-                child: DropdownButtonFormField<String>(
-                  initialValue: sportFilter,
-                  isDense: true,
-                  isExpanded: true,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: const Color(0xFF27415F),
-                        fontWeight: FontWeight.w700,
-                      ),
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.sports_outlined, size: 19),
-                    prefixIconConstraints: BoxConstraints(minWidth: 36),
-                    contentPadding: EdgeInsets.fromLTRB(8, 9, 10, 9),
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem<String>(
-                      value: '',
-                      child: Text('Tutti gli sport'),
+          const SizedBox(height: AppSpacing.xs),
+          AppHorizontalScrollHint(
+            child: Row(
+              children: [
+                ..._AssignmentFilter.values.map(
+                  (filter) => Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: AppFilterChip(
+                      label: _assignmentFilterLabel(filter),
+                      selected: assignmentFilter == filter,
+                      onSelected: (_) =>
+                          setState(() => assignmentFilter = filter),
                     ),
-                    ...sports.map(
-                      (sport) => DropdownMenuItem<String>(
-                        value: sport,
-                        child: Text(
-                          sport,
-                          overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Container(
+                  height: 44,
+                  constraints:
+                      const BoxConstraints(minWidth: 112, maxWidth: 190),
+                  padding: const EdgeInsets.only(left: 12, right: 8),
+                  decoration: BoxDecoration(
+                    color: sportFilter.isEmpty
+                        ? AppColors.surface
+                        : AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: sportFilter.isEmpty
+                          ? AppColors.border
+                          : const Color(0xFFB9D7F3),
+                    ),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: sportFilter,
+                      isDense: true,
+                      isExpanded: true,
+                      borderRadius: BorderRadius.circular(AppRadii.medium),
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                          size: 19),
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      selectedItemBuilder: (context) => [
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('Sport'),
                         ),
-                      ),
+                        ...sports.map(
+                          (sport) => Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              sport,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: '',
+                          child: Text('Tutti gli sport'),
+                        ),
+                        ...sports.map(
+                          (sport) => DropdownMenuItem<String>(
+                            value: sport,
+                            child: Text(sport),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => sportFilter = value ?? ''),
                     ),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => sportFilter = value ?? ''),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '$visibleCount ${visibleCount == 1 ? 'gara' : 'gare'} $periodLabel',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildYearFilter() {
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<int>(
+        value: selectedYear,
+        borderRadius: BorderRadius.circular(AppRadii.medium),
+        icon: const Icon(Icons.keyboard_arrow_down_rounded),
+        style: const TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
+        ),
+        items: AppConfig.configuredRaceYears
+            .toList()
+            .reversed
+            .map(
+              (year) => DropdownMenuItem<int>(
+                value: year,
+                child: Text('$year'),
+              ),
+            )
+            .toList(),
+        onChanged: (year) {
+          if (year != null) _changeYear(year);
+        },
+      ),
+    );
+  }
+
+  Widget _buildPeriodFilter() {
+    return SegmentedButton<_CalendarPeriod>(
+      showSelectedIcon: false,
+      style: ButtonStyle(
+        alignment: Alignment.center,
+        tapTargetSize: MaterialTapTargetSize.padded,
+        minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 10),
+        ),
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.primaryDeep
+              : AppColors.textSecondary,
+        ),
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.surface
+              : const Color(0xFFEFF2F6),
+        ),
+        side: const WidgetStatePropertyAll(BorderSide.none),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.small),
+          ),
+        ),
+      ),
+      segments: const [
+        ButtonSegment<_CalendarPeriod>(
+          value: _CalendarPeriod.upcoming,
+          label: Text('Prossime', textAlign: TextAlign.center),
+        ),
+        ButtonSegment<_CalendarPeriod>(
+          value: _CalendarPeriod.past,
+          label: Text('Passate', textAlign: TextAlign.center),
+        ),
+      ],
+      selected: {calendarPeriod},
+      onSelectionChanged: (selection) {
+        setState(() {
+          calendarPeriod = selection.first;
+          expandedMonths = _defaultExpandedMonths(gare);
+        });
+      },
     );
   }
 
@@ -900,119 +964,52 @@ class _GarePageState extends State<GarePage> {
     }
   }
 
-  Widget _buildCalendarHeader(int visibleCount) {
-    final periodLabel =
-        calendarPeriod == _CalendarPeriod.upcoming ? 'prossime' : 'passate';
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF004E9A), Color(0xFF0A66C2), Color(0xFF338FE5)],
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x220A66C2),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onLongPress: () => PrankPopupService.showCheckeredFlag(context),
-            child: Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(Icons.event, color: Colors.white),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Calendario $selectedYear',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$visibleCount gare $periodLabel visibili',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton.filledTonal(
-            tooltip: 'Aggiorna calendario',
-            onPressed: loading
-                ? null
-                : () => load(showSpinner: true, forceRefresh: true),
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMonthSection(MapEntry<String, List<GaraPackage>> entry) {
     final isExpanded = expandedMonths.contains(entry.key);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFDCE8F6)),
-      ),
+    final raceCount = entry.value.fold<int>(
+      0,
+      (count, calendarEntry) => count + calendarEntry.gare.length,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           key: PageStorageKey(entry.key),
           initiallyExpanded: isExpanded,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-          childrenPadding: const EdgeInsets.only(bottom: 10),
+          minTileHeight: 44,
+          dense: true,
+          visualDensity: VisualDensity.compact,
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: const EdgeInsets.only(top: AppSpacing.xs),
           title: Row(
             children: [
               Container(
-                width: 8,
-                height: 8,
+                width: 7,
+                height: 7,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Color(0xFF0A66C2),
+                  color: AppColors.primary,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: Text(
                   entry.key.toUpperCase(),
                   style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.35,
                   ),
                 ),
               ),
               Text(
-                '${entry.value.length}',
-                style: TextStyle(
-                  color: Colors.blueGrey.shade700,
-                  fontWeight: FontWeight.w700,
+                '$raceCount ${raceCount == 1 ? 'gara' : 'gare'}',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -1028,7 +1025,7 @@ class _GarePageState extends State<GarePage> {
           },
           children: entry.value
               .map((calendarEntry) => Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                     child: _buildCalendarEntryCard(calendarEntry),
                   ))
               .toList(),
@@ -1056,148 +1053,112 @@ class _GarePageState extends State<GarePage> {
     final packageSoft =
         entry.suggested ? const Color(0xFFFFF3DE) : const Color(0xFFE4F0FF);
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: Colors.white,
-        border: Border.all(
-          color: entry.suggested
-              ? const Color(0xFFF1D6A8)
-              : const Color(0xFFCFE2FA),
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F0A66C2),
-            blurRadius: 12,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 62,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+    return AppCard(
+      variant: AppCardVariant.outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Semantics(
+                label: _formatEntryDateRange(entry),
+                child: Container(
+                  width: 52,
+                  constraints: const BoxConstraints(minHeight: 66),
+                  padding: const EdgeInsets.symmetric(vertical: 7),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF9FCFF),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFDCE8F6)),
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(AppRadii.small),
                   ),
-                  child: _dateBadge(main),
+                  child: ExcludeSemantics(child: _dateBadge(main)),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: packageSoft,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              packageLabel,
-                              style: TextStyle(
-                                color: packageColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          if (!entry.suggested &&
-                              (entry.packageId ?? '').isNotEmpty)
-                            _metaPill(Icons.tag, entry.packageId!),
-                        ],
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.title,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        height: 1.2,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        entry.title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          _metaPill(
-                              Icons.date_range, _formatEntryDateRange(entry)),
-                          _metaPill(
-                            Icons.view_day_outlined,
-                            '${gare.length} giornate',
-                          ),
-                          if (main.sport.isNotEmpty)
-                            _metaPill(Icons.sports, main.sport),
-                          if (main.localita.isNotEmpty)
-                            _metaPill(Icons.place, main.localita),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Column(
-              children: gare
-                  .map(
-                    (gara) => Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: _buildPackageDayRow(gara),
                     ),
-                  )
-                  .toList(),
-            ),
-            if (_loggedUserId != null && candidabili.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: packageUpdating
-                      ? null
-                      : () => _togglePackageDisponibilita(entry),
-                  icon: packageUpdating
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(
-                          allPackageAssigned
-                              ? Icons.person_remove_alt_1
-                              : Icons.group_add_outlined,
+                    const SizedBox(height: 6),
+                    AppStatusBadge(
+                      label: packageLabel,
+                      foregroundColor: packageColor,
+                      backgroundColor: packageSoft,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: 5,
+                      children: [
+                        _metaLine(
+                          Icons.date_range_outlined,
+                          _formatEntryDateRange(entry),
                         ),
-                  label: Text(
-                    allPackageAssigned
-                        ? 'Rimuovimi da tutte le gare'
-                        : 'Mi rendo disponibile per tutte le gare',
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF0A66C2),
-                    foregroundColor: Colors.white,
-                  ),
+                        _metaLine(
+                          Icons.view_day_outlined,
+                          '${gare.length} giornate',
+                        ),
+                        if (main.sport.isNotEmpty)
+                          _metaLine(Icons.sports_outlined, main.sport),
+                        if (main.localita.isNotEmpty)
+                          _metaLine(Icons.place_outlined, main.localita),
+                        if (!entry.suggested &&
+                            (entry.packageId ?? '').isNotEmpty)
+                          _metaLine(Icons.tag_rounded, entry.packageId!),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          const Divider(height: 1),
+          Column(
+            children: [
+              for (var index = 0; index < gare.length; index++) ...[
+                _buildPackageDayRow(gare[index]),
+                if (index < gare.length - 1) const Divider(height: 1),
+              ],
+            ],
+          ),
+          if (_loggedUserId != null && candidabili.isNotEmpty) ...[
+            const Divider(height: AppSpacing.md),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: packageUpdating
+                    ? null
+                    : () => _togglePackageDisponibilita(entry),
+                icon: packageUpdating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        allPackageAssigned
+                            ? Icons.person_remove_alt_1
+                            : Icons.group_add_outlined,
+                      ),
+                label: Text(
+                  allPackageAssigned
+                      ? 'Rimuovimi da tutte le gare'
+                      : 'Mi rendo disponibile per tutte le gare',
+                ),
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -1208,10 +1169,13 @@ class _GarePageState extends State<GarePage> {
     final designato = _isDesignato(gara);
     final updating = updatingGare.contains(gara.id);
     return Material(
-      color: const Color(0xFFF7FBFF),
-      borderRadius: BorderRadius.circular(13),
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(13),
+        overlayColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.pressed)
+              ? AppColors.cardPressed
+              : null,
+        ),
         onTap: () {
           Navigator.push(
             context,
@@ -1224,58 +1188,54 @@ class _GarePageState extends State<GarePage> {
           );
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  SizedBox(
-                    width: 108,
+                  Expanded(
                     child: Text(
                       _fmtDateWithWeekday(gara.dataGara) ?? '-',
                       style: const TextStyle(
-                        color: Color(0xFF27415F),
-                        fontWeight: FontWeight.w800,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
                         fontSize: 12,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      gara.titolo,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  _statusChip(gara.status),
-                  const SizedBox(width: 4),
                   const Icon(
                     Icons.chevron_right,
-                    color: Color(0xFF6D7E91),
+                    color: AppColors.textSecondary,
+                    size: 20,
                   ),
                 ],
               ),
+              Text(
+                gara.titolo,
+                softWrap: true,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 6),
+              _statusChip(gara.status),
               if (assigned || designato) ...[
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: _involvementChip(
-                    designato ? 'Sei designato' : 'Disponibilità data',
-                    designato
-                        ? Icons.verified_user_outlined
-                        : Icons.person_pin_circle_outlined,
-                  ),
+                const SizedBox(height: AppSpacing.xs),
+                _involvementChip(
+                  designato ? 'Sei designato' : 'Disponibilità data',
+                  designato
+                      ? Icons.verified_user_outlined
+                      : Icons.person_pin_circle_outlined,
                 ),
               ],
               if (weatherByRaceId[gara.id] != null) ...[
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: RaceWeatherPill(
-                    weather: weatherByRaceId[gara.id]!,
-                  ),
+                const SizedBox(height: AppSpacing.xs),
+                RaceWeatherPill(
+                  weather: weatherByRaceId[gara.id]!,
                 ),
               ],
               if (_loggedUserId != null && candidabile) ...[
@@ -1317,119 +1277,112 @@ class _GarePageState extends State<GarePage> {
     final candidabile = _puoCandidarsi(g);
     final assigned = _isUserAssigned(g);
     final designato = _isDesignato(g);
+    final hasDateRange = g.dataGaraFine.isNotEmpty &&
+        _parseDate(g.dataGaraFine) != _parseDate(g.dataGara);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => DettaglioGara(
-                gara: g,
-                loggedUser: widget.loggedUser,
-              ),
+    return AppCard(
+      variant: AppCardVariant.outlined,
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DettaglioGara(
+              gara: g,
+              loggedUser: widget.loggedUser,
             ),
-          );
-        },
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: const Color(0xFFF9FCFF),
-            border: Border.all(color: const Color(0xFFD9E8FA)),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
+        );
+      },
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Semantics(
+            label: _formatDateRange(g),
+            child: Container(
+              width: 52,
+              constraints: const BoxConstraints(minHeight: 66),
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              decoration: BoxDecoration(
+                color: AppColors.primarySoft,
+                borderRadius: BorderRadius.circular(AppRadii.small),
+              ),
+              child: ExcludeSemantics(child: _dateBadge(g)),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 62,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFDCE8F6)),
+                Text(
+                  g.titolo,
+                  softWrap: true,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    height: 1.2,
                   ),
-                  child: _dateBadge(g),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 6),
+                _statusChip(g.status),
+                if (hasDateRange ||
+                    g.sport.isNotEmpty ||
+                    g.localita.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: 5,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              g.titolo,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _statusChip(g.status),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          _metaPill(Icons.event, _formatDateRange(g)),
-                          if (g.sport.isNotEmpty)
-                            _metaPill(Icons.sports, g.sport),
-                          if (g.localita.isNotEmpty)
-                            _metaPill(Icons.place, g.localita),
-                          if (weatherByRaceId[g.id] != null)
-                            RaceWeatherPill(weather: weatherByRaceId[g.id]!),
-                        ],
-                      ),
-                      if (assigned || designato) ...[
-                        const SizedBox(height: 9),
-                        _involvementChip(
-                          designato ? 'Sei designato' : 'Disponibilità data',
-                          designato
-                              ? Icons.verified_user_outlined
-                              : Icons.person_pin_circle_outlined,
+                      if (hasDateRange)
+                        _metaLine(
+                          Icons.date_range_outlined,
+                          _formatDateRange(g),
                         ),
-                      ],
-                      if (showAction && candidabile) ...[
-                        const SizedBox(height: 10),
-                        FilledButton.icon(
-                          onPressed: updatingGare.contains(g.id)
-                              ? null
-                              : () => _toggleDisponibilita(g, !assigned),
-                          icon: updatingGare.contains(g.id)
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : Icon(assigned
-                                  ? Icons.person_remove_alt_1
-                                  : Icons.person_add_alt_1),
-                          label: Text(assigned
-                              ? 'Rimuovimi dalla gara'
-                              : 'Mi rendo disponibile'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF0A66C2),
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ],
+                      if (g.sport.isNotEmpty)
+                        _metaLine(Icons.sports_outlined, g.sport),
+                      if (g.localita.isNotEmpty)
+                        _metaLine(Icons.place_outlined, g.localita),
                     ],
                   ),
-                ),
+                ],
+                if (weatherByRaceId[g.id] != null) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  RaceWeatherPill(weather: weatherByRaceId[g.id]!),
+                ],
+                if (assigned || designato) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  _involvementChip(
+                    designato ? 'Sei designato' : 'Disponibilità data',
+                    designato
+                        ? Icons.verified_user_outlined
+                        : Icons.person_pin_circle_outlined,
+                  ),
+                ],
+                if (showAction && candidabile) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  OutlinedButton.icon(
+                    onPressed: updatingGare.contains(g.id)
+                        ? null
+                        : () => _toggleDisponibilita(g, !assigned),
+                    icon: updatingGare.contains(g.id)
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(assigned
+                            ? Icons.person_remove_alt_1
+                            : Icons.person_add_alt_1),
+                    label: Text(assigned
+                        ? 'Rimuovimi dalla gara'
+                        : 'Mi rendo disponibile'),
+                  ),
+                ],
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -1475,9 +1428,9 @@ class _GarePageState extends State<GarePage> {
         Text(
           weekday,
           style: const TextStyle(
-            color: Color(0xFF49627E),
+            color: AppColors.textSecondary,
             fontSize: 10,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
           ),
         ),
@@ -1485,9 +1438,9 @@ class _GarePageState extends State<GarePage> {
         Text(
           day,
           style: const TextStyle(
-            color: Color(0xFF0A66C2),
+            color: AppColors.primary,
             fontSize: 22,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w800,
             height: 1,
           ),
         ),
@@ -1495,9 +1448,9 @@ class _GarePageState extends State<GarePage> {
         Text(
           month,
           style: const TextStyle(
-            color: Color(0xFF49627E),
+            color: AppColors.textSecondary,
             fontSize: 11,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: 0.4,
           ),
         ),
@@ -1505,32 +1458,24 @@ class _GarePageState extends State<GarePage> {
     );
   }
 
-  Widget _metaPill(IconData icon, String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE2ECF8)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: const Color(0xFF306AA3)),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              text,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF27415F),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+  Widget _metaLine(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: AppColors.textSecondary),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1641,21 +1586,10 @@ class _GarePageState extends State<GarePage> {
   Widget _statusChip(String status) {
     final style = _statusStyle(status);
     final text = status.trim().isEmpty ? 'N/D' : Gara.statusLabel(status);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: style.soft,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: style.strong,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.2,
-        ),
-      ),
+    return AppStatusBadge(
+      label: text,
+      foregroundColor: style.strong,
+      backgroundColor: style.soft,
     );
   }
 }
@@ -1794,4 +1728,10 @@ enum _AssignmentFilter {
 enum _CalendarPeriod {
   upcoming,
   past,
+}
+
+enum _CalendarMenuAction {
+  refresh,
+  help,
+  home,
 }
