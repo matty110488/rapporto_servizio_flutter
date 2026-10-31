@@ -610,7 +610,7 @@ test('expense estimates are calculated for administrators without Notion writes'
     await handler(req, res);
 
     assert.equal(res.statusCode, 200);
-    assert.equal(res.body.estimate.total, 83.6);
+    assert.equal(res.body.estimate.total, 84);
     assert.equal(res.body.estimate.race.title, 'Preventivo corsa');
     assert.equal(
       res.body.estimate.lines.find((line) => line.category === 'personnel').label,
@@ -713,7 +713,7 @@ test('freezes a server-calculated expense snapshot on the primary race', async (
     await handler(req, res);
 
     assert.equal(res.statusCode, 200);
-    assert.equal(res.body.expense.total, 83.6);
+    assert.equal(res.body.expense.total, 84);
     const pagePatch = calls.find(
       (call) => call.url.includes('/pages/') && call.options.method === 'PATCH',
     );

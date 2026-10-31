@@ -149,7 +149,7 @@ test('requires tariff configuration from the environment', () => {
 test('ships the agreed 2026 tariff in backend code', () => {
   const tariff = DEFAULT_EXPENSE_TARIFFS.versions[0];
   assert.equal(tariff.validFrom, '2026-04-01');
-  assert.equal(tariff.kmRate, 0.36);
+  assert.equal(tariff.kmRate, 0.40);
   assert.equal(tariff.sports.nuoto.dailyOrganization, 50);
   assert.equal(tariff.equipment.standardScoreboard, 50);
 });
