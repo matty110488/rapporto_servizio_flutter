@@ -123,13 +123,7 @@ class _DesignazioniPageState extends State<DesignazioniPage> {
         ),
       ),
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEAF3FF), Color(0xFFF8FBFF), Color(0xFFFFFFFF)],
-          ),
-        ),
+        decoration: const BoxDecoration(color: Colors.transparent),
         child: loading
             ? _buildLoadingState()
             : RefreshIndicator(

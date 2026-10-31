@@ -120,13 +120,7 @@ class _InventoryPageState extends State<InventoryPage> {
         label: const Text('Nuovo'),
       ),
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEAF3FF), Color(0xFFFFFFFF)],
-          ),
-        ),
+        decoration: const BoxDecoration(color: Colors.transparent),
         child: SafeArea(
           child: RefreshIndicator(
             onRefresh: _load,
@@ -954,13 +948,7 @@ class _InventoryEditorPageState extends State<InventoryEditorPage> {
         ],
       ),
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEAF3FF), Color(0xFFFFFFFF)],
-          ),
-        ),
+        decoration: const BoxDecoration(color: Colors.transparent),
         child: SafeArea(
           child: Align(
             alignment: Alignment.topCenter,

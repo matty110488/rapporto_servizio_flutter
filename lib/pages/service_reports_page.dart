@@ -154,13 +154,7 @@ class _ServiceReportsPageState extends State<ServiceReportsPage> {
       ),
       body: SafeArea(
         child: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFEAF3FF), Color(0xFFFFFFFF)],
-            ),
-          ),
+          decoration: const BoxDecoration(color: Colors.transparent),
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [

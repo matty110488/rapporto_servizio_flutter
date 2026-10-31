@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 abstract final class AppColors {
   static const primary = Color(0xFF0866C2);
   static const primaryDeep = Color(0xFF064A91);
-  static const background = Color(0xFFF7F9FC);
+  static const background = Color(0xFFEAF2FB);
   static const surface = Color(0xFFFFFFFF);
   static const textPrimary = Color(0xFF17263C);
   static const textSecondary = Color(0xFF64748B);
@@ -50,7 +50,7 @@ abstract final class AppTheme {
 
     return base.copyWith(
       primaryColor: AppColors.primary,
-      scaffoldBackgroundColor: AppColors.background,
+      scaffoldBackgroundColor: Colors.transparent,
       colorScheme: colorScheme,
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.surface,

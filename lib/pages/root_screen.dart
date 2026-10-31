@@ -1574,17 +1574,7 @@ class _RootScreenState extends State<RootScreen> {
         ),
         body: SafeArea(
           child: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFEAF3FF),
-                  Color(0xFFF7FBFF),
-                  Color(0xFFFFFFFF)
-                ],
-              ),
-            ),
+            decoration: const BoxDecoration(color: Colors.transparent),
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(

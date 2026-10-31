@@ -22,4 +22,13 @@ void main() {
       isFalse,
     );
   });
+
+  test('uses the home list menu by default', () async {
+    expect(await AppPreferencesService.loadHomeMenuGridEnabled(), isFalse);
+  });
+
+  test('persists the home grid menu preference', () async {
+    await AppPreferencesService.saveHomeMenuGridEnabled(true);
+    expect(await AppPreferencesService.loadHomeMenuGridEnabled(), isTrue);
+  });
 }

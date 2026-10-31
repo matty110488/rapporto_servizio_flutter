@@ -293,13 +293,7 @@ class _StatistichePageState extends State<StatistichePage> {
         ),
       ),
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEAF3FF), Color(0xFFF8FBFF), Color(0xFFFFFFFF)],
-          ),
-        ),
+        decoration: const BoxDecoration(color: Colors.transparent),
         child: RefreshIndicator(
           onRefresh: () => _loadStats(forceRefresh: true),
           child: _loading

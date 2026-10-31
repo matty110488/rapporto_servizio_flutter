@@ -55,11 +55,13 @@ Widget _calendar({required double textScale}) {
 
   return MaterialApp(
     theme: AppTheme.light(),
-    builder: (context, child) => MediaQuery(
-      data: MediaQuery.of(context).copyWith(
-        textScaler: TextScaler.linear(textScale),
+    builder: (context, child) => ValtellinaBackground(
+      child: MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(textScale),
+        ),
+        child: child!,
       ),
-      child: child!,
     ),
     home: GarePage(
       loggedUser: const {'id': 'test-user'},
@@ -78,11 +80,13 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light(),
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: const TextScaler.linear(1.4),
+        builder: (context, child) => ValtellinaBackground(
+          child: MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: const TextScaler.linear(1.4),
+            ),
+            child: child!,
           ),
-          child: child!,
         ),
         home: const GarePage(
           loggedUser: {'id': 'test-user'},
@@ -107,6 +111,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('Calendario gare'), findsOneWidget);
+      expect(find.byType(ValtellinaBackground), findsOneWidget);
       expect(find.text('Sport'), findsOneWidget);
       expect(find.text('3 gare prossime'), findsOneWidget);
       expect(find.text('NOVEMBRE 2026'), findsOneWidget);

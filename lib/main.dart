@@ -14,6 +14,7 @@ import 'pages/login_page.dart';
 import 'services/push_notification_service.dart';
 import 'state/session_state.dart';
 import 'theme/app_theme.dart';
+import 'widgets/app_ui.dart';
 
 import 'firebase_options.dart';
 
@@ -215,6 +216,13 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
     );
   }
 
+  Widget _appBuilder(BuildContext context, Widget? child) {
+    return _environmentBanner(
+      context,
+      ValtellinaBackground.builder(context, child),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.light();
@@ -224,7 +232,7 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
         title: appDisplayName,
         debugShowCheckedModeBanner: false,
         theme: theme,
-        builder: _environmentBanner,
+        builder: _appBuilder,
         home: const Scaffold(
           body: Center(child: CircularProgressIndicator()),
         ),
@@ -236,7 +244,7 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
         title: appDisplayName,
         debugShowCheckedModeBanner: false,
         theme: theme,
-        builder: _environmentBanner,
+        builder: _appBuilder,
         home: LoginPage(
           onLogin: _handleLogin,
           initialMessage: _loginMessage,
@@ -248,7 +256,7 @@ class _CronoValtellinesiAppState extends State<CronoValtellinesiApp> {
       title: appDisplayName,
       debugShowCheckedModeBanner: false,
       theme: theme,
-      builder: _environmentBanner,
+      builder: _appBuilder,
       home: HomePage(
         loggedUser: loggedUser!,
         onLogout: _handleLogout,

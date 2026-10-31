@@ -126,7 +126,7 @@ class _DettaglioGaraState extends State<DettaglioGara> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F7FC),
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Cockpit gara'),
         centerTitle: false,

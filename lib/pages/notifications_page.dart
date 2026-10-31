@@ -240,13 +240,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ),
       ),
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFEAF3FF), Color(0xFFF7FBFF), Color(0xFFFFFFFF)],
-          ),
-        ),
+        decoration: const BoxDecoration(color: Colors.transparent),
         child: SafeArea(
           child: _loading
               ? const Center(child: CircularProgressIndicator())

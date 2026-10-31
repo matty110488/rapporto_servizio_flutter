@@ -113,17 +113,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
         ),
       ),
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFE8F2FF),
-              Color(0xFFF7FBFF),
-              Colors.white,
-            ],
-          ),
-        ),
+        decoration: const BoxDecoration(color: Colors.transparent),
         child: SafeArea(
           child: _loading
               ? const Center(child: CircularProgressIndicator())

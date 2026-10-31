@@ -4,6 +4,234 @@ import '../theme/app_theme.dart';
 
 enum AppCardVariant { plain, outlined }
 
+class ValtellinaBackground extends StatelessWidget {
+  const ValtellinaBackground({super.key, required this.child});
+
+  final Widget child;
+
+  static Widget builder(BuildContext context, Widget? child) {
+    return ValtellinaBackground(child: child ?? const SizedBox.shrink());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const RepaintBoundary(
+          key: ValueKey('valtellina-background-paint-boundary'),
+          child: IgnorePointer(
+            child: CustomPaint(
+              key: ValueKey('valtellina-background-art'),
+              painter: _ValtellinaBackgroundPainter(),
+            ),
+          ),
+        ),
+        child,
+      ],
+    );
+  }
+}
+
+class _ValtellinaBackgroundPainter extends CustomPainter {
+  const _ValtellinaBackgroundPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bounds = Offset.zero & size;
+    final background = const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        Color(0xFFEAF2FB),
+        Color(0xFFE7F0FB),
+        Color(0xFFDCEBFA),
+      ],
+      stops: [0, 0.52, 1],
+    ).createShader(bounds);
+    canvas.drawRect(bounds, Paint()..shader = background);
+
+    final mountainWidth = (size.width * 0.80).clamp(260.0, 800.0);
+    final mountainHeight = (size.height * 0.24).clamp(145.0, 230.0);
+    final left = size.width - mountainWidth;
+    final fadeBottom = mountainHeight * 1.24;
+    final mountainBounds = Rect.fromLTWH(
+      left,
+      0,
+      mountainWidth,
+      fadeBottom,
+    );
+
+    final rear = Path()
+      ..moveTo(left + mountainWidth * 0.08, mountainHeight * 0.78)
+      ..cubicTo(
+        left + mountainWidth * 0.15,
+        mountainHeight * 0.68,
+        left + mountainWidth * 0.20,
+        mountainHeight * 0.43,
+        left + mountainWidth * 0.27,
+        mountainHeight * 0.36,
+      )
+      ..quadraticBezierTo(
+        left + mountainWidth * 0.32,
+        mountainHeight * 0.43,
+        left + mountainWidth * 0.37,
+        mountainHeight * 0.58,
+      )
+      ..cubicTo(
+        left + mountainWidth * 0.44,
+        mountainHeight * 0.47,
+        left + mountainWidth * 0.49,
+        mountainHeight * 0.20,
+        left + mountainWidth * 0.54,
+        mountainHeight * 0.13,
+      )
+      ..quadraticBezierTo(
+        left + mountainWidth * 0.59,
+        mountainHeight * 0.25,
+        left + mountainWidth * 0.64,
+        mountainHeight * 0.51,
+      )
+      ..cubicTo(
+        left + mountainWidth * 0.71,
+        mountainHeight * 0.43,
+        left + mountainWidth * 0.76,
+        mountainHeight * 0.30,
+        left + mountainWidth * 0.81,
+        mountainHeight * 0.27,
+      )
+      ..quadraticBezierTo(
+        left + mountainWidth * 0.89,
+        mountainHeight * 0.45,
+        size.width,
+        mountainHeight * 0.63,
+      )
+      ..lineTo(size.width, fadeBottom)
+      ..lineTo(left + mountainWidth * 0.08, fadeBottom)
+      ..close();
+    canvas.drawPath(
+      rear,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0x2CFFFFFF),
+            Color(0x20FFFFFF),
+            Color(0x00FFFFFF),
+          ],
+          stops: [0, 0.52, 1],
+        ).createShader(mountainBounds),
+    );
+
+    final middle = Path()
+      ..moveTo(left + mountainWidth * 0.22, mountainHeight * 0.88)
+      ..cubicTo(
+        left + mountainWidth * 0.31,
+        mountainHeight * 0.75,
+        left + mountainWidth * 0.37,
+        mountainHeight * 0.50,
+        left + mountainWidth * 0.43,
+        mountainHeight * 0.46,
+      )
+      ..quadraticBezierTo(
+        left + mountainWidth * 0.49,
+        mountainHeight * 0.57,
+        left + mountainWidth * 0.54,
+        mountainHeight * 0.68,
+      )
+      ..cubicTo(
+        left + mountainWidth * 0.62,
+        mountainHeight * 0.56,
+        left + mountainWidth * 0.68,
+        mountainHeight * 0.34,
+        left + mountainWidth * 0.73,
+        mountainHeight * 0.31,
+      )
+      ..quadraticBezierTo(
+        left + mountainWidth * 0.80,
+        mountainHeight * 0.47,
+        left + mountainWidth * 0.84,
+        mountainHeight * 0.62,
+      )
+      ..quadraticBezierTo(
+        left + mountainWidth * 0.93,
+        mountainHeight * 0.65,
+        size.width,
+        mountainHeight * 0.75,
+      )
+      ..lineTo(size.width, fadeBottom)
+      ..lineTo(left + mountainWidth * 0.22, fadeBottom)
+      ..close();
+    canvas.drawPath(
+      middle,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0x165F7F9F),
+            Color(0x0E5F7F9F),
+            Color(0x005F7F9F),
+          ],
+          stops: [0, 0.58, 1],
+        ).createShader(mountainBounds),
+    );
+
+    final front = Path()
+      ..moveTo(left + mountainWidth * 0.40, mountainHeight * 0.94)
+      ..cubicTo(
+        left + mountainWidth * 0.49,
+        mountainHeight * 0.84,
+        left + mountainWidth * 0.57,
+        mountainHeight * 0.66,
+        left + mountainWidth * 0.62,
+        mountainHeight * 0.63,
+      )
+      ..quadraticBezierTo(
+        left + mountainWidth * 0.68,
+        mountainHeight * 0.70,
+        left + mountainWidth * 0.72,
+        mountainHeight * 0.80,
+      )
+      ..cubicTo(
+        left + mountainWidth * 0.79,
+        mountainHeight * 0.72,
+        left + mountainWidth * 0.85,
+        mountainHeight * 0.55,
+        left + mountainWidth * 0.90,
+        mountainHeight * 0.53,
+      )
+      ..quadraticBezierTo(
+        left + mountainWidth * 0.96,
+        mountainHeight * 0.63,
+        size.width,
+        mountainHeight * 0.72,
+      )
+      ..lineTo(size.width, fadeBottom)
+      ..lineTo(left + mountainWidth * 0.40, fadeBottom)
+      ..close();
+    canvas.drawPath(
+      front,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0x12496B8D),
+            Color(0x0B496B8D),
+            Color(0x00496B8D),
+          ],
+          stops: [0, 0.60, 1],
+        ).createShader(mountainBounds),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ValtellinaBackgroundPainter oldDelegate) =>
+      false;
+}
+
 class AppCard extends StatelessWidget {
   const AppCard({
     super.key,

@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:rapporto_servizio/main.dart';
+import 'package:rapporto_servizio/widgets/app_ui.dart';
 
 void main() {
   testWidgets('App without a saved session shows the login page',
@@ -16,5 +18,10 @@ void main() {
     expect(find.text('Password'), findsOneWidget);
     expect(find.text('Accedi'), findsOneWidget);
     expect(find.text('Accedi con Face ID o impronta'), findsOneWidget);
+    expect(find.byType(ValtellinaBackground), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('valtellina-background-art')),
+      findsOneWidget,
+    );
   });
 }

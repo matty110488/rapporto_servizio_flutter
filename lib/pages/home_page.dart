@@ -8,11 +8,14 @@ import '../config/app_config.dart';
 import '../models/gara.dart';
 import '../services/app_update_exception.dart';
 import '../services/app_update_service.dart';
+import '../services/app_preferences_service.dart';
 import '../services/notion_service.dart';
 import '../services/prank_popup_service.dart';
 import '../services/push_notification_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
+import '../widgets/app_ui.dart';
 import 'admin_dashboard_page.dart';
 import 'dettaglio_gara.dart';
 import 'designazioni_page.dart';
@@ -26,12 +29,15 @@ class HomePage extends StatefulWidget {
   final Map<String, dynamic> loggedUser;
   final VoidCallback onLogout;
   final NotionService? notionService;
+  @visibleForTesting
+  final int initialUnreadNotifications;
 
   const HomePage({
     super.key,
     required this.loggedUser,
     required this.onLogout,
     this.notionService,
+    this.initialUnreadNotifications = 0,
   });
 
   @override
@@ -52,11 +58,14 @@ class _HomePageState extends State<HomePage> {
   Timer? _notificationPollingTimer;
   Timer? _versionTapResetTimer;
   int _versionTapCount = 0;
+  _HomeMenuMode _menuMode = _HomeMenuMode.list;
 
   @override
   void initState() {
     super.initState();
-    _raceControlController = PageController(viewportFraction: 0.92);
+    _raceControlController = PageController(viewportFraction: 0.87);
+    _unreadNotifications = widget.initialUnreadNotifications;
+    unawaited(_loadMenuPreference());
     _notion = widget.notionService ??
         NotionService(databaseId: AppConfig.currentRaceDatabaseId);
     unawaited(_loadAppVersion());
@@ -82,6 +91,28 @@ class _HomePageState extends State<HomePage> {
         unawaited(_openGaraFromNotification(garaId));
       }
     });
+  }
+
+  Future<void> _loadMenuPreference() async {
+    try {
+      final gridEnabled = await AppPreferencesService.loadHomeMenuGridEnabled();
+      if (!mounted) return;
+      setState(() {
+        _menuMode = gridEnabled ? _HomeMenuMode.grid : _HomeMenuMode.list;
+      });
+    } catch (_) {
+      // Elenco resta il fallback quando lo storage locale non è disponibile.
+    }
+  }
+
+  void _setMenuMode(_HomeMenuMode mode) {
+    if (_menuMode == mode) return;
+    setState(() => _menuMode = mode);
+    unawaited(
+      AppPreferencesService.saveHomeMenuGridEnabled(
+        mode == _HomeMenuMode.grid,
+      ),
+    );
   }
 
   @override
@@ -415,46 +446,24 @@ class _HomePageState extends State<HomePage> {
               ? null
               : AppBar(
                   automaticallyImplyLeading: false,
-                  toolbarHeight: 68,
+                  toolbarHeight: 62,
                   titleSpacing: 16,
-                  backgroundColor: const Color(0xFF004E9A),
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.surface,
+                  foregroundColor: AppColors.textPrimary,
                   surfaceTintColor: Colors.transparent,
-                  elevation: 2,
-                  scrolledUnderElevation: 2,
-                  shadowColor: const Color(0x55002F60),
-                  systemOverlayStyle: SystemUiOverlayStyle.light.copyWith(
-                    statusBarColor: const Color(0xFF004E9A),
+                  elevation: 0,
+                  scrolledUnderElevation: 0.5,
+                  shadowColor: const Color(0x1A17263C),
+                  systemOverlayStyle: SystemUiOverlayStyle.dark.copyWith(
+                    statusBarColor: AppColors.surface,
                     systemStatusBarContrastEnforced: false,
                   ),
-                  flexibleSpace: const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [Color(0xFF003F7D), Color(0xFF0A66C2)],
-                      ),
-                    ),
-                  ),
-                  title: Container(
-                    height: 48,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x33001D3A),
-                          blurRadius: 8,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
+                  title: SizedBox(
+                    height: 40,
+                    width: 168,
                     child: Image.asset(
                       'assets/logo.png',
+                      alignment: Alignment.centerLeft,
                       fit: BoxFit.contain,
                       filterQuality: FilterQuality.high,
                     ),
@@ -465,50 +474,37 @@ class _HomePageState extends State<HomePage> {
                       tooltip: 'Impostazioni',
                       icon: const Icon(Icons.settings_outlined),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: AppSpacing.sm),
                   ],
                 ),
-          body: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFEAF3FF),
-                  Color(0xFFF7FBFF),
-                  Color(0xFFFFFFFF),
-                ],
-              ),
-            ),
-            child: SafeArea(
-              child: useSidebar
-                  ? Row(
-                      children: [
-                        _HomeSidebar(
+          body: SafeArea(
+            child: useSidebar
+                ? Row(
+                    children: [
+                      _HomeSidebar(
+                        userName: userName,
+                        appVersionLabel: _appVersionLabel,
+                        navItems: navItems,
+                        onOpenSettings: openSettings,
+                        onLogout: widget.onLogout,
+                        onVersionTap: _handleVersionTap,
+                      ),
+                      Expanded(
+                        child: _homeContent(
                           userName: userName,
-                          appVersionLabel: _appVersionLabel,
                           navItems: navItems,
-                          onOpenSettings: openSettings,
-                          onLogout: widget.onLogout,
-                          onVersionTap: _handleVersionTap,
+                          onOpenNotifications: notificationItem.onTap,
+                          compact: false,
                         ),
-                        Expanded(
-                          child: _homeContent(
-                            userName: userName,
-                            navItems: navItems,
-                            onOpenNotifications: notificationItem.onTap,
-                            compact: false,
-                          ),
-                        ),
-                      ],
-                    )
-                  : _homeContent(
-                      userName: userName,
-                      navItems: navItems,
-                      onOpenNotifications: notificationItem.onTap,
-                      compact: true,
-                    ),
-            ),
+                      ),
+                    ],
+                  )
+                : _homeContent(
+                    userName: userName,
+                    navItems: navItems,
+                    onOpenNotifications: notificationItem.onTap,
+                    compact: true,
+                  ),
           ),
         );
       },
@@ -534,34 +530,15 @@ class _HomePageState extends State<HomePage> {
           ),
           children: [
             _hero(userName),
-            const SizedBox(height: 18),
+            const SizedBox(height: AppSpacing.xxs),
             if (compact) ...[
-              const Text(
-                'Menu principale',
-                style: TextStyle(
-                  color: Color(0xFF1A2B40),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 10),
-              ...navItems.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _HomeActionTile(item: item),
-                ),
-              ),
-              const SizedBox(height: 10),
+              _mainMenu(navItems),
+              const SizedBox(height: AppSpacing.md),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF0A66C2),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
+                child: OutlinedButton.icon(
                   onPressed: widget.onLogout,
-                  icon: const Icon(Icons.logout),
+                  icon: const Icon(Icons.logout_rounded),
                   label: const Text('Logout'),
                 ),
               ),
@@ -570,7 +547,7 @@ class _HomePageState extends State<HomePage> {
                 notificationsCount: _unreadNotifications,
                 onOpenNotifications: onOpenNotifications,
               ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.md),
             Center(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -580,7 +557,7 @@ class _HomePageState extends State<HomePage> {
                   child: Text(
                     _appVersionLabel,
                     style: const TextStyle(
-                      color: Color(0xFF7B8EA3),
+                      color: AppColors.textSecondary,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -594,106 +571,280 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _mainMenu(List<_HomeNavData> navItems) {
+    final disableAnimations =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Menu principale',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            _menuModeSelector(),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        AnimatedSwitcher(
+          duration: disableAnimations
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: child,
+          ),
+          child: _menuMode == _HomeMenuMode.list
+              ? Column(
+                  key: const ValueKey(_HomeMenuMode.list),
+                  children: navItems
+                      .map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: AppSpacing.xs,
+                          ),
+                          child: _HomeMenuTile(item: item),
+                        ),
+                      )
+                      .toList(),
+                )
+              : KeyedSubtree(
+                  key: const ValueKey(_HomeMenuMode.grid),
+                  child: _gridMenu(navItems),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _menuModeSelector() {
+    return SegmentedButton<_HomeMenuMode>(
+      key: const ValueKey('home-menu-mode-selector'),
+      showSelectedIcon: false,
+      style: ButtonStyle(
+        tapTargetSize: MaterialTapTargetSize.padded,
+        minimumSize: const WidgetStatePropertyAll(Size(44, 40)),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? Colors.white
+              : AppColors.textSecondary,
+        ),
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.primary
+              : AppColors.surface,
+        ),
+        side: WidgetStateProperty.resolveWith(
+          (states) => BorderSide(
+            color: states.contains(WidgetState.selected)
+                ? AppColors.primary
+                : AppColors.cardOutline,
+          ),
+        ),
+      ),
+      segments: [
+        ButtonSegment(
+          value: _HomeMenuMode.list,
+          tooltip: 'Elenco',
+          icon: Semantics(
+            label: 'Visualizzazione elenco',
+            child: const Icon(Icons.view_list_rounded, size: 20),
+          ),
+        ),
+        ButtonSegment(
+          value: _HomeMenuMode.grid,
+          tooltip: 'Griglia',
+          icon: Semantics(
+            label: 'Visualizzazione griglia',
+            child: const Icon(Icons.grid_view_rounded, size: 19),
+          ),
+        ),
+      ],
+      selected: {_menuMode},
+      onSelectionChanged: (selection) => _setMenuMode(selection.first),
+    );
+  }
+
+  Widget _gridMenu(List<_HomeNavData> navItems) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        final columns =
+            constraints.maxWidth >= 340 && textScale <= 1.25 ? 2 : 1;
+        if (columns == 1) {
+          return Column(
+            children: navItems
+                .map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                    child: _HomeGridTile(item: item),
+                  ),
+                )
+                .toList(),
+          );
+        }
+        final rows = <Widget>[];
+        for (var index = 0; index < navItems.length; index += 2) {
+          final second = index + 1;
+          rows.add(
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: _HomeGridTile(item: navItems[index])),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: second < navItems.length
+                          ? _HomeGridTile(item: navItems[second])
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        return Column(children: rows);
+      },
+    );
+  }
+
   Widget _hero(String userName) {
     String formatDate(String iso) {
       return formatItalianIsoDate(iso) ?? '-';
     }
 
     final prossimi = _dashboard.nextServices;
-    Widget refreshButton(Color color) => IconButton(
-          tooltip: 'Aggiorna servizi',
-          onPressed: _loadingDashboard || _refreshingDashboard
-              ? null
-              : () => unawaited(
-                    _loadDashboard(
-                      showLoading: false,
-                      forceRefresh: true,
+    final now = DateTime.now();
+    final greeting = now.hour < 12
+        ? 'Buongiorno'
+        : now.hour < 18
+            ? 'Buon pomeriggio'
+            : 'Buonasera';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text.rich(
+          TextSpan(
+            text: '$greeting, ',
+            children: [
+              TextSpan(
+                text: userName,
+                style: const TextStyle(
+                  color: AppColors.primaryDeep,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 23,
+            height: 1.15,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.35,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(
+          _longItalianDate(now),
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Row(
+          children: [
+            const Icon(
+              Icons.sports_score_rounded,
+              color: AppColors.primary,
+              size: 20,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Le tue prossime attività',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-          icon: _refreshingDashboard
-              ? SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(color),
+                  SizedBox(height: 1),
+                  Text(
+                    'Race Control',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                )
-              : Icon(Icons.refresh, color: color),
-        );
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF004E9A), Color(0xFF0A66C2), Color(0xFF338FE5)],
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x300A66C2),
-            blurRadius: 20,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Benvenuto',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            userName,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (_loadingDashboard)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'RACE CONTROL',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+            IconButton(
+              tooltip: 'Aggiorna servizi',
+              onPressed: _loadingDashboard || _refreshingDashboard
+                  ? null
+                  : () => unawaited(
+                        _loadDashboard(
+                          showLoading: false,
+                          forceRefresh: true,
                         ),
                       ),
-                    ),
-                    refreshButton(Colors.white),
-                  ],
+              icon: _refreshingDashboard
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh_rounded),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        if (_loadingDashboard)
+          const AppCard(
+            variant: AppCardVariant.outlined,
+            child: Row(
+              children: [
+                SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-                const LinearProgressIndicator(
-                  minHeight: 3,
-                  backgroundColor: Colors.white24,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text('Caricamento delle prossime attività…'),
                 ),
               ],
-            )
-          else if (_dashboardError != null)
-            Row(
+            ),
+          )
+        else if (_dashboardError != null)
+          AppCard(
+            variant: AppCardVariant.outlined,
+            child: Row(
               children: [
+                const Icon(Icons.cloud_off_outlined),
+                const SizedBox(width: AppSpacing.sm),
                 const Expanded(
-                  child: Text(
-                    'Dashboard non disponibile',
-                    style: TextStyle(color: Colors.white),
-                  ),
+                  child: Text('Impossibile caricare le prossime attività.'),
                 ),
                 TextButton(
                   onPressed: _refreshingDashboard
@@ -704,194 +855,298 @@ class _HomePageState extends State<HomePage> {
                               forceRefresh: true,
                             ),
                           ),
-                  child: const Text(
-                    'Riprova',
-                    style: TextStyle(color: Colors.white),
+                  child: const Text('Riprova'),
+                ),
+              ],
+            ),
+          )
+        else if (prossimi.isEmpty)
+          AppCard(
+            variant: AppCardVariant.outlined,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.sm,
+              AppSpacing.xs,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Nessuna designazione in programma',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                refreshButton(Colors.white),
+                const SizedBox(height: AppSpacing.xxs),
+                const Text(
+                  'Consulta il calendario per comunicare la tua disponibilità.',
+                  style:
+                      TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xxs,
+                    ),
+                  ),
+                  onPressed: () => _openPage(
+                    context,
+                    GarePage(loggedUser: widget.loggedUser),
+                  ),
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                  label: const Text('Vai al calendario'),
+                ),
               ],
-            )
-          else
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F6FB),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFD4E2EF)),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x24031324),
-                    blurRadius: 14,
-                    offset: Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'RACE CONTROL',
-                          style: TextStyle(
-                            color: Color(0xFF0A66C2),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ),
-                      refreshButton(const Color(0xFF0A66C2)),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  if (prossimi.isEmpty)
-                    const Text(
-                      'Non ci sono designazioni. Consultare il calendario gare per dare disponibilità a svolgere nuovi servizi.',
-                      style: TextStyle(
-                        color: Color(0xFF0A66C2),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    )
-                  else if (prossimi.length == 1)
-                    _raceControlCard(prossimi.first, formatDate)
-                  else ...[
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.swipe_rounded,
-                          color: Color(0xFF0A66C2),
-                          size: 17,
-                        ),
-                        const SizedBox(width: 6),
-                        const Expanded(
-                          child: Text(
-                            'Scorri per vedere le altre gare',
-                            style: TextStyle(
-                              color: Color(0xFF0A66C2),
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          '${_raceControlIndex + 1}/${prossimi.length}',
-                          style: const TextStyle(
-                            color: Color(0xFF0A66C2),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 180,
-                      child: PageView.builder(
-                        key: const ValueKey('race-control-carousel'),
-                        controller: _raceControlController,
-                        padEnds: false,
-                        itemCount: prossimi.length,
-                        onPageChanged: (index) {
-                          setState(() => _raceControlIndex = index);
-                        },
-                        itemBuilder: (context, index) => Padding(
-                          padding: EdgeInsets.only(
-                            right: index == prossimi.length - 1 ? 0 : 10,
-                          ),
-                          child: _raceControlCard(
-                            prossimi[index],
-                            formatDate,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 9),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        prossimi.length,
-                        (index) => AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          width: index == _raceControlIndex ? 18 : 6,
-                          height: 6,
-                          margin: const EdgeInsets.symmetric(horizontal: 3),
-                          decoration: BoxDecoration(
-                            color: index == _raceControlIndex
-                                ? const Color(0xFF0A66C2)
-                                : const Color(0xFFBBD8F1),
-                            borderRadius: BorderRadius.circular(99),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
             ),
-        ],
-      ),
+          )
+        else if (prossimi.length == 1)
+          _raceControlCard(prossimi.first, formatDate)
+        else
+          _raceControlCarousel(prossimi, formatDate),
+      ],
     );
   }
 
+  String _longItalianDate(DateTime date) {
+    const weekdays = [
+      'Lunedì',
+      'Martedì',
+      'Mercoledì',
+      'Giovedì',
+      'Venerdì',
+      'Sabato',
+      'Domenica',
+    ];
+    const months = [
+      'gennaio',
+      'febbraio',
+      'marzo',
+      'aprile',
+      'maggio',
+      'giugno',
+      'luglio',
+      'agosto',
+      'settembre',
+      'ottobre',
+      'novembre',
+      'dicembre',
+    ];
+    return '${weekdays[date.weekday - 1]} ${date.day} '
+        '${months[date.month - 1]} ${date.year}';
+  }
+
+  Widget _raceControlCarousel(
+    List<Gara> prossimi,
+    String Function(String) formatDate,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = _raceControlCarouselHeight(
+          context,
+          prossimi,
+          constraints.maxWidth,
+        );
+        return Column(
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.swipe_rounded,
+                  color: AppColors.textSecondary,
+                  size: 17,
+                ),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text(
+                    'Scorri per vedere le altre gare',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${_raceControlIndex + 1}/${prossimi.length}',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            SizedBox(
+              height: height,
+              child: PageView.builder(
+                key: const ValueKey('race-control-carousel'),
+                controller: _raceControlController,
+                padEnds: false,
+                itemCount: prossimi.length,
+                onPageChanged: (index) {
+                  setState(() => _raceControlIndex = index);
+                },
+                itemBuilder: (context, index) => Padding(
+                  padding: EdgeInsets.only(
+                    right: index == prossimi.length - 1 ? 0 : AppSpacing.xs,
+                  ),
+                  child: _raceControlCard(prossimi[index], formatDate),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                prossimi.length,
+                (index) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: index == _raceControlIndex ? 18 : 6,
+                  height: 6,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: BoxDecoration(
+                    color: index == _raceControlIndex
+                        ? AppColors.primary
+                        : const Color(0xFFBBD8F1),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  double _raceControlCarouselHeight(
+    BuildContext context,
+    List<Gara> gare,
+    double availableWidth,
+  ) {
+    final textScaler = MediaQuery.textScalerOf(context);
+    final cardWidth =
+        (availableWidth * 0.87) - AppSpacing.xs - 2 * AppSpacing.md;
+    double textHeight(
+      String text,
+      TextStyle style, {
+      double? maxWidth,
+    }) {
+      if (text.isEmpty) return 0;
+      return (TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: TextDirection.ltr,
+        textScaler: textScaler,
+      )..layout(maxWidth: (maxWidth ?? cardWidth).clamp(80, 680)))
+          .height;
+    }
+
+    var tallestCard = 0.0;
+    for (final gara in gare) {
+      final metadata = [
+        if (gara.sport.trim().isNotEmpty) gara.sport.trim(),
+        if (gara.localita.trim().isNotEmpty) gara.localita.trim(),
+      ].join(' · ');
+      final dateHeight = textHeight(
+        formatItalianIsoDate(gara.dataGara) ?? '-',
+        const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        maxWidth: cardWidth - 19,
+      );
+      final titleHeight = textHeight(
+        gara.titolo,
+        const TextStyle(fontSize: 16, height: 1.2, fontWeight: FontWeight.w700),
+      );
+      final metadataHeight = textHeight(
+        metadata,
+        const TextStyle(fontSize: 12),
+      );
+      final buttonLabelHeight = textHeight(
+        'Apri dettagli gara',
+        const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        maxWidth: cardWidth - 50,
+      );
+      final buttonHeight =
+          (buttonLabelHeight + 16).clamp(44, double.infinity).toDouble();
+      final cardHeight = 2 * AppSpacing.md +
+          dateHeight +
+          6 +
+          titleHeight +
+          6 +
+          metadataHeight +
+          AppSpacing.sm +
+          buttonHeight;
+      if (cardHeight > tallestCard) tallestCard = cardHeight;
+    }
+    final scaledControlAllowance = (textScaler.scale(1) - 1).clamp(0, 1) * 90;
+    return tallestCard + AppSpacing.sm + scaledControlAllowance;
+  }
+
   Widget _raceControlCard(Gara gara, String Function(String) formatDate) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFC9DBE9)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x180B2942),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
+    return AppCard(
+      variant: AppCardVariant.outlined,
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            formatDate(gara.dataGara),
-            style: const TextStyle(
-              color: Color(0xFF334E68),
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            children: [
+              const Icon(
+                Icons.calendar_today_rounded,
+                color: AppColors.primary,
+                size: 15,
+              ),
+              const SizedBox(width: AppSpacing.xxs),
+              Expanded(
+                child: Text(
+                  formatDate(gara.dataGara),
+                  style: const TextStyle(
+                    color: AppColors.primaryDeep,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 6),
           Text(
             gara.titolo,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Color(0xFF102A43),
-              fontSize: 17,
-              height: 1.12,
-              fontWeight: FontWeight.w900,
+              color: AppColors.textPrimary,
+              fontSize: 16,
+              height: 1.2,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
           Text(
             [
-              if (gara.localita.trim().isNotEmpty) gara.localita.trim(),
               if (gara.sport.trim().isNotEmpty) gara.sport.trim(),
+              if (gara.localita.trim().isNotEmpty) gara.localita.trim(),
             ].join(' · '),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Color(0xFF334E68), fontSize: 12),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           FilledButton.icon(
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF0A66C2),
-              foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(40),
+              backgroundColor: AppColors.primarySoft,
+              foregroundColor: AppColors.primary,
+              minimumSize: const Size.fromHeight(44),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.small),
+              ),
             ),
             onPressed: () => _openPage(
               context,
@@ -901,8 +1156,8 @@ class _HomePageState extends State<HomePage> {
                 notionService: _notion,
               ),
             ),
-            icon: const Icon(Icons.sports_score_rounded),
-            label: const Text('APRI DETTAGLI GARA'),
+            icon: const Icon(Icons.sports_score_rounded, size: 18),
+            label: const Text('Apri dettagli gara'),
           ),
         ],
       ),
@@ -917,6 +1172,8 @@ class _DashboardData {
     this.nextServices = const [],
   });
 }
+
+enum _HomeMenuMode { list, grid }
 
 class _HomeNavData {
   final IconData icon;
@@ -955,17 +1212,22 @@ class _HomeSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 292,
-      margin: const EdgeInsets.all(14),
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+      margin: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFDCE8F6)),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.large),
+        border: Border.all(color: AppColors.cardOutline),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x16000000),
-            blurRadius: 24,
-            offset: Offset(0, 10),
+            color: Color(0x0D17263C),
+            blurRadius: 18,
+            offset: Offset(0, 6),
           ),
         ],
       ),
@@ -975,11 +1237,11 @@ class _HomeSidebar extends StatelessWidget {
           Center(
             child: Image.asset(
               'assets/logo.png',
-              height: 58,
+              height: 52,
               fit: BoxFit.contain,
             ),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: AppSpacing.lg),
           Row(
             children: [
               Expanded(
@@ -988,9 +1250,9 @@ class _HomeSidebar extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xFF1A2B40),
+                    color: AppColors.textPrimary,
                     fontSize: 20,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -1001,15 +1263,15 @@ class _HomeSidebar extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xxs),
           const Text(
             'Scegli una sezione dal menu.',
             style: TextStyle(
-              color: Color(0xFF49627E),
+              color: AppColors.textSecondary,
               fontSize: 13,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.xxs),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onVersionTap,
@@ -1018,33 +1280,32 @@ class _HomeSidebar extends StatelessWidget {
               child: Text(
                 appVersionLabel,
                 style: const TextStyle(
-                  color: Color(0xFF7B8EA3),
+                  color: AppColors.textSecondary,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: AppSpacing.md),
           Expanded(
             child: ListView.separated(
               itemCount: navItems.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (_, __) =>
+                  const SizedBox(height: AppSpacing.xs),
               itemBuilder: (context, index) {
                 return _HomeMenuTile(item: navItems[index]);
               },
             ),
           ),
-          const Divider(height: 24),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(46),
-              backgroundColor: const Color(0xFF0A66C2),
-              foregroundColor: Colors.white,
+          const Divider(height: AppSpacing.lg),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(44),
               alignment: Alignment.centerLeft,
             ),
             onPressed: onLogout,
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout_rounded),
             label: const Text('Logout'),
           ),
         ],
@@ -1060,97 +1321,112 @@ class _HomeMenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: item.onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: BoxDecoration(
-            color: item.badgeCount > 0 ? const Color(0xFFFFF1F1) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: item.badgeCount > 0
-                  ? const Color(0xFFFFB4B4)
-                  : const Color(0xFFE2ECF8),
+    return AppCard(
+      variant: AppCardVariant.outlined,
+      onTap: item.onTap,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(AppRadii.small),
             ),
+            child: Icon(item.icon, color: AppColors.primary, size: 21),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: item.badgeCount > 0
-                      ? Colors.red
-                      : const Color(0xFFEAF3FF),
-                  borderRadius: BorderRadius.circular(12),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.label,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                child: Icon(
-                  item.icon,
-                  color: item.badgeCount > 0
-                      ? Colors.white
-                      : const Color(0xFF0A66C2),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF1A2B40),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      item.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: item.badgeCount > 0
-                            ? Colors.red
-                            : const Color(0xFF49627E),
-                        fontSize: 12,
-                        fontWeight: item.badgeCount > 0
-                            ? FontWeight.w700
-                            : FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (item.badgeCount > 0) ...[
-                const SizedBox(width: 8),
-                Badge.count(
-                  count: item.badgeCount,
-                  backgroundColor: Colors.red,
-                  textColor: Colors.white,
+                const SizedBox(height: 2),
+                Text(
+                  item.subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    height: 1.25,
+                  ),
                 ),
               ],
-            ],
+            ),
           ),
-        ),
+          if (item.badgeCount > 0) ...[
+            const SizedBox(width: AppSpacing.xs),
+            Badge.count(count: item.badgeCount),
+          ],
+          const SizedBox(width: AppSpacing.xxs),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: AppColors.textSecondary,
+            size: 20,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _HomeActionTile extends StatelessWidget {
+class _HomeGridTile extends StatelessWidget {
   final _HomeNavData item;
 
-  const _HomeActionTile({required this.item});
+  const _HomeGridTile({required this.item});
 
   @override
   Widget build(BuildContext context) {
-    return _HomeMenuTile(item: item);
+    return AppCard(
+      variant: AppCardVariant.outlined,
+      onTap: item.onTap,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(AppRadii.small),
+                ),
+                child: Icon(item.icon, color: AppColors.primary, size: 21),
+              ),
+              const Spacer(),
+              if (item.badgeCount > 0) Badge.count(count: item.badgeCount),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 34),
+            child: Align(
+              alignment: Alignment.bottomLeft,
+              child: Text(
+                item.label,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1165,40 +1441,27 @@ class _DesktopSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFDCE8F6)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x12000000),
-            blurRadius: 16,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
+    return AppCard(
+      variant: AppCardVariant.outlined,
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Row(
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: notificationsCount > 0
-                  ? const Color(0xFFFFE7E7)
-                  : const Color(0xFFEAF3FF),
-              borderRadius: BorderRadius.circular(14),
+              color: AppColors.primarySoft,
+              borderRadius: BorderRadius.circular(AppRadii.small),
             ),
             child: Icon(
               notificationsCount > 0
                   ? Icons.mark_email_unread_outlined
                   : Icons.dashboard_outlined,
               color:
-                  notificationsCount > 0 ? Colors.red : const Color(0xFF0A66C2),
+                  notificationsCount > 0 ? AppColors.error : AppColors.primary,
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1206,20 +1469,20 @@ class _DesktopSummaryCard extends StatelessWidget {
                 const Text(
                   'Dashboard',
                   style: TextStyle(
-                    color: Color(0xFF1A2B40),
+                    color: AppColors.textPrimary,
                     fontSize: 17,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
                   notificationsCount > 0
                       ? '$notificationsCount notifiche non lette'
                       : 'Usa il menu laterale per aprire le sezioni operative.',
                   style: TextStyle(
                     color: notificationsCount > 0
-                        ? Colors.red
-                        : const Color(0xFF49627E),
+                        ? AppColors.error
+                        : AppColors.textSecondary,
                     fontSize: 13,
                     fontWeight: notificationsCount > 0
                         ? FontWeight.w700
