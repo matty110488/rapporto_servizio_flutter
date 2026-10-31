@@ -431,7 +431,7 @@ class _ExpenseEstimatePageState extends State<ExpenseEstimatePage> {
                   'Km complessivi',
                   _km,
                   decimal: true,
-                  helper: 'Rimborso calcolato a 0,36 €/km',
+                  helper: 'Rimborso calcolato a 0,40 €/km',
                 ),
                 _numberField(
                   'Altre spese complessive',

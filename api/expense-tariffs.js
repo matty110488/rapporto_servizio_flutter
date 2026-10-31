@@ -6,7 +6,7 @@ export const DEFAULT_EXPENSE_TARIFFS = Object.freeze({
     {
       id: 'FICr-2026-04-01',
       validFrom: '2026-04-01',
-      kmRate: 0.36,
+      kmRate: 0.40,
       holidayMultiplier: 2,
       ordinary: { baseHours: 4, baseAmount: 30, additionalHourly: 6 },
       specialist: { baseHours: 4, baseAmount: 40, additionalHourly: 10 },

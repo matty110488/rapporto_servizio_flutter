@@ -656,7 +656,7 @@ test('freezes a server-calculated expense snapshot on the primary race', async (
       {
         id: 'test-2026',
         validFrom: '2026-04-01',
-        kmRate: 0.36,
+        kmRate: 0.40,
         ordinary: { baseHours: 4, baseAmount: 30, additionalHourly: 6 },
         specialist: { baseHours: 4, baseAmount: 40, additionalHourly: 10 },
         dataProcessingDaily: 70,
