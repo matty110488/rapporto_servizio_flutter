@@ -121,6 +121,32 @@ void main() {
         hasLength(1),
       );
       expect(find.text('Sport'), findsOneWidget);
+      expect(find.text('Tutte'), findsOneWidget);
+      expect(find.text('Disponibilità'), findsOneWidget);
+      expect(find.text('Designato'), findsOneWidget);
+      expect(find.byType(AppHorizontalScrollHint), findsNothing);
+
+      for (final label in ['Sport', 'Tutte', 'Disponibilità', 'Designato']) {
+        final bounds = tester.getRect(find.text(label));
+        expect(bounds.left, greaterThanOrEqualTo(0));
+        expect(bounds.right, lessThanOrEqualTo(width));
+      }
+
+      if (width == 320) {
+        expect(
+          find.byKey(
+            const ValueKey('calendar-general-filters-stacked'),
+          ),
+          findsOneWidget,
+        );
+      } else {
+        expect(
+          find.byKey(
+            const ValueKey('calendar-general-filters-inline'),
+          ),
+          findsOneWidget,
+        );
+      }
       expect(find.text('3 gare prossime'), findsOneWidget);
       expect(find.text('NOVEMBRE 2026'), findsOneWidget);
       expect(find.textContaining('HC Chiavenna'), findsOneWidget);
@@ -150,7 +176,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('sport filter scrolls fully clear of the viewport edge',
+  testWidgets('sport filter remains directly accessible without scrolling',
       (tester) async {
     tester.view.physicalSize = const Size(390, 1000);
     tester.view.devicePixelRatio = 1;
@@ -160,21 +186,7 @@ void main() {
     await tester.pumpWidget(_calendar(textScale: 1));
     await tester.pump();
 
-    expect(
-      find.byKey(const ValueKey('horizontal-scroll-hint')),
-      findsNothing,
-    );
-    final filterScroll = find.descendant(
-      of: find.byType(AppHorizontalScrollHint),
-      matching: find.byType(SingleChildScrollView),
-    );
-    await tester.drag(filterScroll, const Offset(-1000, 0));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('horizontal-scroll-hint')),
-      findsNothing,
-    );
-
+    expect(find.byType(AppHorizontalScrollHint), findsNothing);
     final sportBounds = tester.getRect(find.text('Sport'));
     expect(sportBounds.right, lessThanOrEqualTo(390 - AppSpacing.md));
 
@@ -184,15 +196,11 @@ void main() {
     await tester.pumpAndSettle();
     final sportDropdown = tester.widget<DropdownButton<String>>(
       find.descendant(
-        of: find.byType(AppHorizontalScrollHint),
+        of: find.byKey(const ValueKey('calendar-sport-filter')),
         matching: find.byType(DropdownButton<String>),
       ),
     );
     expect(sportDropdown.value, 'Hockey su ghiaccio');
-    expect(
-      find.byKey(const ValueKey('horizontal-scroll-hint')),
-      findsNothing,
-    );
     expect(tester.takeException(), isNull);
   });
 }

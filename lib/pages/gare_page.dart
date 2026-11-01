@@ -758,120 +758,9 @@ class _GarePageState extends State<GarePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final textScale = MediaQuery.textScalerOf(context).scale(1);
-              final stackControls =
-                  constraints.maxWidth < 300 && textScale > 1.2;
-              if (stackControls) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildYearFilter(),
-                    const SizedBox(height: AppSpacing.xxs),
-                    SizedBox(
-                      width: double.infinity,
-                      child: _buildPeriodFilter(),
-                    ),
-                  ],
-                );
-              }
-              return Row(
-                children: [
-                  _buildYearFilter(),
-                  const Spacer(),
-                  Flexible(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 214),
-                      child: _buildPeriodFilter(),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
+          _buildGeneralFilters(sports),
           const SizedBox(height: AppSpacing.xs),
-          AppHorizontalScrollHint(
-            showHint: false,
-            trailingPadding: AppSpacing.md,
-            child: Row(
-              children: [
-                ..._AssignmentFilter.values.map(
-                  (filter) => Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: AppFilterChip(
-                      label: _assignmentFilterLabel(filter),
-                      selected: assignmentFilter == filter,
-                      onSelected: (_) =>
-                          setState(() => assignmentFilter = filter),
-                    ),
-                  ),
-                ),
-                Container(
-                  height: 44,
-                  constraints:
-                      const BoxConstraints(minWidth: 112, maxWidth: 190),
-                  padding: const EdgeInsets.only(left: 12, right: 8),
-                  decoration: BoxDecoration(
-                    color: sportFilter.isEmpty
-                        ? AppColors.surface
-                        : AppColors.primarySoft,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: sportFilter.isEmpty
-                          ? AppColors.border
-                          : const Color(0xFFB9D7F3),
-                    ),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: sportFilter,
-                      isDense: true,
-                      isExpanded: true,
-                      borderRadius: BorderRadius.circular(AppRadii.medium),
-                      icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                          size: 19),
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      selectedItemBuilder: (context) => [
-                        const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text('Sport'),
-                        ),
-                        ...sports.map(
-                          (sport) => Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              sport,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ],
-                      items: [
-                        const DropdownMenuItem<String>(
-                          value: '',
-                          child: Text('Tutti gli sport'),
-                        ),
-                        ...sports.map(
-                          (sport) => DropdownMenuItem<String>(
-                            value: sport,
-                            child: Text(sport),
-                          ),
-                        ),
-                      ],
-                      onChanged: (value) =>
-                          setState(() => sportFilter = value ?? ''),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _buildAssignmentFilters(),
           const SizedBox(height: AppSpacing.sm),
           Text(
             '$visibleCount ${visibleCount == 1 ? 'gara' : 'gare'} $periodLabel',
@@ -883,6 +772,157 @@ class _GarePageState extends State<GarePage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildGeneralFilters(List<String> sports) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stackPeriod = constraints.maxWidth < 340;
+        final yearAndSport = Row(
+          children: [
+            _buildYearFilter(),
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 160),
+                  child: _buildSportFilter(sports),
+                ),
+              ),
+            ),
+          ],
+        );
+
+        if (stackPeriod) {
+          return Column(
+            key: const ValueKey('calendar-general-filters-stacked'),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              yearAndSport,
+              const SizedBox(height: AppSpacing.xxs),
+              _buildPeriodFilter(),
+            ],
+          );
+        }
+
+        final periodWidth = (constraints.maxWidth * 0.46).clamp(156.0, 188.0);
+        return Row(
+          key: const ValueKey('calendar-general-filters-inline'),
+          children: [
+            _buildYearFilter(),
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 160),
+                  child: _buildSportFilter(sports),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            SizedBox(width: periodWidth, child: _buildPeriodFilter()),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSportFilter(List<String> sports) {
+    return Container(
+      key: const ValueKey('calendar-sport-filter'),
+      height: 40,
+      padding: const EdgeInsets.only(left: 10, right: 6),
+      decoration: BoxDecoration(
+        color: sportFilter.isEmpty ? AppColors.surface : AppColors.primarySoft,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color:
+              sportFilter.isEmpty ? AppColors.border : const Color(0xFFB9D7F3),
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: sportFilter,
+          isDense: true,
+          isExpanded: true,
+          borderRadius: BorderRadius.circular(AppRadii.medium),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+          selectedItemBuilder: (context) => [
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Sport'),
+            ),
+            ...sports.map(
+              (sport) => Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  sport,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ],
+          items: [
+            const DropdownMenuItem<String>(
+              value: '',
+              child: Text('Tutti gli sport'),
+            ),
+            ...sports.map(
+              (sport) => DropdownMenuItem<String>(
+                value: sport,
+                child: Text(sport),
+              ),
+            ),
+          ],
+          onChanged: (value) => setState(() => sportFilter = value ?? ''),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssignmentFilters() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        final compactLabels = constraints.maxWidth < 340 || textScale > 1.2;
+        return Row(
+          key: const ValueKey('calendar-assignment-filters'),
+          children: [
+            for (final filter in _AssignmentFilter.values) ...[
+              if (filter != _AssignmentFilter.all)
+                const SizedBox(width: AppSpacing.xxs),
+              Expanded(
+                child: Center(
+                  child: Semantics(
+                    label: _assignmentFilterLabel(filter),
+                    button: true,
+                    selected: assignmentFilter == filter,
+                    excludeSemantics: true,
+                    child: AppFilterChip(
+                      label: _assignmentFilterLabel(
+                        filter,
+                        compact: compactLabels,
+                      ),
+                      selected: assignmentFilter == filter,
+                      onSelected: (_) =>
+                          setState(() => assignmentFilter = filter),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -964,14 +1004,17 @@ class _GarePageState extends State<GarePage> {
     );
   }
 
-  String _assignmentFilterLabel(_AssignmentFilter filter) {
+  String _assignmentFilterLabel(
+    _AssignmentFilter filter, {
+    bool compact = false,
+  }) {
     switch (filter) {
       case _AssignmentFilter.all:
         return 'Tutte';
       case _AssignmentFilter.disponibilita:
-        return 'Mia disponibilità';
+        return compact ? 'Disponibilità' : 'Mia disponibilità';
       case _AssignmentFilter.designato:
-        return 'Sono designato';
+        return compact ? 'Designato' : 'Sono designato';
     }
   }
 
