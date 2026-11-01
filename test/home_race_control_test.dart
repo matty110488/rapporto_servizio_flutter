@@ -281,7 +281,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final width in [320.0, 375.0, 393.0, 430.0]) {
+  for (final width in [320.0, 375.0, 390.0, 430.0]) {
     testWidgets('carousel preview fits ${width.toInt()} px with 140% text',
         (tester) async {
       tester.view.physicalSize = Size(width, 1200);
@@ -372,7 +372,7 @@ void main() {
     expect(observer.pushes, 1);
   });
 
-  testWidgets('Home 3.0 exposes the Valtellina experience without a menu',
+  testWidgets('Home 4.0 exposes the Valtellina experience without a menu',
       (tester) async {
     await _pumpLoadedHome(
       tester,
@@ -412,6 +412,11 @@ void main() {
       find.byKey(const ValueKey('home-welcome-photo-overlay')),
       findsOneWidget,
     );
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('home-identity-banner')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(
       find.byKey(const ValueKey('home-identity-banner')),
       findsOneWidget,
@@ -424,6 +429,33 @@ void main() {
       isNull,
     );
     expect(AppColors.background, const Color(0xFFEAF2FB));
+  });
+
+  testWidgets('Home 4.0 sections follow the operational dashboard order',
+      (tester) async {
+    await _pumpLoadedHome(
+      tester,
+      rows: const [],
+      notifications: const [],
+    );
+
+    final listView = tester.widget<ListView>(find.byType(ListView).first);
+    final delegate = listView.childrenDelegate as SliverChildListDelegate;
+    final sectionKeys = delegate.children
+        .map((child) => child.key)
+        .whereType<ValueKey<String>>()
+        .map((key) => key.value)
+        .toList();
+
+    expect(
+      sectionKeys,
+      containsAllInOrder([
+        'home-welcome-section',
+        'home-race-control-section',
+        'home-notifications-section',
+        'home-identity-section',
+      ]),
+    );
   });
 
   testWidgets('welcome photos rotate with an 800 ms fade and wrap around',
@@ -627,6 +659,11 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.drag(
+      find.byType(Scrollable).first,
+      const Offset(0, -100),
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Convocazione riunione'), findsOneWidget);
     expect(
       find.text('La riunione tecnica è fissata per venerdì sera.'),
@@ -636,6 +673,26 @@ void main() {
       find.byKey(const ValueKey('home-notification-preview')),
     );
     expect(observer.pushes, 1);
+  });
+
+  testWidgets('notification preview has a compact empty state', (tester) async {
+    await _pumpLoadedHome(
+      tester,
+      rows: const [],
+      notifications: const [],
+    );
+
+    final emptyState = find.byKey(
+      const ValueKey('home-notifications-empty'),
+    );
+    await tester.scrollUntilVisible(
+      emptyState,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Nessuna nuova notifica'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Race Control exposes loading and error states', (tester) async {
@@ -657,7 +714,7 @@ void main() {
     expect(find.text('Riprova'), findsOneWidget);
   });
 
-  for (final width in [320.0, 375.0, 393.0, 430.0, 768.0]) {
+  for (final width in [320.0, 375.0, 390.0, 430.0, 768.0]) {
     testWidgets('home fits ${width.toInt()} px with 140% text', (tester) async {
       tester.view.physicalSize = Size(width, 1200);
       tester.view.devicePixelRatio = 1;
@@ -674,6 +731,14 @@ void main() {
               date: '2026-11-12',
             ),
           ]),
+          notifications: [
+            PushNotice(
+              title: 'Nuova designazione disponibile',
+              body: 'Controlla i dettagli della prossima attivitÃ .',
+              read: false,
+              receivedAt: DateTime(2026, 10, 30),
+            ),
+          ],
         ),
       );
       await tester.pump();
@@ -682,6 +747,22 @@ void main() {
       expect(
         find.byKey(const ValueKey('home-alpine-panorama')),
         findsOneWidget,
+      );
+      final notificationPreview = find.byKey(
+        const ValueKey('home-notification-preview'),
+      );
+      await tester.scrollUntilVisible(
+        notificationPreview,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      final previewBounds = tester.getRect(notificationPreview);
+      expect(previewBounds.left, greaterThanOrEqualTo(AppSpacing.md));
+      expect(previewBounds.right, lessThanOrEqualTo(width - AppSpacing.md));
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('home-identity-banner')),
+        300,
+        scrollable: find.byType(Scrollable).first,
       );
       expect(
         find.byKey(const ValueKey('home-identity-banner')),

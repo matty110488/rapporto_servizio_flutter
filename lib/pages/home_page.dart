@@ -578,9 +578,9 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: AppSpacing.lg),
             _raceControlSection(),
             const SizedBox(height: AppSpacing.lg),
-            _identityBanner(),
-            const SizedBox(height: AppSpacing.lg),
             _notificationsPreview(onOpenNotifications),
+            const SizedBox(height: AppSpacing.lg),
+            _identityBanner(),
             const SizedBox(height: AppSpacing.md),
             Center(
               child: GestureDetector(
@@ -616,6 +616,7 @@ class _HomePageState extends State<HomePage> {
     final height = textScale > 1.2 ? 220.0 : 186.0;
 
     return ClipRRect(
+      key: const ValueKey('home-welcome-section'),
       borderRadius: BorderRadius.circular(AppRadii.large),
       child: SizedBox(
         key: const ValueKey('home-alpine-panorama'),
@@ -704,6 +705,7 @@ class _HomePageState extends State<HomePage> {
     final prossimi = _dashboard.nextServices;
 
     return Column(
+      key: const ValueKey('home-race-control-section'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
@@ -851,6 +853,7 @@ class _HomePageState extends State<HomePage> {
     final textScale = MediaQuery.textScalerOf(context).scale(1);
     final height = textScale > 1.2 ? 340.0 : 190.0;
     return Semantics(
+      key: const ValueKey('home-identity-section'),
       label: 'Cronometristi Valtellinesi. Precisione, Servizio, Passione.',
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadii.large),
@@ -920,12 +923,13 @@ class _HomePageState extends State<HomePage> {
   Widget _notificationsPreview(VoidCallback onOpenNotifications) {
     final latest = _notifications.isEmpty ? null : _notifications.first;
     return Column(
+      key: const ValueKey('home-notifications-section'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             const Icon(
-              Icons.campaign_rounded,
+              Icons.notifications_rounded,
               color: AppColors.primary,
               size: 24,
             ),
@@ -1051,6 +1055,7 @@ class _HomePageState extends State<HomePage> {
           )
         else if (_notificationsLoaded)
           AppCard(
+            key: const ValueKey('home-notifications-empty'),
             variant: AppCardVariant.outlined,
             onTap: onOpenNotifications,
             child: const Row(
@@ -1061,7 +1066,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 SizedBox(width: AppSpacing.sm),
                 Expanded(
-                  child: Text('Al momento non ci sono notifiche da mostrare.'),
+                  child: Text('Nessuna nuova notifica'),
                 ),
               ],
             ),
