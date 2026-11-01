@@ -616,7 +616,7 @@ class _GarePageState extends State<GarePage> {
     final grouped = _garePerMese(filtered);
     return Scaffold(
       appBar: AppBar(
-        titleSpacing: 0,
+        titleSpacing: AppSpacing.md,
         title: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onLongPress: () => PrankPopupService.showCheckeredFlag(context),

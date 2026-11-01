@@ -111,6 +111,12 @@ void main() {
       await tester.pump();
 
       expect(find.text('Calendario gare'), findsOneWidget);
+      final titleBounds = tester.getRect(find.text('Calendario gare'));
+      final appBarActionBounds = tester.getRect(
+        find.byTooltip('Altre azioni'),
+      );
+      expect(titleBounds.left, AppSpacing.md);
+      expect(titleBounds.right, lessThanOrEqualTo(appBarActionBounds.left));
       expect(find.byType(ValtellinaBackground), findsNWidgets(2));
       expect(
         tester
