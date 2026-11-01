@@ -99,7 +99,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final width in [320.0, 375.0, 393.0, 430.0, 768.0]) {
+  for (final width in [320.0, 375.0, 390.0, 430.0, 768.0]) {
     testWidgets('calendar fits ${width.toInt()} px at 140% text',
         (tester) async {
       tester.view.physicalSize = Size(width, 1000);
@@ -111,7 +111,15 @@ void main() {
       await tester.pump();
 
       expect(find.text('Calendario gare'), findsOneWidget);
-      expect(find.byType(ValtellinaBackground), findsOneWidget);
+      expect(find.byType(ValtellinaBackground), findsNWidgets(2));
+      expect(
+        tester
+            .widgetList<ValtellinaBackground>(
+              find.byType(ValtellinaBackground),
+            )
+            .where((background) => background.crispMountains),
+        hasLength(1),
+      );
       expect(find.text('Sport'), findsOneWidget);
       expect(find.text('3 gare prossime'), findsOneWidget);
       expect(find.text('NOVEMBRE 2026'), findsOneWidget);
@@ -142,9 +150,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('filter hint supports scrolling and selected sport',
+  testWidgets('sport filter scrolls fully clear of the viewport edge',
       (tester) async {
-    tester.view.physicalSize = const Size(393, 1000);
+    tester.view.physicalSize = const Size(390, 1000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -154,7 +162,7 @@ void main() {
 
     expect(
       find.byKey(const ValueKey('horizontal-scroll-hint')),
-      findsOneWidget,
+      findsNothing,
     );
     final filterScroll = find.descendant(
       of: find.byType(AppHorizontalScrollHint),
@@ -166,6 +174,9 @@ void main() {
       find.byKey(const ValueKey('horizontal-scroll-hint')),
       findsNothing,
     );
+
+    final sportBounds = tester.getRect(find.text('Sport'));
+    expect(sportBounds.right, lessThanOrEqualTo(390 - AppSpacing.md));
 
     await tester.tap(find.text('Sport'));
     await tester.pumpAndSettle();

@@ -5,9 +5,14 @@ import '../theme/app_theme.dart';
 enum AppCardVariant { plain, outlined }
 
 class ValtellinaBackground extends StatelessWidget {
-  const ValtellinaBackground({super.key, required this.child});
+  const ValtellinaBackground({
+    super.key,
+    required this.child,
+    this.crispMountains = false,
+  });
 
   final Widget child;
+  final bool crispMountains;
 
   static Widget builder(BuildContext context, Widget? child) {
     return ValtellinaBackground(child: child ?? const SizedBox.shrink());
@@ -18,12 +23,14 @@ class ValtellinaBackground extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        const RepaintBoundary(
-          key: ValueKey('valtellina-background-paint-boundary'),
+        RepaintBoundary(
+          key: const ValueKey('valtellina-background-paint-boundary'),
           child: IgnorePointer(
             child: CustomPaint(
-              key: ValueKey('valtellina-background-art'),
-              painter: _ValtellinaBackgroundPainter(),
+              key: const ValueKey('valtellina-background-art'),
+              painter: _ValtellinaBackgroundPainter(
+                crispMountains: crispMountains,
+              ),
             ),
           ),
         ),
@@ -34,7 +41,9 @@ class ValtellinaBackground extends StatelessWidget {
 }
 
 class _ValtellinaBackgroundPainter extends CustomPainter {
-  const _ValtellinaBackgroundPainter();
+  const _ValtellinaBackgroundPainter({this.crispMountains = false});
+
+  final bool crispMountains;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -109,20 +118,22 @@ class _ValtellinaBackgroundPainter extends CustomPainter {
       ..lineTo(size.width, fadeBottom)
       ..lineTo(left + mountainWidth * 0.08, fadeBottom)
       ..close();
-    canvas.drawPath(
-      rear,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0x2CFFFFFF),
-            Color(0x20FFFFFF),
-            Color(0x00FFFFFF),
-          ],
-          stops: [0, 0.52, 1],
-        ).createShader(mountainBounds),
-    );
+    if (!crispMountains) {
+      canvas.drawPath(
+        rear,
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0x2CFFFFFF),
+              Color(0x20FFFFFF),
+              Color(0x00FFFFFF),
+            ],
+            stops: [0, 0.52, 1],
+          ).createShader(mountainBounds),
+      );
+    }
 
     final middle = Path()
       ..moveTo(left + mountainWidth * 0.22, mountainHeight * 0.88)
@@ -166,14 +177,20 @@ class _ValtellinaBackgroundPainter extends CustomPainter {
     canvas.drawPath(
       middle,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0x165F7F9F),
-            Color(0x0E5F7F9F),
-            Color(0x005F7F9F),
-          ],
+          colors: crispMountains
+              ? const [
+                  Color(0x1F5F7F9F),
+                  Color(0x125F7F9F),
+                  Color(0x005F7F9F),
+                ]
+              : const [
+                  Color(0x165F7F9F),
+                  Color(0x0E5F7F9F),
+                  Color(0x005F7F9F),
+                ],
           stops: [0, 0.58, 1],
         ).createShader(mountainBounds),
     );
@@ -229,7 +246,7 @@ class _ValtellinaBackgroundPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ValtellinaBackgroundPainter oldDelegate) =>
-      false;
+      crispMountains != oldDelegate.crispMountains;
 }
 
 class AppCard extends StatelessWidget {
@@ -289,10 +306,14 @@ class AppHorizontalScrollHint extends StatefulWidget {
     super.key,
     required this.child,
     this.backgroundColor = AppColors.background,
+    this.showHint = true,
+    this.trailingPadding = 0,
   });
 
   final Widget child;
   final Color backgroundColor;
+  final bool showHint;
+  final double trailingPadding;
 
   @override
   State<AppHorizontalScrollHint> createState() =>
@@ -347,9 +368,12 @@ class _AppHorizontalScrollHintState extends State<AppHorizontalScrollHint> {
           controller: _controller,
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
-          child: widget.child,
+          child: Padding(
+            padding: EdgeInsets.only(right: widget.trailingPadding),
+            child: widget.child,
+          ),
         ),
-        if (_showHint)
+        if (widget.showHint && _showHint)
           Positioned(
             top: 0,
             right: 0,

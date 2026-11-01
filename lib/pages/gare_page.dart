@@ -627,27 +627,30 @@ class _GarePageState extends State<GarePage> {
         ),
         actions: _buildAppBarActions(),
       ),
-      body: SafeArea(
-        top: false,
-        child: loading
-            ? _buildLoadingState()
-            : RefreshIndicator(
-                onRefresh: () => load(forceRefresh: true),
-                child: grouped.isEmpty
-                    ? _buildEmptyState(filtersEnabled: true)
-                    : ListView(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.sm,
-                          AppSpacing.sm,
-                          AppSpacing.sm,
-                          AppSpacing.lg,
+      body: ValtellinaBackground(
+        crispMountains: true,
+        child: SafeArea(
+          top: false,
+          child: loading
+              ? _buildLoadingState()
+              : RefreshIndicator(
+                  onRefresh: () => load(forceRefresh: true),
+                  child: grouped.isEmpty
+                      ? _buildEmptyState(filtersEnabled: true)
+                      : ListView(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.sm,
+                            AppSpacing.sm,
+                            AppSpacing.sm,
+                            AppSpacing.lg,
+                          ),
+                          children: [
+                            _buildFilters(filtered.length),
+                            ...grouped.entries.map(_buildMonthSection),
+                          ],
                         ),
-                        children: [
-                          _buildFilters(filtered.length),
-                          ...grouped.entries.map(_buildMonthSection),
-                        ],
-                      ),
-              ),
+                ),
+        ),
       ),
     );
   }
@@ -789,6 +792,8 @@ class _GarePageState extends State<GarePage> {
           ),
           const SizedBox(height: AppSpacing.xs),
           AppHorizontalScrollHint(
+            showHint: false,
+            trailingPadding: AppSpacing.md,
             child: Row(
               children: [
                 ..._AssignmentFilter.values.map(
