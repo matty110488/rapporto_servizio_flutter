@@ -10,6 +10,8 @@ Gara _gara({
   required String title,
   required String date,
   String packageId = '',
+  String status = 'DESIGNAZIONE INVIATA',
+  List<String> kronosIds = const [],
 }) {
   return Gara(
     id: id,
@@ -22,12 +24,12 @@ Gara _gara({
     organizzatore: 'Associazione',
     idSicWin: packageId,
     dataRichiesta: '',
-    kronosIds: const [],
+    kronosIds: kronosIds,
     dscIds: const [],
     pcSegreteriaIds: const [],
     apparecchiature: const [],
     tipologia: '',
-    status: 'DESIGNAZIONE INVIATA',
+    status: status,
   );
 }
 
@@ -53,6 +55,13 @@ Widget _calendar({required double textScale}) {
     ),
   ];
 
+  return _calendarWithGare(gare: gare, textScale: textScale);
+}
+
+Widget _calendarWithGare({
+  required List<Gara> gare,
+  double textScale = 1,
+}) {
   return MaterialApp(
     theme: AppTheme.light(),
     builder: (context, child) => ValtellinaBackground(
@@ -70,7 +79,123 @@ Widget _calendar({required double textScale}) {
   );
 }
 
+void _expectPrimaryAvailabilityButton(
+  WidgetTester tester,
+  Finder finder,
+) {
+  final button = tester.widget<OutlinedButton>(finder);
+  final style = button.style!;
+  expect(style.backgroundColor?.resolve({}), AppColors.primary);
+  expect(style.foregroundColor?.resolve({}), Colors.white);
+  expect(style.side?.resolve({})?.color, AppColors.primary);
+  expect(
+    style.backgroundColor?.resolve({WidgetState.disabled}),
+    isNull,
+  );
+  expect(
+    style.foregroundColor?.resolve({WidgetState.disabled}),
+    isNull,
+  );
+}
+
 void main() {
+  testWidgets('availability request is primary while removal stays secondary',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _calendarWithGare(
+        gare: [
+          _gara(
+            id: 'available-race',
+            title: 'Gara aperta alle disponibilità',
+            date: '2026-11-10',
+            status: 'DA GESTIRE',
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+
+    _expectPrimaryAvailabilityButton(
+      tester,
+      find.widgetWithText(OutlinedButton, 'Mi rendo disponibile'),
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(
+      _calendarWithGare(
+        gare: [
+          _gara(
+            id: 'assigned-race',
+            title: 'Gara con disponibilità comunicata',
+            date: '2026-11-10',
+            status: 'DA GESTIRE',
+            kronosIds: const ['test-user'],
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+
+    final removal = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Rimuovimi dalla gara'),
+    );
+    expect(removal.style, isNull);
+    expect(find.text('Disponibilità data'), findsOneWidget);
+  });
+
+  testWidgets('package and day availability requests use the primary CTA',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _calendarWithGare(
+        gare: [
+          _gara(
+            id: 'package-day-one',
+            title: 'Trofeo Valtellina - Sabato',
+            date: '2026-11-14',
+            packageId: 'PK-CTA',
+            status: 'DA GESTIRE',
+          ),
+          _gara(
+            id: 'package-day-two',
+            title: 'Trofeo Valtellina - Domenica',
+            date: '2026-11-15',
+            packageId: 'PK-CTA',
+            status: 'DA GESTIRE',
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+
+    _expectPrimaryAvailabilityButton(
+      tester,
+      find.widgetWithText(
+        OutlinedButton,
+        'Mi rendo disponibile per tutte le gare',
+      ),
+    );
+    final dayButtons = find.widgetWithText(
+      OutlinedButton,
+      'Mi rendo disponibile per questa giornata',
+    );
+    expect(dayButtons, findsNWidgets(2));
+    for (final button in tester.widgetList<OutlinedButton>(dayButtons)) {
+      expect(button.style?.backgroundColor?.resolve({}), AppColors.primary);
+      expect(button.style?.foregroundColor?.resolve({}), Colors.white);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('calendar controls fit 320 px at 140% text', (tester) async {
     tester.view.physicalSize = const Size(320, 700);
     tester.view.devicePixelRatio = 1;

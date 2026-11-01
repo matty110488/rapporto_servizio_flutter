@@ -1204,6 +1204,9 @@ class _GarePageState extends State<GarePage> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
+                style: _availabilityActionStyle(
+                  requestingAvailability: !allPackageAssigned,
+                ),
                 onPressed: packageUpdating
                     ? null
                     : () => _togglePackageDisponibilita(entry),
@@ -1311,6 +1314,9 @@ class _GarePageState extends State<GarePage> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
+                    style: _availabilityActionStyle(
+                      requestingAvailability: !assigned,
+                    ),
                     onPressed: updating
                         ? null
                         : () => _toggleDisponibilita(gara, !assigned),
@@ -1430,6 +1436,9 @@ class _GarePageState extends State<GarePage> {
                 if (showAction && candidabile) ...[
                   const SizedBox(height: AppSpacing.xs),
                   OutlinedButton.icon(
+                    style: _availabilityActionStyle(
+                      requestingAvailability: !assigned,
+                    ),
                     onPressed: updatingGare.contains(g.id)
                         ? null
                         : () => _toggleDisponibilita(g, !assigned),
@@ -1452,6 +1461,27 @@ class _GarePageState extends State<GarePage> {
           ),
         ],
       ),
+    );
+  }
+
+  ButtonStyle? _availabilityActionStyle({
+    required bool requestingAvailability,
+  }) {
+    if (!requestingAvailability) return null;
+
+    return ButtonStyle(
+      foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+        if (states.contains(WidgetState.disabled)) return null;
+        return Colors.white;
+      }),
+      backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+        if (states.contains(WidgetState.disabled)) return null;
+        return AppColors.primary;
+      }),
+      side: WidgetStateProperty.resolveWith<BorderSide?>((states) {
+        if (states.contains(WidgetState.disabled)) return null;
+        return const BorderSide(color: AppColors.primary);
+      }),
     );
   }
 
