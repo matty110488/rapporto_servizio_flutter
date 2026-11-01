@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../constants/help_content.dart';
 import '../models/gara.dart';
+import '../models/race_statistics.dart';
 import '../services/notion_service.dart';
 import '../utils/italian_date_formatter.dart';
 import '../utils/notion_user.dart';
@@ -93,19 +94,20 @@ class _StatistichePageState extends State<StatistichePage> {
         forceRefresh: forceRefresh,
       );
       final gare = results.map((e) => Gara.fromNotion(e)).toList();
-      final filteredGare = _filterByYear(gare, selectedYear);
+      final statisticsGare = eligibleRacesForStatistics(gare);
+      final filteredGare = _filterByYear(statisticsGare, selectedYear);
       final adminPersonNames = _isAdmin && widget.adminOnly
           ? await _loadAdminPersonNames(filteredGare)
           : const <String, String>{};
 
       if (!mounted || requestId != _loadRequestId) return;
       setState(() {
-        _loadedGare = gare;
+        _loadedGare = statisticsGare;
         _adminPersonNames = adminPersonNames;
         if (!adminPersonNames.containsKey(_selectedAdminPersonId)) {
           _selectedAdminPersonId = null;
         }
-        _stats = _buildStats(gare, userId, selectedYear);
+        _stats = _buildStats(statisticsGare, userId, selectedYear);
         _loading = false;
       });
     } catch (e) {
@@ -170,7 +172,8 @@ class _StatistichePageState extends State<StatistichePage> {
   }
 
   _StatsData _buildStats(List<Gara> gare, String userId, int? year) {
-    final filteredGare = _filterByYear(gare, year);
+    final statisticsGare = eligibleRacesForStatistics(gare);
+    final filteredGare = _filterByYear(statisticsGare, year);
     final asCrono =
         filteredGare.where((g) => g.kronosIds.contains(userId)).toList();
     final asDsc = filteredGare.where((g) => g.dscIds.contains(userId)).toList();
@@ -193,7 +196,7 @@ class _StatistichePageState extends State<StatistichePage> {
       sportCounts: _countBySport(asCrono),
       elaborazioneDatiSportCounts: _countBySport(asElaborazioneDati),
       yearCounts: _countByYear(
-        gare.where((g) => g.kronosIds.contains(userId)).toList(),
+        statisticsGare.where((g) => g.kronosIds.contains(userId)).toList(),
       ),
       adminSportCounts: _isAdmin ? _countBySport(filteredGare) : const [],
       adminPeople: _adminPersonNames.entries
@@ -371,6 +374,7 @@ class _StatsView extends StatelessWidget {
                   SizedBox(
                     width: width,
                     child: _CountCard(
+                      key: const ValueKey('personal-timekeeper-count'),
                       icon: Icons.sports_score,
                       label: 'Designazioni come crono',
                       value: stats.cronoCount,
@@ -379,6 +383,7 @@ class _StatsView extends StatelessWidget {
                   SizedBox(
                     width: width,
                     child: _CountCard(
+                      key: const ValueKey('personal-data-operator-count'),
                       icon: Icons.computer,
                       label: 'Elaborazione Dati',
                       value: stats.elaborazioneDatiCount,
@@ -387,6 +392,7 @@ class _StatsView extends StatelessWidget {
                   SizedBox(
                     width: width,
                     child: _CountCard(
+                      key: const ValueKey('personal-service-manager-count'),
                       icon: Icons.assignment_ind,
                       label: 'Servizi come DSC',
                       value: stats.dscCount,
@@ -395,6 +401,7 @@ class _StatsView extends StatelessWidget {
                   SizedBox(
                     width: width,
                     child: _CountCard(
+                      key: const ValueKey('personal-sport-count'),
                       icon: Icons.category,
                       label: 'Sport cronometrati',
                       value: stats.sportCounts.length,
@@ -406,6 +413,7 @@ class _StatsView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _BreakdownCard(
+            key: const ValueKey('personal-sport-statistics'),
             title: 'Designazioni per sport',
             icon: Icons.pie_chart_outline,
             entries: stats.sportCounts,
@@ -413,6 +421,7 @@ class _StatsView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _BreakdownCard(
+            key: const ValueKey('data-operator-sport-statistics'),
             title: 'Elaborazione Dati per sport',
             icon: Icons.monitor_heart_outlined,
             entries: stats.elaborazioneDatiSportCounts,
@@ -420,6 +429,7 @@ class _StatsView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _BreakdownCard(
+            key: const ValueKey('personal-year-statistics'),
             title: 'Designazioni per anno',
             icon: Icons.calendar_month,
             entries: stats.yearCounts,
@@ -436,6 +446,7 @@ class _StatsView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _BreakdownCard(
+            key: const ValueKey('association-sport-statistics'),
             title: 'Gare totali per sport (${stats.allGareCount})',
             icon: Icons.admin_panel_settings_outlined,
             entries: stats.adminSportCounts,
@@ -518,12 +529,14 @@ class _AdminPersonStatsCard extends StatelessWidget {
           ] else if (stats.selectedAdminPersonId != null) ...[
             const SizedBox(height: 16),
             _CountCard(
+              key: const ValueKey('selected-person-service-count'),
               icon: Icons.sports_score,
               label: 'Servizi di ${stats.selectedAdminPersonName}',
               value: stats.selectedAdminPersonServiceCount,
             ),
             const SizedBox(height: 12),
             _BreakdownCard(
+              key: const ValueKey('selected-person-sport-statistics'),
               title: 'Servizi per sport',
               icon: Icons.pie_chart_outline,
               entries: stats.selectedAdminPersonSportCounts,
@@ -655,6 +668,7 @@ class _CountCard extends StatelessWidget {
   final int value;
 
   const _CountCard({
+    super.key,
     required this.icon,
     required this.label,
     required this.value,
@@ -709,6 +723,7 @@ class _BreakdownCard extends StatelessWidget {
   final String? subtitle;
 
   const _BreakdownCard({
+    super.key,
     required this.title,
     required this.icon,
     required this.entries,
