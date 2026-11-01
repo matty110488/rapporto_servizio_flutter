@@ -4,6 +4,19 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('installed iOS web app uses an opaque status bar and page surface', () {
+    final index = File('web/index.html').readAsStringSync();
+
+    expect(
+      index,
+      contains(
+        'name="apple-mobile-web-app-status-bar-style" content="default"',
+      ),
+    );
+    expect(index, isNot(contains('black-translucent')));
+    expect(index, contains('background-color: #ffffff'));
+  });
+
   test('web index loads the local passkey bridge before Flutter', () {
     final index = File('web/index.html').readAsStringSync();
     final bundle = File('web/passkeys_bundle.js');
