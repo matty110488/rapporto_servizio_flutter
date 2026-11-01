@@ -36,8 +36,16 @@ jobs:
       - name: Test
         run: flutter test --no-pub
 
-      - name: Leggi versione app
-        run: echo "APP_VERSION=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml)" >> "$GITHUB_ENV"
+      - name: Genera identita build TEST
+        shell: bash
+        run: |
+          APP_NAME="$(sed -n 's/^version:[[:space:]]*\([^+]*\)+.*$/\1/p' pubspec.yaml)"
+          test -n "$APP_NAME"
+          TEST_BUILD_NUMBER="$(dart run tool/write_test_web_metadata.dart \
+            --build-number "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
+          echo "APP_NAME=$APP_NAME" >> "$GITHUB_ENV"
+          echo "TEST_BUILD_NUMBER=$TEST_BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "APP_VERSION=$APP_NAME+$TEST_BUILD_NUMBER" >> "$GITHUB_ENV"
 
       - name: Build web TEST
         env:
@@ -45,6 +53,8 @@ jobs:
           TEST_API_URL: ${{ vars.TEST_API_URL }}
         run: >-
           flutter build web --release --base-href /
+          --build-name=$APP_NAME
+          --build-number=$TEST_BUILD_NUMBER
           --dart-define=APP_ENV=test
           --dart-define=APP_VERSION=$APP_VERSION
           --dart-define=API_URL=$TEST_API_URL
@@ -55,6 +65,11 @@ jobs:
           cp web/manifest_test.json build/web/manifest.json
           sed -i 's/apple-mobile-web-app-title" content="Rapporto Servizio/apple-mobile-web-app-title" content="Crono TEST/' build/web/index.html
           sed -i 's#<title>Rapporto Servizio</title>#<title>Crono TEST</title>#' build/web/index.html
+          dart run tool/write_test_web_metadata.dart \
+            build/web "$APP_NAME" "$TEST_BUILD_NUMBER" "$GITHUB_SHA"
+
+      - name: Usa configurazione cache Firebase TEST
+        run: cp firebase.test.json firebase.json
 
       - name: Deploy Firebase Hosting TEST
         uses: FirebaseExtended/action-hosting-deploy@v0

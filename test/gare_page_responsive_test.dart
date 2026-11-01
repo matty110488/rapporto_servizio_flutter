@@ -122,15 +122,32 @@ void main() {
       );
       expect(find.text('Sport'), findsOneWidget);
       expect(find.text('Tutte'), findsOneWidget);
-      expect(find.text('Disponibilità'), findsOneWidget);
+      expect(find.text('Disponibile'), findsOneWidget);
       expect(find.text('Designato'), findsOneWidget);
       expect(find.byType(AppHorizontalScrollHint), findsNothing);
 
-      for (final label in ['Sport', 'Tutte', 'Disponibilità', 'Designato']) {
+      for (final label in ['Sport', 'Tutte', 'Disponibile', 'Designato']) {
         final bounds = tester.getRect(find.text(label));
         expect(bounds.left, greaterThanOrEqualTo(0));
         expect(bounds.right, lessThanOrEqualTo(width));
       }
+
+      final personalFilters = tester.getRect(
+        find.byKey(const ValueKey('calendar-assignment-filters')),
+      );
+      expect(personalFilters.left, greaterThanOrEqualTo(AppSpacing.sm));
+      expect(personalFilters.right, lessThanOrEqualTo(width - AppSpacing.sm));
+      final segmentCenters = [
+        tester.getCenter(find.text('Tutte')).dx,
+        tester.getCenter(find.text('Disponibile')).dx,
+        tester.getCenter(find.text('Designato')).dx,
+      ];
+      expect(
+        ((segmentCenters[1] - segmentCenters[0]) -
+                (segmentCenters[2] - segmentCenters[1]))
+            .abs(),
+        lessThan(1),
+      );
 
       if (width == 320) {
         expect(

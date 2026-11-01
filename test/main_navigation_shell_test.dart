@@ -208,20 +208,20 @@ void main() {
     await tester.pumpAndSettle();
 
     await _tapDestination(tester, MainNavigationSection.calendar);
-    await tester.tap(find.text('Mia disponibilità'));
+    await tester.tap(find.text('Disponibile'));
     await tester.pumpAndSettle();
 
-    AppFilterChip selectedFilter() => tester.widget<AppFilterChip>(
-          find.ancestor(
-            of: find.text('Mia disponibilità'),
-            matching: find.byType(AppFilterChip),
-          ),
-        );
+    bool availabilityIsSelected() {
+      final segmented = tester.widget<SegmentedButton<Object>>(
+        find.byKey(const ValueKey('calendar-assignment-filters')),
+      );
+      return segmented.selected.single.toString().endsWith('.disponibilita');
+    }
 
-    expect(selectedFilter().selected, isTrue);
+    expect(availabilityIsSelected(), isTrue);
     await _tapDestination(tester, MainNavigationSection.home);
     await _tapDestination(tester, MainNavigationSection.calendar);
-    expect(selectedFilter().selected, isTrue);
+    expect(availabilityIsSelected(), isTrue);
   });
 
   testWidgets('secondary routes hide the bar and return to their section',

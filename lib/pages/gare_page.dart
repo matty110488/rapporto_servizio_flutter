@@ -782,7 +782,7 @@ class _GarePageState extends State<GarePage> {
         final yearAndSport = Row(
           children: [
             _buildYearFilter(),
-            const SizedBox(width: AppSpacing.xs),
+            const SizedBox(width: 6),
             Expanded(
               child: Align(
                 alignment: Alignment.centerLeft,
@@ -807,12 +807,12 @@ class _GarePageState extends State<GarePage> {
           );
         }
 
-        final periodWidth = (constraints.maxWidth * 0.46).clamp(156.0, 188.0);
+        final periodWidth = (constraints.maxWidth * 0.43).clamp(150.0, 174.0);
         return Row(
           key: const ValueKey('calendar-general-filters-inline'),
           children: [
             _buildYearFilter(),
-            const SizedBox(width: AppSpacing.xs),
+            const SizedBox(width: 6),
             Expanded(
               child: Align(
                 alignment: Alignment.centerLeft,
@@ -822,7 +822,7 @@ class _GarePageState extends State<GarePage> {
                 ),
               ),
             ),
-            const SizedBox(width: AppSpacing.xs),
+            const SizedBox(width: 6),
             SizedBox(width: periodWidth, child: _buildPeriodFilter()),
           ],
         );
@@ -892,35 +892,63 @@ class _GarePageState extends State<GarePage> {
   Widget _buildAssignmentFilters() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final textScale = MediaQuery.textScalerOf(context).scale(1);
-        final compactLabels = constraints.maxWidth < 340 || textScale > 1.2;
-        return Row(
+        final horizontalPadding = constraints.maxWidth < 340 ? 4.0 : 8.0;
+        return SegmentedButton<_AssignmentFilter>(
           key: const ValueKey('calendar-assignment-filters'),
-          children: [
-            for (final filter in _AssignmentFilter.values) ...[
-              if (filter != _AssignmentFilter.all)
-                const SizedBox(width: AppSpacing.xxs),
-              Expanded(
-                child: Center(
-                  child: Semantics(
-                    label: _assignmentFilterLabel(filter),
-                    button: true,
-                    selected: assignmentFilter == filter,
-                    excludeSemantics: true,
-                    child: AppFilterChip(
-                      label: _assignmentFilterLabel(
-                        filter,
-                        compact: compactLabels,
-                      ),
-                      selected: assignmentFilter == filter,
-                      onSelected: (_) =>
-                          setState(() => assignmentFilter = filter),
-                    ),
-                  ),
-                ),
+          showSelectedIcon: false,
+          expandedInsets: EdgeInsets.zero,
+          style: ButtonStyle(
+            alignment: Alignment.center,
+            tapTargetSize: MaterialTapTargetSize.padded,
+            visualDensity: VisualDensity.compact,
+            minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
+            padding: WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: horizontalPadding),
+            ),
+            textStyle: const WidgetStatePropertyAll(
+              TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.selected)
+                  ? Colors.white
+                  : AppColors.textPrimary,
+            ),
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.selected)
+                  ? AppColors.primary
+                  : AppColors.surface,
+            ),
+            side: WidgetStateProperty.resolveWith(
+              (states) => BorderSide(
+                color: states.contains(WidgetState.selected)
+                    ? AppColors.primary
+                    : AppColors.border,
               ),
-            ],
+            ),
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.small),
+              ),
+            ),
+          ),
+          segments: const [
+            ButtonSegment<_AssignmentFilter>(
+              value: _AssignmentFilter.all,
+              label: Text('Tutte'),
+            ),
+            ButtonSegment<_AssignmentFilter>(
+              value: _AssignmentFilter.disponibilita,
+              label: Text('Disponibile'),
+            ),
+            ButtonSegment<_AssignmentFilter>(
+              value: _AssignmentFilter.designato,
+              label: Text('Designato'),
+            ),
           ],
+          selected: {assignmentFilter},
+          onSelectionChanged: (selection) {
+            setState(() => assignmentFilter = selection.first);
+          },
         );
       },
     );
@@ -1002,20 +1030,6 @@ class _GarePageState extends State<GarePage> {
         });
       },
     );
-  }
-
-  String _assignmentFilterLabel(
-    _AssignmentFilter filter, {
-    bool compact = false,
-  }) {
-    switch (filter) {
-      case _AssignmentFilter.all:
-        return 'Tutte';
-      case _AssignmentFilter.disponibilita:
-        return compact ? 'Disponibilità' : 'Mia disponibilità';
-      case _AssignmentFilter.designato:
-        return compact ? 'Designato' : 'Sono designato';
-    }
   }
 
   Widget _buildMonthSection(MapEntry<String, List<GaraPackage>> entry) {
