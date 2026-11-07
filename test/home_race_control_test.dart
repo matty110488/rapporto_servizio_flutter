@@ -115,6 +115,7 @@ Widget _home({
   Duration welcomePhotoInterval = const Duration(seconds: 7),
   Duration welcomePhotoFadeDuration = const Duration(milliseconds: 800),
   NavigatorObserver? navigatorObserver,
+  Future<bool> Function(Uri uri)? externalUrlLauncher,
 }) {
   return MaterialApp(
     theme: AppTheme.light(),
@@ -150,6 +151,7 @@ Widget _home({
           ],
       welcomePhotoInterval: welcomePhotoInterval,
       welcomePhotoFadeDuration: welcomePhotoFadeDuration,
+      externalUrlLauncher: externalUrlLauncher,
     ),
   );
 }
@@ -454,8 +456,50 @@ void main() {
         'home-race-control-section',
         'home-notifications-section',
         'home-identity-section',
+        'home-association-website',
       ]),
     );
+  });
+
+  testWidgets('new association website is clearly marked and opens its URL',
+      (tester) async {
+    Uri? openedUri;
+    await tester.pumpWidget(
+      _home(
+        notion: _FakeNotionService(const []),
+        notifications: const [],
+        externalUrlLauncher: (uri) async {
+          openedUri = uri;
+          return true;
+        },
+      ),
+    );
+    await tester.pump();
+
+    final websiteCard = find.byKey(
+      const ValueKey('home-association-website'),
+    );
+    await tester.scrollUntilVisible(
+      websiteCard,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Scopri il nuovo sito'), findsOneWidget);
+    expect(find.text('IN PROVA'), findsOneWidget);
+    expect(
+      find.text('crono-valtellinesi-web.vercel.app'),
+      findsOneWidget,
+    );
+
+    await tester.tap(websiteCard);
+    await tester.pump();
+
+    expect(
+      openedUri,
+      Uri.parse('https://crono-valtellinesi-web.vercel.app/'),
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('welcome photos rotate with an 800 ms fade and wrap around',
@@ -768,6 +812,17 @@ void main() {
         find.byKey(const ValueKey('home-identity-banner')),
         findsOneWidget,
       );
+      final websiteCard = find.byKey(
+        const ValueKey('home-association-website'),
+      );
+      await tester.scrollUntilVisible(
+        websiteCard,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      final websiteBounds = tester.getRect(websiteCard);
+      expect(websiteBounds.left, greaterThanOrEqualTo(AppSpacing.md));
+      expect(websiteBounds.right, lessThanOrEqualTo(width - AppSpacing.md));
       expect(find.text('Menu principale'), findsNothing);
       expect(tester.takeException(), isNull);
     });

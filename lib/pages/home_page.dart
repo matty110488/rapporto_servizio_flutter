@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../config/app_config.dart';
 import '../models/gara.dart';
@@ -57,6 +58,8 @@ class HomePage extends StatefulWidget {
   final VoidCallback? onOpenReports;
   final bool showDesktopSidebar;
   @visibleForTesting
+  final Future<bool> Function(Uri uri)? externalUrlLauncher;
+  @visibleForTesting
   final int initialUnreadNotifications;
   @visibleForTesting
   final List<PushNotice>? initialNotifications;
@@ -76,6 +79,7 @@ class HomePage extends StatefulWidget {
     this.onOpenDesignations,
     this.onOpenReports,
     this.showDesktopSidebar = true,
+    this.externalUrlLauncher,
     this.initialUnreadNotifications = 0,
     this.initialNotifications,
     this.welcomePhotos = _defaultWelcomePhotos,
@@ -88,6 +92,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  static final Uri _associationWebsiteUri =
+      Uri.parse('https://crono-valtellinesi-web.vercel.app/');
   late final NotionService _notion;
   String _appVersionLabel = 'App version - MT88';
   bool _loadingDashboard = true;
@@ -582,6 +588,8 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: AppSpacing.lg),
             _identityBanner(),
             const SizedBox(height: AppSpacing.md),
+            _associationWebsiteCard(),
+            const SizedBox(height: AppSpacing.md),
             Center(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -916,6 +924,99 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _openAssociationWebsite() async {
+    final opened = await (widget.externalUrlLauncher?.call(
+          _associationWebsiteUri,
+        ) ??
+        launchUrl(
+          _associationWebsiteUri,
+          mode: LaunchMode.externalApplication,
+        ));
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Non è stato possibile aprire il nuovo sito.'),
+        ),
+      );
+    }
+  }
+
+  Widget _associationWebsiteCard() {
+    return AppCard(
+      key: const ValueKey('home-association-website'),
+      variant: AppCardVariant.outlined,
+      onTap: () => unawaited(_openAssociationWebsite()),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
+        children: [
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppColors.primarySoft,
+              shape: BoxShape.circle,
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(AppSpacing.sm),
+              child: Icon(
+                Icons.language_rounded,
+                color: AppColors.primary,
+                size: 24,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        'Scopri il nuovo sito',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: AppSpacing.xs),
+                    _WebsitePreviewBadge(),
+                  ],
+                ),
+                SizedBox(height: AppSpacing.xxs),
+                Text(
+                  'Dagli un’occhiata e aiutaci a migliorarlo.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'crono-valtellinesi-web.vercel.app',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          const Icon(
+            Icons.open_in_new_rounded,
+            color: AppColors.primary,
+            size: 20,
+          ),
+        ],
       ),
     );
   }
@@ -1342,6 +1443,33 @@ class _TricolorSegment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(width: 34, height: 4, color: color);
+  }
+}
+
+class _WebsitePreviewBadge extends StatelessWidget {
+  const _WebsitePreviewBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.primarySoft,
+        borderRadius: BorderRadius.circular(AppRadii.small),
+        border: Border.all(color: AppColors.cardOutline),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        child: Text(
+          'IN PROVA',
+          style: TextStyle(
+            color: AppColors.primaryDeep,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.45,
+          ),
+        ),
+      ),
+    );
   }
 }
 
